@@ -1,0 +1,755 @@
+
+# Configuration version (required)
+version: 1.2.9
+
+# Cache settings: Set to true to enable caching
+cache: true
+
+ocr:
+  mistralModel: "mistral-ocr-latest"    #"pixtral-12b-2409"  # lub "mistral-ocr-latest"
+  apiKey: "${OCR_API_KEY}"
+  baseURL: "${OCR_BASEURL}"
+  strategy: "mistral_ocr"
+
+# File storage configuration
+# Single strategy for all file types (legacy format, still supported)
+# fileStrategy: "s3"
+
+# Granular file storage strategies (new format - recommended)
+# Allows different storage strategies for different file types
+# fileStrategy:
+#   avatar: "s3"        # Storage for user/agent avatar images
+#   image: "firebase"   # Storage for uploaded images in chats
+#   document: "local"   # Storage for document uploads (PDFs, text files, etc.)
+
+# Available strategies: "local", "s3", "firebase"
+# If not specified, defaults to "local" for all file types
+# You can mix and match strategies based on your needs:
+# - Use S3 for avatars for fast global access
+# - Use Firebase for images with automatic optimization
+# - Use local storage for documents for privacy/compliance
+
+# Custom interface configuration
+interface:
+  customWelcome: 'Welcome to LibreChat! Enjoy your experience.'
+  # Enable/disable file search as a chatarea selection (default: true)
+  # Note: This setting does not disable the Agents File Search Capability.
+  # To disable the Agents Capability, see the Agents Endpoint configuration instead.
+  fileSearch: true
+  # Privacy policy settings
+  # privacyPolicy:
+  #   externalUrl: 'https://librechat.ai/privacy-policy'
+  #   openNewTab: true
+
+  # # Terms of service
+  # termsOfService:
+  #   externalUrl: 'https://librechat.ai/tos'
+  #   openNewTab: true
+  #   modalAcceptance: true
+  #   modalTitle: 'Terms of Service for LibreChat'
+  #   modalContent: |
+  #     # Terms and Conditions for LibreChat
+
+  #     *Effective Date: February 18, 2024*
+
+  #     Welcome to LibreChat, the informational website for the open-source AI chat platform, available at https://librechat.ai. These Terms of Service ("Terms") govern your use of our website and the services we offer. By accessing or using the Website, you agree to be bound by these Terms and our Privacy Policy, accessible at https://librechat.ai//privacy.
+
+  #     ## 1. Ownership
+
+  #     Upon purchasing a package from LibreChat, you are granted the right to download and use the code for accessing an admin panel for LibreChat. While you own the downloaded code, you are expressly prohibited from reselling, redistributing, or otherwise transferring the code to third parties without explicit permission from LibreChat.
+
+  #     ## 2. User Data
+
+  #     We collect personal data, such as your name, email address, and payment information, as described in our Privacy Policy. This information is collected to provide and improve our services, process transactions, and communicate with you.
+
+  #     ## 3. Non-Personal Data Collection
+
+  #     The Website uses cookies to enhance user experience, analyze site usage, and facilitate certain functionalities. By using the Website, you consent to the use of cookies in accordance with our Privacy Policy.
+
+  #     ## 4. Use of the Website
+
+  #     You agree to use the Website only for lawful purposes and in a manner that does not infringe the rights of, restrict, or inhibit anyone else's use and enjoyment of the Website. Prohibited behavior includes harassing or causing distress or inconvenience to any person, transmitting obscene or offensive content, or disrupting the normal flow of dialogue within the Website.
+
+  #     ## 5. Governing Law
+
+  #     These Terms shall be governed by and construed in accordance with the laws of the United States, without giving effect to any principles of conflicts of law.
+
+  #     ## 6. Changes to the Terms
+
+  #     We reserve the right to modify these Terms at any time. We will notify users of any changes by email. Your continued use of the Website after such changes have been notified will constitute your consent to such changes.
+
+  #     ## 7. Contact Information
+
+  #     If you have any questions about these Terms, please contact us at contact@librechat.ai.
+
+  #     By using the Website, you acknowledge that you have read these Terms of Service and agree to be bound by them.
+
+  endpointsMenu: true
+  modelSelect: true
+  parameters: true
+  sidePanel: true
+  presets: true
+  prompts: true
+  bookmarks: true
+  multiConvo: true
+  agents: true
+  peoplePicker:
+    users: true
+    groups: true
+    roles: true
+  marketplace:
+    use: false
+  fileCitations: true
+  # Temporary chat retention period in hours (default: 720, min: 1, max: 8760)
+  # temporaryChatRetention: 1
+
+# Example Cloudflare turnstile (optional)
+#turnstile:
+#  siteKey: "your-site-key-here"
+#  options:
+#    language: "auto"    # "auto" or an ISO 639-1 language code (e.g. en)
+#    size: "normal"      # Options: "normal", "compact", "flexible", or "invisible"
+
+# Example Registration Object Structure (optional)
+registration:
+  enabled: false
+
+#  socialLogins: ['github', 'google', 'discord', 'openid', 'facebook', 'apple', 'saml']
+  # allowedDomains:
+  # - "gmail.com"
+
+# Example Balance settings
+# balance:
+#   startBalance: 20000
+#   autoRefillEnabled: false
+#   refillIntervalValue: 30
+#   refillIntervalUnit: 'days'
+#   refillAmount: 10000
+
+# Example Transactions settings
+# Controls whether to save transaction records to the database
+# Default is true (enabled)
+#transactions:
+#  enabled: false
+# Note: If balance.enabled is true, transactions will always be enabled
+# regardless of this setting to ensure balance tracking works correctly
+
+# ============================================
+# SPEECH CONFIGURATION - OpenAI STT/TTS
+# Dokumentacja: https://librechat.ai/docs/configuration/librechat_yaml/object_structure/speech
+# Ostatnia aktualizacja: October 1, 2025
+# ============================================
+speech:
+  # ============================================
+  # STT (Speech-to-Text) - OpenAI Whisper
+  # ============================================
+  stt:
+    openai:
+      apiKey: '${STT_API_KEY}'
+      model: 'whisper-1'
+      # url: ''  # Opcjonalne - usuń lub zostaw puste dla domyślnego OpenAI endpoint
+
+  # ============================================
+  # TTS (Text-to-Speech) - OpenAI TTS
+  # ============================================
+  tts:
+    openai:
+      apiKey: '${TTS_API_KEY}'
+      model: 'tts-1-hd'  # tts-1-hd = wyższa jakość | tts-1 = szybsza generacja
+      voices: ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
+      # url: ''  # Opcjonalne - usuń lub zostaw puste dla domyślnego OpenAI endpoint
+
+  
+# rateLimits:
+#   fileUploads:
+#     ipMax: 100
+#     ipWindowInMinutes: 60  # Rate limit window for file uploads per IP
+#     userMax: 50
+#     userWindowInMinutes: 60  # Rate limit window for file uploads per user
+#   conversationsImport:
+#     ipMax: 100
+#     ipWindowInMinutes: 60  # Rate limit window for conversation imports per IP
+#     userMax: 50
+#     userWindowInMinutes: 60  # Rate limit window for conversation imports per user
+
+# Example Actions Object Structure
+actions:
+  allowedDomains:
+    - 'swapi.dev'
+    - 'librechat.ai'
+    - 'google.com'
+
+# Example MCP Servers Object Structure
+mcpServers:
+  perplexity:
+    type: stdio
+    command: npx
+    args:
+      - -y
+      - "perplexity-mcp"
+    env:
+      PERPLEXITY_API_KEY: "${PERPLEXITY_API_KEY}"
+    timeout: 600000
+  
+  # playwright:
+  #   type: streamable-http
+  #   url: https://playwright.kumpel-chat.fun
+  #   timeout: 180000      # 3 minuty na operacje
+  #   initTimeout: 60000   # 1 minuta na inicjalizację
+  # playwright:
+  #   type: stdio
+  #   command: "node"
+  #   args: ["/app/mcp-proxy-stateful.js"]
+  #   serverInstructions: true
+  #   timeout: 600000
+  #   initTimeout: 60000  # ← Zwiększ do 60 sekund
+
+  # # Agent Telegrama
+  # telegram-mcp:
+  #   type: websocket
+  #   url: "wss://telegram-mcp.kumpel-chat.fun"
+
+webSearch:
+  serperApiKey: "${SERPER_API_KEY}"       # Klucz API Serper (search provider)
+  firecrawlApiKey: "${FIRECRAWL_API_KEY}" # Klucz API Firecrawl (scraper)
+  jinaApiKey: "${JINA_API_KEY}"           # Klucz API Jina (reranker)
+
+  searchProvider: "serper"   # Możesz wybrać "serper" lub "searxng"
+  scraperType: "firecrawl"   # Obecnie jedyna opcja
+  rerankerType: "jina"       # Możesz wybrać "jina" lub "cohere"
+
+  safeSearch: 1              # Filtry bezpieczeństwa (0, 1, 2)
+  scraperTimeout: 9500       # Timeout dla scrapera w ms
+# Definition of custom endpoints
+endpoints:
+  # assistants:
+  #   disableBuilder: false # Disable Assistants Builder Interface by setting to `true`
+  #   pollIntervalMs: 3000  # Polling interval for checking assistant updates
+  #   timeoutMs: 180000  # Timeout for assistant operations
+  #   # Should only be one or the other, either `supportedIds` or `excludedIds`
+  #   supportedIds: ["asst_supportedAssistantId1", "asst_supportedAssistantId2"]
+  #   # excludedIds: ["asst_excludedAssistantId"]
+  #   # Only show assistants that the user created or that were created externally (e.g. in Assistants playground).
+  #   # privateAssistants: false # Does not work with `supportedIds` or `excludedIds`
+  #   # (optional) Models that support retrieval, will default to latest known OpenAI models that support the feature
+  #   retrievalModels: ["gpt-4-turbo-preview"]
+  #   # (optional) Assistant Capabilities available to all users. Omit the ones you wish to exclude. Defaults to list below.
+  #   capabilities: ["code_interpreter", "retrieval", "actions", "tools", "image_vision"]
+  # agents:
+  #   # (optional) Default recursion depth for agents, defaults to 25
+  #   recursionLimit: 50
+  #   # (optional) Max recursion depth for agents, defaults to 25
+  #   maxRecursionLimit: 100
+  #   # (optional) Disable the builder interface for agents
+  #   disableBuilder: false
+  #   # (optional) Maximum total citations to include in agent responses, defaults to 30
+  #   maxCitations: 30
+  #   # (optional) Maximum citations per file to include in agent responses, defaults to 7
+  #   maxCitationsPerFile: 7
+  #   # (optional) Minimum relevance score for sources to be included in responses, defaults to 0.45 (45% relevance threshold)
+  #   # Set to 0.0 to show all sources (no filtering), or higher like 0.7 for stricter filtering
+  #   minRelevanceScore: 0.45
+  #   # (optional) Agent Capabilities available to all users. Omit the ones you wish to exclude. Defaults to list below.
+  #   capabilities: ["memory", "personalize", "execute_code", "file_search", "actions", "tools"]
+  agents:
+    # (optional) Default recursion depth for agents, defaults to 25
+    # recursionLimit: 50
+    # (optional) Max recursion depth for agents, defaults to 25
+    # maxRecursionLimit: 100
+    # (optional) Disable the builder interface for agents
+    # disableBuilder: false
+    # (optional) Maximum total citations to include in agent responses, defaults to 30
+    # maxCitations: 30
+    # (optional) Maximum citations per file to include in agent responses, defaults to 7
+    # maxCitationsPerFile: 7
+    # (optional) Minimum relevance score for sources to be included in responses, defaults to 0.45 (45% relevance threshold)
+    # Set to 0.0 to show all sources (no filtering), or higher like 0.7 for stricter filtering
+    # minRelevanceScore: 0.45
+    # (optional) Agent timeout in milliseconds - increased for MCP operations
+    timeoutMs: 600000
+  #   # (optional) Agent Capabilities available to all users. Omit the ones you wish to exclude. Defaults to list below.
+  #   capabilities: ["memory", "personalize", "execute_code", "file_search", "actions", "tools"]
+  custom:
+    # Groq Example
+    - name: 'groq'
+      apiKey: '${GROQ_API_KEY}'
+      baseURL: 'https://api.groq.com/openai/v1/'
+      models:
+        default:
+          [
+            'llama3-70b-8192',
+            'llama3-8b-8192',
+            'llama2-70b-4096',
+            'mixtral-8x7b-32768',
+            'gemma-7b-it',
+          ]
+        fetch: false
+      titleConvo: true
+      titleModel: 'mixtral-8x7b-32768'
+      modelDisplayLabel: 'groq'
+
+    # Mistral AI Example
+    - name: 'Mistral' # Unique name for the endpoint
+      # For `apiKey` and `baseURL`, you can use environment variables that you define.
+      # recommended environment variables:
+      apiKey: '${MISTRAL_API_KEY}'
+      baseURL: 'https://api.mistral.ai/v1'
+
+      # Models configuration
+      models:
+        # List of default models to use. At least one value is required.
+        default: ['mistral-tiny', 'mistral-small', 'mistral-medium']
+        # Fetch option: Set to true to fetch models from API.
+        fetch: true # Defaults to false.
+
+      # Optional configurations
+
+      # Title Conversation setting
+      titleConvo: true # Set to true to enable title conversation
+
+      # Title Method: Choose between "completion" or "functions".
+      # titleMethod: "completion"  # Defaults to "completion" if omitted.
+
+      # Title Model: Specify the model to use for titles.
+      titleModel: 'mistral-tiny' # Defaults to "gpt-3.5-turbo" if omitted.
+
+      # Summarize setting: Set to true to enable summarization.
+      # summarize: false
+
+      # Summary Model: Specify the model to use if summarization is enabled.
+      # summaryModel: "mistral-tiny"  # Defaults to "gpt-3.5-turbo" if omitted.
+
+      # Force Prompt setting: If true, sends a `prompt` parameter instead of `messages`.
+      # forcePrompt: false
+
+      # The label displayed for the AI model in messages.
+      modelDisplayLabel: 'Mistral' # Default is "AI" when not set.
+
+      # Add additional parameters to the request. Default params will be overwritten.
+      # addParams:
+      # safe_prompt: true # This field is specific to Mistral AI: https://docs.mistral.ai/api/
+
+      # Drop Default params parameters from the request. See default params in guide linked below.
+      # NOTE: For Mistral, it is necessary to drop the following parameters or you will encounter a 422 Error:
+      dropParams: ['stop', 'user', 'frequency_penalty', 'presence_penalty']
+
+    # OpenRouter Example
+    - name: 'OpenRouter'
+      # For `apiKey` and `baseURL`, you can use environment variables that you define.
+      # recommended environment variables:
+      apiKey: '${OPENROUTER_KEY}'
+      baseURL: 'https://openrouter.ai/api/v1'
+      headers:
+          x-librechat-body-parentmessageid: '{{LIBRECHAT_BODY_PARENTMESSAGEID}}'
+      models:
+        default: ['meta-llama/llama-3-70b-instruct']
+        fetch: true
+      titleConvo: true
+      titleModel: 'meta-llama/llama-3-70b-instruct'
+      # Recommended: Drop the stop parameter from the request as Openrouter models use a variety of stop tokens.
+      dropParams: ['stop']
+      modelDisplayLabel: 'OpenRouter'
+
+    # Portkey AI Example
+    - name: 'Portkey'
+      apiKey: 'dummy'
+      baseURL: 'https://api.portkey.ai/v1'
+      headers:
+        x-portkey-api-key: '${PORTKEY_API_KEY}'
+        x-portkey-virtual-key: '${PORTKEY_OPENAI_VIRTUAL_KEY}'
+      models:
+        default: ['gpt-4o-mini', 'gpt-4o', 'chatgpt-4o-latest']
+        fetch: true
+      titleConvo: true
+      titleModel: 'current_model'
+      summarize: false
+      summaryModel: 'current_model'
+      forcePrompt: false
+      modelDisplayLabel: 'Portkey'
+      iconURL: 'https://images.crunchbase.com/image/upload/c_pad,f_auto,q_auto:eco,dpr_1/rjqy7ghvjoiu4cd1xjbf'
+
+    # DeepSeek Configuration
+    - name: "Deepseek"
+      type: "openai"
+      apiKey: "${DEEPSEEK_API_KEY}"
+      baseURL: "https://api.deepseek.com/v1"
+      models:
+        default:
+          - "deepseek-chat"
+          - "deepseek-reasoner"
+          - "deepseek-coder"
+        fetch: false
+      titleConvo: true
+      titleModel: "deepseek-chat"
+      modelDisplayLabel: "Deepseek"
+
+    - name: 'Perplexity'
+      apiKey: '${PERPLEXITY_API_KEY}'
+      baseURL: 'https://api.perplexity.ai'
+      models:
+        default: [
+          "sonar",
+          "sonar-pro",
+          "sonar-deep-research"
+        ]
+        fetch: false
+      headers:
+        Authorization: 'Bearer ${PERPLEXITY_API_KEY}'
+        Content-Type: 'application/json'
+      dropParams: ["stop", "user", "frequency_penalty", "presence_penalty", "logit_bias", "top_logprobs", "logprobs", "best_of", "echo", "suffix", "web_search"]
+      addParams:
+        model: "sonar"
+      timeout: 300000
+      retry: 3
+      titleConvo: true
+      titleModel: 'sonar'
+      modelDisplayLabel: 'Perplexity'
+fileConfig:
+  endpoints:
+    # Agents endpoint - 10 files x 30MB each
+    agents:
+      fileLimit: 20  # Maximum 10 files per agent
+      fileSizeLimit: 30  # Maximum 30MB per file
+      totalSizeLimit: 300  # Maximum 300MB total (10 files x 30MB)
+      supportedMimeTypes:
+        # Images (all formats)
+        - "image/.*"
+        # Documents
+        - "application/pdf"
+        - "text/.*"
+        - "application/vnd.openxmlformats-officedocument.*"
+        - "application/msword"
+        - "application/vnd.ms-excel"
+        - "application/vnd.ms-powerpoint"
+        # Audio (for transcription and analysis)
+        - "audio/.*"
+        # Video (for analysis and transcription)
+        - "video/.*"
+    # Assistants endpoint - same limits
+    assistants:
+      fileLimit: 10
+      fileSizeLimit: 30
+      totalSizeLimit: 300
+      supportedMimeTypes:
+        - "image/.*"
+        - "application/pdf"
+        - "text/.*"
+        - "application/vnd.openxmlformats-officedocument.*"
+        - "application/msword"
+        - "application/vnd.ms-excel"
+        - "application/vnd.ms-powerpoint"
+        - "audio/.*"
+        - "video/.*"
+    # OpenAI endpoint - same limits
+    openAI:
+      fileLimit: 10
+      fileSizeLimit: 30
+      totalSizeLimit: 300
+      supportedMimeTypes:
+        - "image/.*"
+        - "application/pdf"
+        - "text/.*"
+        - "application/vnd.openxmlformats-officedocument.*"
+        - "audio/.*"
+        - "video/.*"
+    # Default for all other endpoints
+    default:
+      fileLimit: 10
+      fileSizeLimit: 30
+      totalSizeLimit: 300
+  serverFileSizeLimit: 100  # Global server file size limit in MB (keep conservative for server)
+  avatarSizeLimit: 2  # Limit for user avatar image size in MB
+  imageGeneration:
+    percentage: 100
+    px: 1024
+  # Client-side image resizing to prevent upload errors
+  clientImageResize:
+    enabled: false
+    maxWidth: 1900
+    maxHeight: 1900
+    quality: 0.92
+# See the Custom Configuration Guide for more information on Assistants Config:
+# https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/assistants_endpoint
+
+memory:
+  disabled: false
+  personalize: true
+  tokenLimit: 50000
+  messageWindowSize: 8
+
+  validKeys:
+    # === CORE PROFILE (Tożsamość) ===
+    - "profile_communication"      # Style komunikacji między domenami
+    - "profile_preferences"        # Preferencje globalne
+    - "profile_values"             # Wartości i priorytety życiowe
+
+    # === LEARNING & EDUCATION ===
+    - "context_learning"           # Ogólny kontekst nauki
+    - "context_learning_progress"  # Postępy i osiągnięcia
+    - "context_learning_difficulties" # Wyzwania i trudności
+    - "context_learning_methods"   # Skuteczne metody uczenia się
+
+    # === HEALTH & THERAPY ===
+    - "context_health"             # Zdrowie fizyczne i psychiczne
+    - "context_health_treatment"   # Leczenie i terapia
+    - "context_health_symptoms"    # Objawy i wzorce
+    - "context_health_goals"       # Cele zdrowotne
+
+    # === DEVELOPMENT & WORK ===
+    - "context_development"        # Projekty i stack technologiczny
+    - "context_work"               # Środowisko pracy i kariera
+    - "context_projects"           # Aktywne i ukończone projekty
+
+    # === PERSONAL & LIFESTYLE ===
+    - "context_personal"           # Relacje i życie osobiste
+    - "context_lifestyle"          # Styl życia i codzienne nawyki
+    - "context_finances"           # Cele i sytuacja finansowa
+
+    # === KNOWLEDGE BASE ===
+    - "knowledge_technical"        # Wiedza techniczna i patterns
+    - "knowledge_health"           # Strategie zdrowotne które działają
+    - "knowledge_learning"         # Metody edukacyjne które działają
+    - "knowledge_life"             # Rozwiązania życiowe które działają
+    - "knowledge_recurring_solutions" # Top 15 rozwiązań wszystkich domen
+
+    # === ACTIVE CONTEXT ===
+    - "active_task"                # Bieżące zadania i fokus
+    - "active_challenges"          # Aktualne wyzwania we wszystkich domenach
+agent:
+  provider: "openAI"
+  type: "openai"
+  model: "gpt-4o-mini"
+  instructions: |
+    ═══════════════════════════════════════════════════════════════
+    UNIVERSAL MEMORY ASSISTANT - WHOLE PERSON APPROACH
+    ═══════════════════════════════════════════════════════════════
+
+    You are a comprehensive memory assistant for a COMPLETE PERSON
+    across 4 core life domains: LEARNING, HEALTH, WORK, PERSONAL.
+
+    TOKEN LIMIT: 50,000 tokens TOTAL - prioritize quality over quantity.
+
+    ═══════════════════════════════════════════════════════════════
+    CORE PHILOSOPHY: DOMAIN SEPARATION + CROSS-DOMAIN INSIGHTS
+    ═══════════════════════════════════════════════════════════════
+
+    Each domain is SEPARATE but you can identify CROSS-DOMAIN PATTERNS.
+    Example: "Learning struggles when sleep quality drops" → record in both domains.
+
+    ═══════════════════════════════════════════════════════════════
+    KEY USAGE GUIDE - COMPREHENSIVE
+    ═══════════════════════════════════════════════════════════════
+
+    🎭 CORE PROFILE (Universal Identity)
+    profile_communication:
+    - HOW user communicates across all domains
+    - FORMAT: "Direct in work, gentle in therapy, encouraging in learning"
+    - SIZE: 300 tokens
+
+    profile_preferences:
+    - CROSS-DOMAIN preferences and styles
+    - FORMAT: "Learning: hands-on. Work: deep focus. Health: evidence-based"
+    - SIZE: 400 tokens
+
+    profile_values:
+    - Core life values and priorities
+    - FORMAT: "Health > Career > Learning. Values: growth, balance, authenticity"
+    - SIZE: 300 tokens
+
+    🎓 LEARNING & EDUCATION DOMAIN
+    context_learning:
+    - General learning context and current focus
+    - FORMAT: "Current: AI/ML RAG systems. Background: Python basics mastered"
+    - SIZE: 2000 tokens
+
+    context_learning_progress:
+    - Detailed progress tracking with dates and metrics
+    - FORMAT: "Math: fractions 90% (Nov), geometry 60% (Dec). Reading: level 4"
+    - UPDATE: After each learning session
+    - SIZE: 3000 tokens
+
+    context_learning_difficulties:
+    - Specific learning challenges and misconceptions
+    - FORMAT: "Math: denominator confusion. Programming: async/await timing"
+    - UPDATE: When patterns emerge
+    - SIZE: 2000 tokens
+
+    context_learning_methods:
+    - Learning techniques that work for this person
+    - FORMAT: "Visual aids for math. Project-based for programming. Breaks every 25min"
+    - SIZE: 1500 tokens
+
+    🏥 HEALTH & THERAPY DOMAIN (HIGH SENSITIVITY)
+    context_health:
+    - Overall health status and medical history
+    - FORMAT: "ADHD diagnosed 2024. Anxiety: situational. Sleep: 6hrs avg"
+    - SENSITIVE: Extreme care required
+    - SIZE: 2000 tokens
+
+    context_health_treatment:
+    - Current treatments, medications, therapy approaches
+    - FORMAT: "Medication: Adderall 20mg. Therapy: CBT weekly. Exercise: 3x/week"
+    - UPDATE: After medical/therapy sessions
+    - SIZE: 2000 tokens
+
+    context_health_symptoms:
+    - Symptom patterns, triggers, and severity tracking
+    - FORMAT: "Focus: worse afternoons. Anxiety: deadlines trigger. Sleep: caffeine sensitive"
+    - SIZE: 1500 tokens
+
+    context_health_goals:
+    - Health and wellness objectives
+    - FORMAT: "Reduce medication dependence. Improve sleep to 7hrs. Manage work stress"
+    - SIZE: 1000 tokens
+
+    💻 DEVELOPMENT & WORK DOMAIN
+    context_development:
+    - Technical skills, projects, and development context
+    - FORMAT: "Stack: Python/TS. Current: LibreChat memory system"
+    - SIZE: 3000 tokens
+
+    context_work:
+    - Career goals, work environment, professional development
+    - FORMAT: "Goal: AI engineer. Environment: remote. Development: mentorship needed"
+    - SIZE: 2000 tokens
+
+    context_projects:
+    - Active and completed projects with status and learnings
+    - FORMAT: "LibreChat: ongoing, learning RAG. Personal website: completed 2024"
+    - SIZE: 2000 tokens
+
+    🏠 PERSONAL & LIFESTYLE DOMAIN
+    context_personal:
+    - Relationships, personal goals, life events
+    - FORMAT: "Family: close. Goals: work-life balance. Events: career switch planned"
+    - SIZE: 2000 tokens
+
+    context_lifestyle:
+    - Daily habits, routines, and lifestyle patterns
+    - FORMAT: "Exercise: morning. Diet: Mediterranean. Social: weekends"
+    - SIZE: 1500 tokens
+
+    context_finances:
+    - Financial goals, situation, and planning
+    - FORMAT: "Goal: emergency fund. Situation: stable. Planning: investment learning"
+    - SIZE: 1000 tokens
+
+    🧠 KNOWLEDGE BASE (What Works)
+    knowledge_technical:
+    - Technical patterns, solutions, architecture decisions
+    - FORMAT: "Repository pattern for data. Microservices for scale. React for UI"
+    - SIZE: 3000 tokens
+
+    knowledge_health:
+    - Health strategies and treatments that work
+    - FORMAT: "Breathing exercises reduce anxiety. Morning exercise improves focus"
+    - SIZE: 2000 tokens
+
+    knowledge_learning:
+    - Learning methods and educational approaches that work
+    - FORMAT: "Spaced repetition for languages. Project-based for programming"
+    - SIZE: 2000 tokens
+
+    knowledge_life:
+    - Life solutions and personal strategies that work
+    - FORMAT: "Time blocking improves productivity. Weekly reviews maintain balance"
+    - SIZE: 2000 tokens
+
+    knowledge_recurring_solutions:
+    - TOP 15 recurring problems + solutions across ALL domains
+    - FORMAT: "1. [WORK] Timeout → retry. 2. [HEALTH] Anxiety → breathing. 3. [LEARN] Procrastination → Pomodoro..."
+    - Domain tags: [WORK], [HEALTH], [LEARN], [LIFE]
+    - SIZE: 3000 tokens (MOST VALUABLE KEY)
+
+    🎯 ACTIVE CONTEXT
+    active_task:
+    - Current primary focus across domains
+    - FORMAT: "Work: LibreChat memory. Learning: RAG. Health: sleep improvement"
+    - UPDATE: Overwrite when focus changes
+    - SIZE: 500 tokens
+
+    active_challenges:
+    - Current challenges being addressed
+    - FORMAT: "Work: API integration. Health: sleep schedule. Learning: math concepts"
+    - SIZE: 500 tokens
+
+    ═══════════════════════════════════════════════════════════════
+    RECORDING RULES - DOMAIN SPECIFIC
+    ═══════════════════════════════════════════════════════════════
+
+    ✅ RECORD (Learning):
+    - Completed topics with dates and mastery levels
+    - Learning methods that show results
+    - Breakthrough moments and "aha" experiences
+    - Consistent struggles requiring new approaches
+
+    ✅ RECORD (Health):
+    - Symptom patterns and correlations
+    - Treatment effectiveness and side effects
+    - Lifestyle factors affecting health
+    - Progress toward health goals
+    - NEVER share health data outside health domain
+
+    ✅ RECORD (Work):
+    - Technical solutions to recurring problems
+    - Architecture and technology decisions
+    - Career development milestones
+    - Work environment preferences
+
+    ✅ RECORD (Personal):
+    - Life goals and values alignment
+    - Relationship patterns and preferences
+    - Financial planning and progress
+    - Lifestyle choices and their outcomes
+
+    ❌ IGNORE (All Domains):
+    - Casual conversation without substance
+    - One-time experiments without results
+    - Temporary mood fluctuations without patterns
+    - Information that could compromise security
+
+    ═══════════════════════════════════════════════════════════════
+    CROSS-DOMAIN INSIGHT DETECTION
+    ═══════════════════════════════════════════════════════════════
+
+    Watch for patterns ACROSS domains:
+    - Learning performance ↔ Sleep quality
+    - Work productivity ↔ Health symptoms
+    - Personal satisfaction ↔ Career progress
+    - Financial stress ↔ Health issues
+
+    When detected, record in BOTH domains and in knowledge_recurring_solutions.
+
+    ═══════════════════════════════════════════════════════════════
+    COMPRESSION STRATEGY (at 45k tokens)
+    ═══════════════════════════════════════════════════════════════
+
+    Priority (Never→Often Compress):
+    1. profile_* (NEVER compress - core identity)
+    2. knowledge_recurring_solutions (actionable gold)
+    3. context_health_* (sensitive, keep detailed)
+    4. context_learning_progress (essential for growth)
+    5. knowledge_* (consolidate similar solutions)
+    6. context_development (keep current, archive old)
+    7. context_work (summarize completed phases)
+    8. context_personal (keep goals, summarize events)
+    9. active_* (overwrite freely)
+
+    ═══════════════════════════════════════════════════════════════
+    SAFETY & ETHICS
+    ═══════════════════════════════════════════════════════════════
+
+    - HEALTH DATA: Extreme sensitivity - never mix domains
+    - FINANCIAL DATA: Never record specific numbers or accounts
+    - RELATIONSHIPS: Focus on patterns, not specific conflicts
+    - PROGRESS FOCUS: Frame difficulties as "growth opportunities"
+    - POSITIVE REINFORCEMENT: Celebrate achievements in all domains
+
+    ═══════════════════════════════════════════════════════════════
+    REMEMBER: You serve a WHOLE, COMPLEX HUMAN BEING.
+    Each domain matters. Progress in one area affects all others.
+    Quality insights > Quantity of data.
+    ═══════════════════════════════════════════════════════════════
+  model_parameters:
+    temperature: 0.2
+    max_tokens: 2000

@@ -9,7 +9,11 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.net.Uri
+import android.os.Bundle
 import android.os.PowerManager
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Base64
 import android.util.Log
 import android.webkit.MimeTypeMap
@@ -113,7 +117,10 @@ data class MediaChunk(
 )
 
 @Stable
-class VoiceClientManager(private val context: Context) {
+class VoiceClientManager(
+    private val context: Context,
+    private val sessionManager: SessionManager? = null
+) {
 
     companion object {
         private const val TAG = "VoiceClientManager"
@@ -136,6 +143,9 @@ class VoiceClientManager(private val context: Context) {
     private var scope: CoroutineScope? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioManager: AudioManager? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var isRecognizing = false
+    private var lastRecognitionTime = 0L
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
@@ -153,6 +163,10 @@ class VoiceClientManager(private val context: Context) {
     val userAudioLevel = mutableFloatStateOf(0f)
     val mic = mutableStateOf(false)
     val camera = mutableStateOf(false)
+    
+    // Transcript callbacks
+    var onUserTranscript: ((String) -> Unit)? = null
+    var onBotTranscript: ((String) -> Unit)? = null
 
     fun start() {
         if (state.value != ConnectionState.DISCONNECTED) {
@@ -263,6 +277,15 @@ class VoiceClientManager(private val context: Context) {
                 startAudioPlayback()
                 acquireWakeLock()
                 increaseAudioVolume()
+                
+                // Initialize speech recognition for user transcripts
+                if (sessionManager != null) {
+                    initializeSpeechRecognizer()
+                    scope?.launch {
+                        delay(1000) // Wait a bit for audio to stabilize
+                        startContinuousRecognition()
+                    }
+                }
                 return
             }
 
@@ -276,6 +299,14 @@ class VoiceClientManager(private val context: Context) {
                     val parts = modelTurn?.get("parts")
                     
                     if (parts != null) {
+                        // Extract text transcript from model turn
+                        val transcriptText = extractTextFromModelTurn(serverContent)
+                        if (transcriptText.isNotEmpty()) {
+                            Log.d(TAG, "Bot transcript: $transcriptText")
+                            sessionManager?.captureBotTranscript(transcriptText)
+                            onBotTranscript?.invoke(transcriptText)
+                        }
+                        
                         // Check for audio in parts
                         try {
                             val partsArray = parts.jsonArray
@@ -318,6 +349,31 @@ class VoiceClientManager(private val context: Context) {
 
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing message: ${e.message}", e)
+        }
+    }
+    
+    private fun extractTextFromModelTurn(serverContent: JsonObject): String {
+        try {
+            val modelTurn = serverContent["modelTurn"]?.jsonObject ?: return ""
+            val parts = modelTurn["parts"]?.jsonArray ?: return ""
+            
+            val textParts = mutableListOf<String>()
+            for (part in parts) {
+                val partObj = part.jsonObject
+                
+                // Check for text content
+                if (partObj.containsKey("text")) {
+                    val text = partObj["text"]?.jsonPrimitive?.content
+                    if (!text.isNullOrBlank()) {
+                        textParts.add(text)
+                    }
+                }
+            }
+            
+            return textParts.joinToString(" ").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting text from model turn: ${e.message}")
+            return ""
         }
     }
 
@@ -443,6 +499,141 @@ class VoiceClientManager(private val context: Context) {
             errors.add(Error("Failed to start audio playback: ${e.message}"))
         }
     }
+    
+    private fun initializeSpeechRecognizer() {
+        try {
+            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                Log.w(TAG, "Speech recognition not available on this device")
+                return
+            }
+            
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    Log.d(TAG, "SpeechRecognizer ready for speech")
+                }
+                
+                override fun onBeginningOfSpeech() {
+                    Log.d(TAG, "SpeechRecognizer detected beginning of speech")
+                }
+                
+                override fun onRmsChanged(rmsdB: Float) {
+                    // Audio level changes - not used
+                }
+                
+                override fun onBufferReceived(buffer: ByteArray?) {
+                    // Audio buffer - not used
+                }
+                
+                override fun onEndOfSpeech() {
+                    Log.d(TAG, "SpeechRecognizer detected end of speech")
+                    isRecognizing = false
+                }
+                
+                override fun onError(error: Int) {
+                    val errorMessage = when (error) {
+                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                        SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No speech match"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognition service busy"
+                        SpeechRecognizer.ERROR_SERVER -> "Server error"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
+                        else -> "Unknown error: $error"
+                    }
+                    
+                    // Only log errors that are not normal (no match and timeout are expected)
+                    if (error != SpeechRecognizer.ERROR_NO_MATCH && 
+                        error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                        Log.w(TAG, "SpeechRecognizer error: $errorMessage")
+                    }
+                    
+                    isRecognizing = false
+                    
+                    // Restart recognition if still connected
+                    if (state.value == ConnectionState.CONNECTED) {
+                        scope?.launch {
+                            delay(500)
+                            startContinuousRecognition()
+                        }
+                    }
+                }
+                
+                override fun onResults(results: Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        val transcribedText = matches[0]
+                        if (transcribedText.isNotBlank()) {
+                            Log.i(TAG, "User transcript: $transcribedText")
+                            sessionManager?.captureUserTranscript(transcribedText)
+                            onUserTranscript?.invoke(transcribedText)
+                        }
+                    }
+                    
+                    isRecognizing = false
+                    
+                    // Restart recognition for continuous transcription
+                    if (state.value == ConnectionState.CONNECTED) {
+                        scope?.launch {
+                            delay(100)
+                            startContinuousRecognition()
+                        }
+                    }
+                }
+                
+                override fun onPartialResults(partialResults: Bundle?) {
+                    // Partial results - could be used for real-time feedback
+                }
+                
+                override fun onEvent(eventType: Int, params: Bundle?) {
+                    // Additional events - not used
+                }
+            })
+            
+            Log.i(TAG, "SpeechRecognizer initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize SpeechRecognizer", e)
+        }
+    }
+    
+    private fun startContinuousRecognition() {
+        if (isRecognizing || speechRecognizer == null) {
+            return
+        }
+        
+        if (state.value != ConnectionState.CONNECTED) {
+            return
+        }
+        
+        try {
+            val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pl-PL") // Polish language
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            }
+            
+            speechRecognizer?.startListening(intent)
+            isRecognizing = true
+            lastRecognitionTime = System.currentTimeMillis()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start speech recognition", e)
+            isRecognizing = false
+        }
+    }
+    
+    private fun stopSpeechRecognition() {
+        try {
+            isRecognizing = false
+            speechRecognizer?.stopListening()
+            speechRecognizer?.cancel()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping speech recognition", e)
+        }
+    }
 
     fun enableMic(enabled: Boolean) {
         mic.value = enabled
@@ -480,6 +671,11 @@ class VoiceClientManager(private val context: Context) {
         audioTrack?.stop()
         audioTrack?.release()
         audioTrack = null
+        
+        stopSpeechRecognition()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        isRecognizing = false
         
         webSocket = null
         
@@ -537,6 +733,10 @@ class VoiceClientManager(private val context: Context) {
             webSocket?.send(messageJson)
             
             Log.i(TAG, "Image sent successfully. Size: ${imageBytes.size} bytes, MIME: $mimeType")
+            
+            // Record image event in session
+            val imageDescription = "Image sent: ${uri.lastPathSegment ?: "unknown"} (${imageBytes.size} bytes, $mimeType)"
+            sessionManager?.recordImageSent(imageDescription)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error sending image", e)

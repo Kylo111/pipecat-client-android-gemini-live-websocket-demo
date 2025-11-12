@@ -1,12 +1,16 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.NetworkStatusBanner
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThreadListScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.NetworkMonitor
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -44,6 +48,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,8 +65,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 enum class Screen {
+    LOGIN,
+    THREAD_LIST,
     CONNECT,
     IN_CALL,
     SETTINGS
@@ -68,15 +78,41 @@ enum class Screen {
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var networkMonitor: NetworkMonitor
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val voiceClientManager = VoiceClientManager(this)
+        // Initialize LibreChat integration services
+        val authManager = AuthManager(this)
+        val offlineSummaryQueue = OfflineSummaryQueue(this)
+        val libreChatService = LibreChatService(authManager, offlineSummaryQueue)
+        val sessionManager = SessionManager(this, libreChatService)
+        val voiceClientManager = VoiceClientManager(this, sessionManager)
+        
+        // Initialize network monitor
+        networkMonitor = NetworkMonitor(this)
 
         setContent {
-            var currentScreen by remember { mutableStateOf(Screen.CONNECT) }
+            var currentScreen by remember { 
+                mutableStateOf(
+                    if (authManager.isTokenValid()) Screen.THREAD_LIST else Screen.LOGIN
+                )
+            }
             var tempImageUri by remember { mutableStateOf<Uri?>(null) }
+            var selectedConversationId by remember { mutableStateOf<String?>(null) }
+            
+            // Observe network connectivity
+            val isNetworkConnected by networkMonitor.isConnected.collectAsState()
+            val networkReconnectedTimestamp by networkMonitor.onNetworkReconnected.collectAsState()
+            
+            // Process offline queue when network reconnects
+            LaunchedEffect(networkReconnectedTimestamp) {
+                if (networkReconnectedTimestamp > 0 && offlineSummaryQueue.size() > 0) {
+                    offlineSummaryQueue.processQueue(libreChatService)
+                }
+            }
             
             // Camera launcher
             val cameraLauncher = rememberLauncherForActivityResult(
@@ -119,17 +155,60 @@ class MainActivity : ComponentActivity() {
             
             RTVIClientTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Box(
+                    Column(
                         Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        PermissionScreen()
+                        // Network status banner at the top
+                        NetworkStatusBanner(isConnected = isNetworkConnected)
+                        
+                        Box(
+                            Modifier.fillMaxSize()
+                        ) {
+                            PermissionScreen()
 
-                        val vcState = voiceClientManager.state.value
-                        val isConnected = vcState == ConnectionState.CONNECTED || vcState == ConnectionState.CONNECTING
+                            val vcState = voiceClientManager.state.value
+                            val isConnected = vcState == ConnectionState.CONNECTED || vcState == ConnectionState.CONNECTING
 
-                        when (currentScreen) {
+                            when (currentScreen) {
+                            Screen.LOGIN -> {
+                                LoginScreen(
+                                    authManager = authManager,
+                                    onLoginSuccess = {
+                                        currentScreen = Screen.THREAD_LIST
+                                    }
+                                )
+                            }
+                            Screen.THREAD_LIST -> {
+                                ThreadListScreen(
+                                    libreChatService = libreChatService,
+                                    authManager = authManager,
+                                    onThreadSelected = { conversationId ->
+                                        selectedConversationId = conversationId
+                                        lifecycleScope.launch {
+                                            // Start session and get context
+                                            val result = sessionManager.startSession(conversationId)
+                                            result.onSuccess { sessionContext ->
+                                                // Update system prompt in preferences
+                                                Preferences.systemPrompt.value = sessionContext.systemPrompt
+                                                // Start voice client with the context
+                                                voiceClientManager.start()
+                                                currentScreen = Screen.IN_CALL
+                                            }.onFailure { error ->
+                                                // Show error and stay on thread list
+                                                voiceClientManager.errors.add(Error("Failed to start session: ${error.message}"))
+                                            }
+                                        }
+                                    },
+                                    onLogout = {
+                                        lifecycleScope.launch {
+                                            authManager.logout()
+                                            currentScreen = Screen.LOGIN
+                                        }
+                                    }
+                                )
+                            }
                             Screen.SETTINGS -> {
                                 SettingsScreen(
                                     onBackClick = {
@@ -146,7 +225,11 @@ class MainActivity : ComponentActivity() {
                                         onGalleryClick = onGalleryClick
                                     )
                                 } else {
-                                    currentScreen = Screen.CONNECT
+                                    // Connection ended - end session and return to thread list
+                                    LaunchedEffect(Unit) {
+                                        sessionManager.endSession()
+                                        currentScreen = Screen.THREAD_LIST
+                                    }
                                 }
                             }
                             Screen.CONNECT -> {
@@ -199,10 +282,16 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        }
                     }
                 }
             }
         }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        networkMonitor.unregister()
     }
 }
 

@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.constraintlayout.compose)
     implementation(libs.kotlinx.serialization.json)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
