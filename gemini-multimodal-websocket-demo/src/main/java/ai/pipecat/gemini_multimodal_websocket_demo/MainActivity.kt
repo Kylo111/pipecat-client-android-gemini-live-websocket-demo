@@ -2,14 +2,20 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,6 +44,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +60,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+enum class Screen {
+    CONNECT,
+    IN_CALL,
+    SETTINGS
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -60,6 +75,48 @@ class MainActivity : ComponentActivity() {
         val voiceClientManager = VoiceClientManager(this)
 
         setContent {
+            var currentScreen by remember { mutableStateOf(Screen.CONNECT) }
+            var tempImageUri by remember { mutableStateOf<Uri?>(null) }
+            
+            // Camera launcher
+            val cameraLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.TakePicture()
+            ) { success ->
+                if (success) {
+                    tempImageUri?.let { uri ->
+                        voiceClientManager.sendImage(uri)
+                    }
+                }
+            }
+            
+            // Gallery launcher
+            val galleryLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.PickVisualMedia()
+            ) { uri ->
+                uri?.let {
+                    voiceClientManager.sendImage(it)
+                }
+            }
+            
+            val onCameraClick: () -> Unit = {
+                val imageFile = File(cacheDir, "temp_image_${System.currentTimeMillis()}.jpg")
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "${packageName}.fileprovider",
+                    imageFile
+                )
+                tempImageUri = uri
+                cameraLauncher.launch(uri)
+            }
+            
+            val onGalleryClick: () -> Unit = {
+                galleryLauncher.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
+            }
+            
             RTVIClientTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(
@@ -70,12 +127,38 @@ class MainActivity : ComponentActivity() {
                         PermissionScreen()
 
                         val vcState = voiceClientManager.state.value
+                        val isConnected = vcState == ConnectionState.CONNECTED || vcState == ConnectionState.CONNECTING
 
-                        if (vcState != null) {
-                            InCallLayout(voiceClientManager)
-
-                        } else {
-                            ConnectSettings(voiceClientManager)
+                        when (currentScreen) {
+                            Screen.SETTINGS -> {
+                                SettingsScreen(
+                                    onBackClick = {
+                                        currentScreen = if (isConnected) Screen.IN_CALL else Screen.CONNECT
+                                    }
+                                )
+                            }
+                            Screen.IN_CALL -> {
+                                if (isConnected) {
+                                    InCallLayout(
+                                        voiceClientManager = voiceClientManager,
+                                        onSettingsClick = { currentScreen = Screen.SETTINGS },
+                                        onCameraClick = onCameraClick,
+                                        onGalleryClick = onGalleryClick
+                                    )
+                                } else {
+                                    currentScreen = Screen.CONNECT
+                                }
+                            }
+                            Screen.CONNECT -> {
+                                if (isConnected) {
+                                    currentScreen = Screen.IN_CALL
+                                } else {
+                                    ConnectSettings(
+                                        voiceClientManager = voiceClientManager,
+                                        onSettingsClick = { currentScreen = Screen.SETTINGS }
+                                    )
+                                }
+                            }
                         }
 
                         voiceClientManager.errors.firstOrNull()?.let { errorText ->
@@ -126,6 +209,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ConnectSettings(
     voiceClientManager: VoiceClientManager,
+    onSettingsClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -193,9 +277,17 @@ fun ConnectSettings(
                 Spacer(modifier = Modifier.height(36.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(0.5f).align(Alignment.End),
+                    modifier = Modifier.fillMaxWidth().align(Alignment.End),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    ConnectDialogButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = onSettingsClick,
+                        text = "Settings",
+                        foreground = Color.Black,
+                        background = Color.White,
+                        border = Colors.textFieldBorder
+                    )
                     ConnectDialogButton(
                         modifier = Modifier.weight(1f),
                         onClick = voiceClientManager::start,

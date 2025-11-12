@@ -11,13 +11,16 @@ private val JSON_INSTANCE = Json { ignoreUnknownKeys = true }
 object Preferences {
 
     private const val PREF_API_KEY = "api_key"
+    private const val PREF_SYSTEM_PROMPT = "system_prompt"
+    private const val PREF_SELECTED_VOICE = "selected_voice"
+    private const val PREF_MODEL_NAME = "model_name"
 
     private lateinit var prefs: SharedPreferences
 
     fun initAppStart(context: Context) {
         prefs = context.applicationContext.getSharedPreferences("prefs", Context.MODE_PRIVATE)
 
-        listOf(apiKey).forEach { it.init() }
+        listOf(apiKey, systemPrompt, selectedVoice, modelName).forEach { it.init() }
     }
 
     private fun getString(key: String): String? = prefs.getString(key, null)
@@ -26,14 +29,19 @@ object Preferences {
         fun init()
     }
 
-    class StringPref(private val key: String): BasePref {
+    class StringPref(private val key: String, private val defaultValue: String? = null): BasePref {
         private val cachedValue = mutableStateOf<String?>(null)
 
         override fun init() {
-            cachedValue.value = getString(key)
+            val storedValue = getString(key)
+            cachedValue.value = storedValue ?: defaultValue
+            // Set default value if not already stored
+            if (storedValue == null && defaultValue != null) {
+                prefs.edit().putString(key, defaultValue).apply()
+            }
             prefs.registerOnSharedPreferenceChangeListener { _, changedKey ->
                 if (key == changedKey) {
-                    cachedValue.value = getString(key)
+                    cachedValue.value = getString(key) ?: defaultValue
                 }
             }
         }
@@ -72,4 +80,7 @@ object Preferences {
     }
 
     val apiKey = StringPref(PREF_API_KEY)
+    val systemPrompt = StringPref(PREF_SYSTEM_PROMPT, "You are a helpful assistant")
+    val selectedVoice = StringPref(PREF_SELECTED_VOICE, "Puck")
+    val modelName = StringPref(PREF_MODEL_NAME, "models/gemini-2.5-flash-native-audio-preview-09-2025")
 }

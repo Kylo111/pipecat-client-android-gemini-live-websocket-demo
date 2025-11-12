@@ -7,22 +7,43 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 
 @Composable
 fun InCallHeader(
-    expiryTime: Timestamp?
+    expiryTime: Timestamp?,
+    onSettingsClick: () -> Unit
 ) {
     ConstraintLayout(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 15.dp)
     ) {
-        val refTimer = createRef()
+        val (refSettings, refTimer) = createRefs()
+
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier.constrainAs(refSettings) {
+                top.linkTo(parent.top)
+                bottom.linkTo(parent.bottom)
+                start.linkTo(parent.start)
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = Color.White
+            )
+        }
 
         AnimatedContent(
             modifier = Modifier.constrainAs(refTimer) {
@@ -44,6 +65,7 @@ fun InCallHeader(
 @Preview
 fun PreviewInCallHeader() {
     InCallHeader(
-        Timestamp.now() + java.time.Duration.ofMinutes(3)
+        expiryTime = Timestamp.now() + java.time.Duration.ofMinutes(3),
+        onSettingsClick = {}
     )
 }

@@ -13,11 +13,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun InCallLayout(voiceClientManager: VoiceClientManager) {
+fun InCallLayout(
+    voiceClientManager: VoiceClientManager,
+    onSettingsClick: () -> Unit,
+    onCameraClick: () -> Unit = {},
+    onGalleryClick: () -> Unit = {}
+) {
 
     Column(Modifier.fillMaxSize()) {
 
-        InCallHeader(expiryTime = voiceClientManager.expiryTime.value)
+        InCallHeader(
+            expiryTime = voiceClientManager.expiryTime.value,
+            onSettingsClick = onSettingsClick
+        )
 
         Box(
             modifier = Modifier
@@ -51,6 +59,10 @@ fun InCallLayout(voiceClientManager: VoiceClientManager) {
             }
         }
 
-        InCallFooter(onClickEnd = voiceClientManager::stop)
+        InCallFooter(
+            onClickEnd = voiceClientManager::stop,
+            onCameraClick = onCameraClick,
+            onGalleryClick = onGalleryClick
+        )
     }
 }
