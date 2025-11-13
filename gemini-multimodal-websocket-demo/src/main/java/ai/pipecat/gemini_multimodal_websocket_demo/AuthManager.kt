@@ -33,6 +33,8 @@ class AuthManager(private val context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_EXPIRES_AT = "expires_at"
         private const val KEY_SERVER_URL = "server_url"
+        private const val KEY_STORED_EMAIL = "stored_email"
+        private const val KEY_STORED_PASSWORD = "stored_password"
     }
 
     init {
@@ -118,6 +120,84 @@ class AuthManager(private val context: Context) {
     }
 
     /**
+     * Stores user credentials securely for automatic re-authentication
+     * @param email User's email address
+     * @param password User's password
+     */
+    fun storeCredentials(email: String, password: String) {
+        encryptedPrefs.edit().apply {
+            putString(KEY_STORED_EMAIL, email)
+            putString(KEY_STORED_PASSWORD, password)
+            apply()
+        }
+        Log.d(TAG, "Credentials stored securely")
+    }
+
+    /**
+     * Retrieves stored user credentials if available
+     * @return AuthCredentials if stored, null otherwise
+     */
+    fun getStoredCredentials(): AuthCredentials? {
+        val email = encryptedPrefs.getString(KEY_STORED_EMAIL, null)
+        val password = encryptedPrefs.getString(KEY_STORED_PASSWORD, null)
+        val serverUrl = encryptedPrefs.getString(KEY_SERVER_URL, null)
+
+        return if (email != null && password != null && serverUrl != null) {
+            AuthCredentials(
+                serverUrl = serverUrl,
+                email = email,
+                password = password
+            )
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Checks if user credentials are stored
+     * @return true if credentials exist, false otherwise
+     */
+    fun hasStoredCredentials(): Boolean {
+        val email = encryptedPrefs.getString(KEY_STORED_EMAIL, null)
+        val password = encryptedPrefs.getString(KEY_STORED_PASSWORD, null)
+        val serverUrl = encryptedPrefs.getString(KEY_SERVER_URL, null)
+        return email != null && password != null && serverUrl != null
+    }
+
+    /**
+     * Performs automatic login using stored credentials
+     * @return Result containing AuthToken on success or exception on failure
+     */
+    suspend fun autoLogin(): Result<AuthToken> = withContext(Dispatchers.IO) {
+        try {
+            val credentials = getStoredCredentials()
+                ?: return@withContext Result.failure(IOException("No stored credentials available"))
+
+            Log.d(TAG, "Attempting auto-login with stored credentials")
+            login(credentials)
+        } catch (e: Exception) {
+            Log.e(TAG, "Auto-login failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Clears all stored credentials and tokens (for explicit logout)
+     */
+    fun clearStoredCredentials() {
+        encryptedPrefs.edit().apply {
+            remove(KEY_STORED_EMAIL)
+            remove(KEY_STORED_PASSWORD)
+            remove(KEY_ACCESS_TOKEN)
+            remove(KEY_REFRESH_TOKEN)
+            remove(KEY_EXPIRES_AT)
+            remove(KEY_SERVER_URL)
+            apply()
+        }
+        Log.d(TAG, "All stored credentials cleared")
+    }
+
+    /**
      * Authenticates user with LibreChat API
      * @param credentials User credentials including server URL, email, and password
      * @return Result containing AuthToken on success or exception on failure
@@ -193,7 +273,8 @@ class AuthManager(private val context: Context) {
             )
 
             storeToken(authToken, credentials.serverUrl)
-            Log.d(TAG, "Login successful, token stored, expires at: $expiresAt")
+            storeCredentials(credentials.email, credentials.password)
+            Log.d(TAG, "Login successful, token and credentials stored, expires at: $expiresAt")
 
             Result.success(authToken)
         } catch (e: Exception) {
@@ -206,7 +287,7 @@ class AuthManager(private val context: Context) {
      * Logs out the user by clearing all stored credentials
      */
     suspend fun logout() = withContext(Dispatchers.IO) {
-        encryptedPrefs.edit().clear().apply()
+        clearStoredCredentials()
     }
 
     /**

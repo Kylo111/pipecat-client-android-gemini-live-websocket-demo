@@ -3,6 +3,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.NetworkStatusBanner
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThreadListScreen
@@ -89,20 +90,68 @@ class MainActivity : ComponentActivity() {
         val authManager = AuthManager(this)
         val offlineSummaryQueue = OfflineSummaryQueue(this)
         val libreChatService = LibreChatService(authManager, offlineSummaryQueue)
+        
+        // Create sessionManager first
         val sessionManager = SessionManager(this, libreChatService)
+        
+        // Create voiceClientManager with sessionManager
         val voiceClientManager = VoiceClientManager(this, sessionManager)
+        
+        // Set voiceClientManager reference in sessionManager (circular dependency resolution)
+        sessionManager.voiceClientManager = voiceClientManager
         
         // Initialize network monitor
         networkMonitor = NetworkMonitor(this)
+        
+        // Set up session timeout callback
+        var currentScreenRef: Screen? = null
 
         setContent {
-            var currentScreen by remember { 
-                mutableStateOf(
-                    if (authManager.isTokenValid()) Screen.THREAD_LIST else Screen.LOGIN
-                )
-            }
+            var currentScreen by remember { mutableStateOf(Screen.LOGIN) }
+            var isAutoLoginInProgress by remember { mutableStateOf(false) }
+            var autoLoginError by remember { mutableStateOf<String?>(null) }
             var tempImageUri by remember { mutableStateOf<Uri?>(null) }
             var selectedConversationId by remember { mutableStateOf<String?>(null) }
+            var showPINEntryDialog by remember { mutableStateOf(false) }
+            
+            // Set up session timeout callback
+            LaunchedEffect(Unit) {
+                voiceClientManager.setSessionTimeoutCallback {
+                    // Session timed out - end session and return to thread list
+                    lifecycleScope.launch {
+                        // Generate and send summary
+                        sessionManager.endSession()
+                        // Navigate back to thread list
+                        currentScreen = Screen.THREAD_LIST
+                    }
+                }
+            }
+            
+            // Handle automatic login on app launch
+            LaunchedEffect(Unit) {
+                // Check if we have a valid token
+                if (authManager.isTokenValid()) {
+                    currentScreen = Screen.THREAD_LIST
+                } else if (authManager.hasStoredCredentials()) {
+                    // Token is invalid but we have stored credentials - attempt auto-login
+                    isAutoLoginInProgress = true
+                    val result = authManager.autoLogin()
+                    isAutoLoginInProgress = false
+                    
+                    result.onSuccess {
+                        // Auto-login successful, navigate to thread list
+                        currentScreen = Screen.THREAD_LIST
+                        autoLoginError = null
+                    }.onFailure { error ->
+                        // Auto-login failed, show login screen with error
+                        currentScreen = Screen.LOGIN
+                        autoLoginError = "Session expired. Please log in again."
+                    }
+                } else {
+                    // No stored credentials, show login screen
+                    currentScreen = Screen.LOGIN
+                }
+            }
             
             // Observe network connectivity
             val isNetworkConnected by networkMonitor.isConnected.collectAsState()
@@ -174,33 +223,120 @@ class MainActivity : ComponentActivity() {
 
                             when (currentScreen) {
                             Screen.LOGIN -> {
-                                LoginScreen(
-                                    authManager = authManager,
-                                    onLoginSuccess = {
-                                        currentScreen = Screen.THREAD_LIST
+                                if (isAutoLoginInProgress) {
+                                    // Show loading indicator during auto-login
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(48.dp),
+                                                color = Colors.buttonNormal,
+                                                strokeWidth = 4.dp
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                text = "Logging in...",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.W400,
+                                                color = Color.Black,
+                                                style = TextStyles.base
+                                            )
+                                        }
                                     }
-                                )
+                                } else {
+                                    LoginScreen(
+                                        authManager = authManager,
+                                        initialError = autoLoginError,
+                                        onLoginSuccess = {
+                                            currentScreen = Screen.THREAD_LIST
+                                            autoLoginError = null
+                                        }
+                                    )
+                                }
                             }
                             Screen.THREAD_LIST -> {
+                                // Monitor token validity and attempt auto-login if expired
+                                LaunchedEffect(Unit) {
+                                    if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
+                                        isAutoLoginInProgress = true
+                                        val result = authManager.autoLogin()
+                                        isAutoLoginInProgress = false
+                                        
+                                        result.onFailure {
+                                            // Auto-login failed, return to login screen
+                                            currentScreen = Screen.LOGIN
+                                            autoLoginError = "Session expired. Please log in again."
+                                        }
+                                    }
+                                }
+                                
                                 ThreadListScreen(
                                     libreChatService = libreChatService,
                                     authManager = authManager,
                                     onThreadSelected = { conversationId ->
                                         selectedConversationId = conversationId
                                         lifecycleScope.launch {
+                                            // Check token validity before starting session
+                                            if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
+                                                val autoLoginResult = authManager.autoLogin()
+                                                if (autoLoginResult.isFailure) {
+                                                    currentScreen = Screen.LOGIN
+                                                    autoLoginError = "Session expired. Please log in again."
+                                                    return@launch
+                                                }
+                                            }
+                                            
+                                            // Load thread-specific settings
+                                            val threadSettings = ThreadSettingsManager.getSettings(conversationId)
+                                            
                                             // Start session and get context
                                             val result = sessionManager.startSession(conversationId)
                                             result.onSuccess { sessionContext ->
                                                 // Update system prompt in preferences
                                                 Preferences.systemPrompt.value = sessionContext.systemPrompt
-                                                // Start voice client with the context
-                                                voiceClientManager.start()
+                                                // Start voice client with thread-specific settings
+                                                voiceClientManager.start(threadSettings)
                                                 currentScreen = Screen.IN_CALL
                                             }.onFailure { error ->
-                                                // Show error and stay on thread list
-                                                voiceClientManager.errors.add(Error("Failed to start session: ${error.message}"))
+                                                // Check if error is due to authentication
+                                                if (error.message?.contains("401") == true || 
+                                                    error.message?.contains("authentication") == true ||
+                                                    error.message?.contains("unauthorized") == true) {
+                                                    // Try auto-login once more
+                                                    if (authManager.hasStoredCredentials()) {
+                                                        val autoLoginResult = authManager.autoLogin()
+                                                        if (autoLoginResult.isSuccess) {
+                                                            // Retry starting session
+                                                            val retryResult = sessionManager.startSession(conversationId)
+                                                            retryResult.onSuccess { sessionContext ->
+                                                                Preferences.systemPrompt.value = sessionContext.systemPrompt
+                                                                voiceClientManager.start(threadSettings)
+                                                                currentScreen = Screen.IN_CALL
+                                                            }.onFailure { retryError ->
+                                                                voiceClientManager.errors.add(Error("Failed to start session: ${retryError.message}"))
+                                                            }
+                                                        } else {
+                                                            currentScreen = Screen.LOGIN
+                                                            autoLoginError = "Session expired. Please log in again."
+                                                        }
+                                                    } else {
+                                                        currentScreen = Screen.LOGIN
+                                                        autoLoginError = "Session expired. Please log in again."
+                                                    }
+                                                } else {
+                                                    // Show error and stay on thread list
+                                                    voiceClientManager.errors.add(Error("Failed to start session: ${error.message}"))
+                                                }
                                             }
                                         }
+                                    },
+                                    onSettingsClick = {
+                                        // Show PIN entry dialog before navigating to settings
+                                        showPINEntryDialog = true
                                     },
                                     onLogout = {
                                         lifecycleScope.launch {
@@ -211,17 +347,53 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             Screen.SETTINGS -> {
+                                var showChangePINDialog by remember { mutableStateOf(false) }
+                                
                                 SettingsScreen(
-                                    onBackClick = {
-                                        currentScreen = if (isConnected) Screen.IN_CALL else Screen.CONNECT
+                                    onClose = {
+                                        // Return to thread list when settings screen is closed
+                                        currentScreen = Screen.THREAD_LIST
+                                    },
+                                    onLogout = {
+                                        lifecycleScope.launch {
+                                            // Stop any active voice session
+                                            if (voiceClientManager.state.value != ConnectionState.DISCONNECTED) {
+                                                voiceClientManager.stop()
+                                            }
+                                            
+                                            // End any active session and clear session data
+                                            sessionManager.endSession()
+                                            
+                                            // Clear stored credentials and navigate to login
+                                            authManager.logout()
+                                            currentScreen = Screen.LOGIN
+                                        }
+                                    },
+                                    onChangePIN = {
+                                        showChangePINDialog = true
                                     }
                                 )
+                                
+                                // TODO: Implement ChangePINDialog in task 11
+                                // if (showChangePINDialog) {
+                                //     ChangePINDialog(
+                                //         onPINChanged = { showChangePINDialog = false },
+                                //         onDismiss = { showChangePINDialog = false }
+                                //     )
+                                // }
                             }
                             Screen.IN_CALL -> {
                                 if (isConnected) {
                                     InCallLayout(
                                         voiceClientManager = voiceClientManager,
                                         onSettingsClick = { currentScreen = Screen.SETTINGS },
+                                        onEndSession = {
+                                            // End session with summary generation
+                                            lifecycleScope.launch {
+                                                sessionManager.endSession()
+                                                // Connection will be closed by endSessionWithSummary
+                                            }
+                                        },
                                         onCameraClick = onCameraClick,
                                         onGalleryClick = onGalleryClick
                                     )
@@ -313,6 +485,21 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        
+                        // PIN entry dialog for settings access
+                        if (showPINEntryDialog) {
+                            PINEntryDialog(
+                                onPINValidated = {
+                                    // PIN validated successfully, navigate to settings
+                                    showPINEntryDialog = false
+                                    currentScreen = Screen.SETTINGS
+                                },
+                                onDismiss = {
+                                    // User cancelled PIN entry
+                                    showPINEntryDialog = false
+                                }
+                            )
+                        }
                         }
                     }
                 }
@@ -390,7 +577,7 @@ fun ConnectSettings(
                     colors = textFieldColors(),
                     shape = RoundedCornerShape(12.dp),
                     keyboardActions = KeyboardActions(
-                        onDone = { (voiceClientManager::start)() }
+                        onDone = { voiceClientManager.start() }
                     )
                 )
 

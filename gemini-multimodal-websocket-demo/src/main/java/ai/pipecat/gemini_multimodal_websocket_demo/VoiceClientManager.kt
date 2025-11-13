@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.Timestamp
 import android.annotation.SuppressLint
 import android.content.Context
@@ -66,13 +67,22 @@ data class SetupMessage(
 data class Setup(
     val model: String,
     val generation_config: GenerationConfig? = null,
-    val system_instruction: SystemInstruction? = null
+    val system_instruction: SystemInstruction? = null,
+    val output_audio_transcription: OutputAudioTranscription? = null,
+    val input_audio_transcription: InputAudioTranscription? = null
 )
 
 @Serializable
+class OutputAudioTranscription
+
+@Serializable
+class InputAudioTranscription
+
+@Serializable
 data class GenerationConfig(
-    val response_modalities: List<String> = listOf("AUDIO"),
-    val speech_config: SpeechConfig? = null
+    val response_modalities: List<String> = listOf("AUDIO", "TEXT"),
+    val speech_config: SpeechConfig? = null,
+    val temperature: Float? = null
 )
 
 @Serializable
@@ -146,6 +156,12 @@ class VoiceClientManager(
     private var speechRecognizer: SpeechRecognizer? = null
     private var isRecognizing = false
     private var lastRecognitionTime = 0L
+    private var currentThreadSettings: ThreadSettings? = null
+    private var currentSpeechSpeed: Float = 1.0f
+    private var currentVolumeBoost: Float = 1.0f
+    private var lastActivityTime: Long = 0L
+    private var idleCheckJob: Job? = null
+    private var onSessionTimeout: (() -> Unit)? = null
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
@@ -167,8 +183,64 @@ class VoiceClientManager(
     // Transcript callbacks
     var onUserTranscript: ((String) -> Unit)? = null
     var onBotTranscript: ((String) -> Unit)? = null
+    
+    /**
+     * Set callback for session timeout
+     */
+    fun setSessionTimeoutCallback(callback: () -> Unit) {
+        onSessionTimeout = callback
+    }
+    
 
-    fun start() {
+    
+    /**
+     * Update last activity time (called when user speaks or interacts)
+     */
+    private fun updateActivity() {
+        lastActivityTime = System.currentTimeMillis()
+    }
+    
+    /**
+     * Start monitoring for idle timeout
+     */
+    private fun startIdleMonitoring() {
+        val timeoutMinutes = Preferences.sessionTimeoutMinutes.value
+        if (timeoutMinutes <= 0) {
+            Log.i(TAG, "Session timeout disabled (timeout = $timeoutMinutes)")
+            return
+        }
+        
+        val timeoutMillis = timeoutMinutes * 60 * 1000L
+        Log.i(TAG, "Starting idle monitoring with timeout: $timeoutMinutes minutes")
+        
+        lastActivityTime = System.currentTimeMillis()
+        
+        idleCheckJob = scope?.launch {
+            while (isActive && state.value == ConnectionState.CONNECTED) {
+                delay(10000) // Check every 10 seconds
+                
+                val idleTime = System.currentTimeMillis() - lastActivityTime
+                if (idleTime >= timeoutMillis) {
+                    Log.i(TAG, "Session timeout reached after ${idleTime / 1000} seconds of inactivity")
+                    // Stop the session
+                    stop()
+                    // Notify callback
+                    onSessionTimeout?.invoke()
+                    break
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop idle monitoring
+     */
+    private fun stopIdleMonitoring() {
+        idleCheckJob?.cancel()
+        idleCheckJob = null
+    }
+
+    fun start(threadSettings: ThreadSettings? = null) {
         if (state.value != ConnectionState.DISCONNECTED) {
             Log.w(TAG, "Already connected or connecting")
             return
@@ -180,8 +252,16 @@ class VoiceClientManager(
             return
         }
 
+        // Store thread settings for use during session
+        currentThreadSettings = threadSettings
+        
+        // Apply thread settings or fall back to preferences
+        val voiceName = threadSettings?.voiceName ?: Preferences.selectedVoice.value ?: "Puck"
+        currentSpeechSpeed = threadSettings?.speechSpeed ?: 1.0f
+        currentVolumeBoost = threadSettings?.volumeBoost ?: 1.0f
+        val temperature = threadSettings?.temperature ?: 1.0f
+        
         val model = Preferences.modelName.value ?: "gemini-2.5-flash-native-audio-preview-09-2025"
-        val voiceName = Preferences.selectedVoice.value ?: "Puck"
         
         // Get system prompt from current session context (from LibreChat) or fallback to preferences
         val currentSession = sessionManager?.getCurrentSession()
@@ -196,9 +276,17 @@ class VoiceClientManager(
         Log.i(TAG, "Starting connection with:")
         Log.i(TAG, "  Model: $model")
         Log.i(TAG, "  Voice: $voiceName")
+        Log.i(TAG, "  Speech Speed: $currentSpeechSpeed")
+        Log.i(TAG, "  Volume Boost: $currentVolumeBoost")
+        Log.i(TAG, "  Temperature: $temperature")
         Log.i(TAG, "  System Prompt: $systemPrompt")
         Log.i(TAG, "  Session ID: ${currentSession?.sessionId ?: "none"}")
         Log.i(TAG, "  Conversation ID: ${currentSession?.conversationId ?: "none"}")
+        if (threadSettings != null) {
+            Log.i(TAG, "  Using thread-specific settings for conversation: ${threadSettings.conversationId}")
+        } else {
+            Log.i(TAG, "  Using default settings from preferences")
+        }
 
         state.value = ConnectionState.CONNECTING
         scope = CoroutineScope(Dispatchers.IO)
@@ -215,6 +303,8 @@ class VoiceClientManager(
                 Log.i(TAG, "WebSocket opened")
                 
                 // Send setup message
+                // Configure setup with audio transcription enabled
+                // This allows us to get text transcripts of both input and output audio
                 val setupMsg = SetupMessage(
                     setup = Setup(
                         model = "models/$model",
@@ -226,11 +316,15 @@ class VoiceClientManager(
                                         voice_name = voiceName
                                     )
                                 )
-                            )
+                            ),
+                            temperature = temperature
                         ),
                         system_instruction = SystemInstruction(
                             parts = listOf(Part(text = systemPrompt))
-                        )
+                        ),
+                        // Enable transcription for both input and output audio
+                        output_audio_transcription = OutputAudioTranscription(),
+                        input_audio_transcription = InputAudioTranscription()
                     )
                 )
                 
@@ -294,15 +388,10 @@ class VoiceClientManager(
                 startAudioPlayback()
                 acquireWakeLock()
                 increaseAudioVolume()
+                startIdleMonitoring()
                 
-                // Initialize speech recognition for user transcripts
-                if (sessionManager != null) {
-                    initializeSpeechRecognizer()
-                    scope?.launch {
-                        delay(1000) // Wait a bit for audio to stabilize
-                        startContinuousRecognition()
-                    }
-                }
+                // Note: We no longer use Android SpeechRecognizer
+                // Gemini Live API provides transcription via input_audio_transcription
                 return
             }
 
@@ -310,20 +399,37 @@ class VoiceClientManager(
             if (jsonObject.containsKey("serverContent")) {
                 val serverContent = jsonObject["serverContent"]?.jsonObject
                 
-                // Check if bot is speaking
+                // Check for output transcription (bot's audio transcribed to text)
+                if (serverContent?.containsKey("outputTranscription") == true) {
+                    val outputTranscription = serverContent["outputTranscription"]?.jsonObject
+                    val transcriptText = outputTranscription?.get("text")?.jsonPrimitive?.content
+                    
+                    if (!transcriptText.isNullOrBlank()) {
+                        Log.d(TAG, "Bot transcript (from outputTranscription): $transcriptText")
+                        sessionManager?.captureBotTranscript(transcriptText)
+                        onBotTranscript?.invoke(transcriptText)
+                    }
+                }
+                
+                // Check for input transcription (user's audio transcribed to text)
+                if (serverContent?.containsKey("inputTranscription") == true) {
+                    val inputTranscription = serverContent["inputTranscription"]?.jsonObject
+                    val transcriptText = inputTranscription?.get("text")?.jsonPrimitive?.content
+                    
+                    if (!transcriptText.isNullOrBlank()) {
+                        Log.d(TAG, "User transcript (from inputTranscription): $transcriptText")
+                        sessionManager?.captureUserTranscript(transcriptText)
+                        onUserTranscript?.invoke(transcriptText)
+                        updateActivity() // User is active
+                    }
+                }
+                
+                // Check if bot is speaking (audio data)
                 if (serverContent?.containsKey("modelTurn") == true) {
                     val modelTurn = serverContent["modelTurn"]?.jsonObject
                     val parts = modelTurn?.get("parts")
                     
                     if (parts != null) {
-                        // Extract text transcript from model turn
-                        val transcriptText = extractTextFromModelTurn(serverContent)
-                        if (transcriptText.isNotEmpty()) {
-                            Log.d(TAG, "Bot transcript: $transcriptText")
-                            sessionManager?.captureBotTranscript(transcriptText)
-                            onBotTranscript?.invoke(transcriptText)
-                        }
-                        
                         // Check for audio in parts
                         try {
                             val partsArray = parts.jsonArray
@@ -369,38 +475,42 @@ class VoiceClientManager(
         }
     }
     
+    // This method is no longer needed - we use transcription instead
+    // Kept for backward compatibility but not used
     private fun extractTextFromModelTurn(serverContent: JsonObject): String {
-        try {
-            val modelTurn = serverContent["modelTurn"]?.jsonObject ?: return ""
-            val parts = modelTurn["parts"]?.jsonArray ?: return ""
-            
-            val textParts = mutableListOf<String>()
-            for (part in parts) {
-                val partObj = part.jsonObject
-                
-                // Check for text content
-                if (partObj.containsKey("text")) {
-                    val text = partObj["text"]?.jsonPrimitive?.content
-                    if (!text.isNullOrBlank()) {
-                        textParts.add(text)
-                    }
-                }
-            }
-            
-            return textParts.joinToString(" ").trim()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error extracting text from model turn: ${e.message}")
-            return ""
-        }
+        return ""
     }
 
     private fun handleAudioMessage(audioData: ByteArray) {
+        // Apply volume boost if configured
+        val boostedAudio = if (currentVolumeBoost != 1.0f) {
+            applyVolumeBoost(audioData, currentVolumeBoost)
+        } else {
+            audioData
+        }
+        
         // Play received audio
-        audioTrack?.write(audioData, 0, audioData.size)
+        audioTrack?.write(boostedAudio, 0, boostedAudio.size)
         
         // Calculate audio level for visualization
-        val level = calculateAudioLevel(audioData)
+        val level = calculateAudioLevel(boostedAudio)
         botAudioLevel.floatValue = level
+    }
+    
+    private fun applyVolumeBoost(audioData: ByteArray, boost: Float): ByteArray {
+        if (boost == 1.0f) return audioData
+        
+        val buffer = ByteBuffer.wrap(audioData).order(ByteOrder.LITTLE_ENDIAN)
+        val boostedData = ByteArray(audioData.size)
+        val boostedBuffer = ByteBuffer.wrap(boostedData).order(ByteOrder.LITTLE_ENDIAN)
+        
+        while (buffer.remaining() >= 2) {
+            val sample = buffer.short
+            val boostedSample = (sample * boost).coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat()).toInt().toShort()
+            boostedBuffer.putShort(boostedSample)
+        }
+        
+        return boostedData
     }
 
     private fun calculateAudioLevel(audioData: ByteArray): Float {
@@ -445,6 +555,11 @@ class VoiceClientManager(
             recordingJob = scope?.launch {
                 val buffer = ByteArray(bufferSize)
                 
+                // Calculate delay based on speech speed (inverse relationship)
+                // Faster speed = shorter delay between sends
+                val baseDelay = 10L
+                val adjustedDelay = (baseDelay / currentSpeechSpeed).toLong().coerceAtLeast(1L)
+                
                 while (isActive && state.value == ConnectionState.CONNECTED) {
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                     
@@ -459,6 +574,7 @@ class VoiceClientManager(
                             userIsTalking.value = isTalking
                             if (isTalking) {
                                 Log.i(TAG, "User started speaking")
+                                updateActivity() // User is active
                             } else {
                                 Log.i(TAG, "User stopped speaking")
                             }
@@ -481,7 +597,7 @@ class VoiceClientManager(
                         webSocket?.send(messageJson)
                     }
                     
-                    delay(10) // Small delay to prevent overwhelming the connection
+                    delay(adjustedDelay) // Adjusted delay based on speech speed
                 }
             }
 
@@ -586,6 +702,7 @@ class VoiceClientManager(
                             Log.i(TAG, "User transcript: $transcribedText")
                             sessionManager?.captureUserTranscript(transcribedText)
                             onUserTranscript?.invoke(transcribedText)
+                            updateActivity() // User is active
                         }
                     }
                     
@@ -656,13 +773,19 @@ class VoiceClientManager(
         mic.value = enabled
         if (enabled) {
             audioRecord?.startRecording()
+            updateActivity() // User interaction
         } else {
             audioRecord?.stop()
         }
     }
 
-    fun toggleMic() = enableMic(!mic.value)
+    fun toggleMic() {
+        enableMic(!mic.value)
+        updateActivity() // User interaction
+    }
 
+
+    
     fun stop() {
         if (state.value == ConnectionState.DISCONNECTED) {
             return
@@ -702,12 +825,20 @@ class VoiceClientManager(
         speechRecognizer = null
         isRecognizing = false
         
+        stopIdleMonitoring()
+        
         webSocket = null
         
         scope?.cancel()
         scope = null
         
         releaseWakeLock()
+        
+        // Reset thread settings
+        currentThreadSettings = null
+        currentSpeechSpeed = 1.0f
+        currentVolumeBoost = 1.0f
+        lastActivityTime = 0L
         
         state.value = ConnectionState.DISCONNECTED
         botReady.value = false
@@ -781,6 +912,12 @@ class VoiceClientManager(
     @Suppress("DEPRECATION")
     private fun acquireWakeLock() {
         try {
+            // Check if keep screen awake is enabled in preferences
+            if (Preferences.keepScreenAwake.value != true) {
+                Log.i(TAG, "Keep screen awake is disabled, skipping wake lock")
+                return
+            }
+            
             if (wakeLock?.isHeld == true) {
                 return
             }

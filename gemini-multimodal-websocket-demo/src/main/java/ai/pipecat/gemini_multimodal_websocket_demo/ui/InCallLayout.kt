@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 fun InCallLayout(
     voiceClientManager: VoiceClientManager,
     onSettingsClick: () -> Unit,
+    onEndSession: () -> Unit,
     onCameraClick: () -> Unit = {},
     onGalleryClick: () -> Unit = {}
 ) {
@@ -24,7 +25,7 @@ fun InCallLayout(
 
         InCallHeader(
             expiryTime = voiceClientManager.expiryTime.value,
-            onSettingsClick = onSettingsClick
+            onSettingsClick = {} // Settings button removed during call
         )
 
         Box(
@@ -60,7 +61,7 @@ fun InCallLayout(
         }
 
         InCallFooter(
-            onClickEnd = voiceClientManager::stop,
+            onClickEnd = onEndSession,
             onCameraClick = onCameraClick,
             onGalleryClick = onGalleryClick
         )

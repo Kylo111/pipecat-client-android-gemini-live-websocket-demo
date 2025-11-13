@@ -28,22 +28,9 @@ fun InCallHeader(
             .fillMaxWidth()
             .padding(vertical = 15.dp)
     ) {
-        val (refSettings, refTimer) = createRefs()
+        val (refTimer) = createRefs()
 
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier.constrainAs(refSettings) {
-                top.linkTo(parent.top)
-                bottom.linkTo(parent.bottom)
-                start.linkTo(parent.start)
-            }
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = Color.White
-            )
-        }
+        // Settings button removed during call - not needed during active conversation
 
         AnimatedContent(
             modifier = Modifier.constrainAs(refTimer) {

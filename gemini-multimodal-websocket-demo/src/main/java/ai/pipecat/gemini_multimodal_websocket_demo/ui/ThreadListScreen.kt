@@ -2,6 +2,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.AuthManager
 import ai.pipecat.gemini_multimodal_websocket_demo.LibreChatService
+import ai.pipecat.gemini_multimodal_websocket_demo.ThemeManager
 import ai.pipecat.gemini_multimodal_websocket_demo.models.LibreChatError
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
@@ -19,13 +20,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,11 +43,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectTapGestures
 import kotlinx.coroutines.launch
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 
 /**
  * Thread list screen showing available conversation threads from LibreChat
@@ -52,6 +62,7 @@ import kotlinx.coroutines.launch
  * @param libreChatService Service for fetching threads from LibreChat
  * @param authManager AuthManager instance for logout functionality
  * @param onThreadSelected Callback invoked when a thread is selected with conversationId
+ * @param onSettingsClick Callback invoked when settings gear icon is clicked
  * @param onLogout Callback invoked when user logs out
  */
 @Composable
@@ -59,6 +70,7 @@ fun ThreadListScreen(
     libreChatService: LibreChatService,
     authManager: AuthManager,
     onThreadSelected: (String) -> Unit,
+    onSettingsClick: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -68,6 +80,9 @@ fun ThreadListScreen(
     var error by remember { mutableStateOf<LibreChatError?>(null) }
     var selectedThreadId by remember { mutableStateOf<String?>(null) }
     var isLoadingContext by remember { mutableStateOf(false) }
+    var showConfigDialog by remember { mutableStateOf(false) }
+    var configDialogThread by remember { mutableStateOf<LibreChatService.ConversationThread?>(null) }
+    var configDialogSettings by remember { mutableStateOf<ThreadSettings?>(null) }
 
     // Load threads when screen opens
     LaunchedEffect(Unit) {
@@ -106,41 +121,69 @@ fun ThreadListScreen(
                 .fillMaxSize()
                 .padding(20.dp)
         ) {
-            // Header with logout button
+            // Header with theme toggle and settings icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Wybierz temat nauki",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.W700,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                // Logout button
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Colors.buttonWarning)
-                        .clickable {
-                            coroutineScope.launch {
-                                authManager.logout()
-                                onLogout()
-                            }
-                        }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                // Theme toggle on the left
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Wyloguj",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.W600,
-                        color = Color.White,
-                        style = TextStyles.base
+                        text = if (ThemeManager.isDarkTheme.value) "🌙" else "☀️",
+                        fontSize = 20.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = ThemeManager.isDarkTheme.value,
+                        onCheckedChange = { ThemeManager.toggleTheme() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Colors.buttonNormal,
+                            checkedTrackColor = Colors.buttonNormal.copy(alpha = 0.5f),
+                            uncheckedThumbColor = Color.Gray,
+                            uncheckedTrackColor = Color.LightGray
+                        )
                     )
                 }
+                
+                // Settings gear icon on the right
+                Icon(
+                    painter = painterResource(id = R.drawable.cog),
+                    contentDescription = "Settings",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clickable { onSettingsClick() },
+                    tint = Color.Gray
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // "Co dzis robimy?" styled frame
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 2.dp,
+                        color = Colors.buttonNormal,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .background(
+                        color = Colors.buttonNormal.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Co dzis robimy?",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Colors.buttonNormal,
+                    style = TextStyles.base
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -233,21 +276,25 @@ fun ThreadListScreen(
                 }
                 
                 else -> {
-                    // Thread grid
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                    // Thread list - vertically scrollable full-width buttons
+                    LazyColumn(
                         contentPadding = PaddingValues(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(threads) { thread ->
-                            ThreadCard(
+                            ThreadButton(
                                 thread = thread,
                                 isSelected = selectedThreadId == thread.id,
                                 isLoading = isLoadingContext && selectedThreadId == thread.id,
                                 onClick = {
                                     // SessionManager will fetch context, no need to do it here
                                     onThreadSelected(thread.id)
+                                },
+                                onLongPress = {
+                                    // Load current settings for this thread
+                                    configDialogThread = thread
+                                    configDialogSettings = ThreadSettingsManager.getSettings(thread.id)
+                                    showConfigDialog = true
                                 }
                             )
                         }
@@ -291,19 +338,40 @@ fun ThreadListScreen(
                 }
             }
         }
+        
+        // Thread configuration dialog
+        if (showConfigDialog && configDialogThread != null && configDialogSettings != null) {
+            ThreadConfigDialog(
+                thread = configDialogThread!!,
+                currentSettings = configDialogSettings!!,
+                onSave = { settings ->
+                    ThreadSettingsManager.saveSettings(settings)
+                    showConfigDialog = false
+                    configDialogThread = null
+                    configDialogSettings = null
+                },
+                onDismiss = {
+                    showConfigDialog = false
+                    configDialogThread = null
+                    configDialogSettings = null
+                }
+            )
+        }
     }
 }
 
 @Composable
-private fun ThreadCard(
+private fun ThreadButton(
     thread: LibreChatService.ConversationThread,
     isSelected: Boolean,
     isLoading: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongPress: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(64.dp)
             .shadow(2.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) Colors.buttonSection else Color.White)
@@ -312,42 +380,43 @@ private fun ThreadCard(
                 color = if (isSelected) Colors.buttonNormal else Color.Transparent,
                 shape = RoundedCornerShape(12.dp)
             )
-            .clickable(enabled = !isLoading) { onClick() }
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        if (!isLoading) {
+                            onClick()
+                        }
+                    },
+                    onLongPress = {
+                        if (!isLoading) {
+                            onLongPress()
+                        }
+                    }
+                )
+            }
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(32.dp),
-                color = Colors.buttonNormal,
-                strokeWidth = 3.dp
-            )
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = thread.subject,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.W700,
-                    color = Color.Black,
-                    style = TextStyles.base,
-                    textAlign = TextAlign.Center
+                CircularProgressIndicator(
+                    modifier = Modifier.size(32.dp),
+                    color = Colors.buttonNormal,
+                    strokeWidth = 3.dp
                 )
-                
-                if (thread.title != thread.subject) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = thread.title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.W400,
-                        color = Color.Gray,
-                        style = TextStyles.base,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2
-                    )
-                }
             }
+        } else {
+            Text(
+                text = thread.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.W600,
+                color = Color.Black,
+                style = TextStyles.base,
+                maxLines = 1
+            )
         }
     }
 }

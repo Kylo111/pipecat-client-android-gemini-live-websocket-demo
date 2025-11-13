@@ -3,7 +3,6 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,21 +14,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,228 +36,417 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-data class Voice(val name: String, val description: String)
-
-object VoiceList {
-    // Valid prebuilt voices for Gemini Live API
-    // Source: https://github.com/google/adk-docs/issues/487
-    val voices = listOf(
-        Voice("Puck", "Puck - Default voice"),
-        Voice("Charon", "Charon"),
-        Voice("Kore", "Kore"),
-        Voice("Fenrir", "Fenrir"),
-        Voice("Aoede", "Aoede"),
-        Voice("Leda", "Leda"),
-        Voice("Orus", "Orus"),
-        Voice("Zephyr", "Zephyr")
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Settings screen component with PIN protection
+ * Allows users to configure Gemini API settings, session management, and app preferences
+ * 
+ * @param onClose Callback invoked when user closes the settings screen
+ * @param onLogout Callback invoked when user logs out
+ * @param onChangePIN Callback invoked when user wants to change PIN
+ */
 @Composable
 fun SettingsScreen(
-    onBackClick: () -> Unit
+    onClose: () -> Unit,
+    onLogout: () -> Unit,
+    onChangePIN: () -> Unit
 ) {
-    val scrollState = rememberScrollState()
-    
-    var apiKey by remember { mutableStateOf(Preferences.apiKey.value ?: "") }
+    // Local state for settings
+    var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
     var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
-    var systemPrompt by remember { mutableStateOf(Preferences.systemPrompt.value ?: "You are a helpful assistant") }
-    var selectedVoice by remember { mutableStateOf(Preferences.selectedVoice.value ?: "Puck") }
-    var voiceExpanded by remember { mutableStateOf(false) }
+    var keepScreenAwake by remember { mutableStateOf(Preferences.keepScreenAwake.value) }
+    var sessionTimeout by remember { mutableStateOf(Preferences.sessionTimeoutMinutes.value.toString()) }
+    var selectedSkin by remember { mutableStateOf(Preferences.selectedSkin.value ?: "DEFAULT") }
+    var showSkinDropdown by remember { mutableStateOf(false) }
+    var showChangePINDialog by remember { mutableStateOf(false) }
+
+    // Save settings function
+    val saveSettings = {
+        Preferences.geminiApiKey.value = geminiApiKey
+        Preferences.modelName.value = modelName
+        Preferences.keepScreenAwake.value = keepScreenAwake
+        Preferences.sessionTimeoutMinutes.value = sessionTimeout.toIntOrNull() ?: 30
+        Preferences.selectedSkin.value = selectedSkin
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Colors.mainSurfaceBackground)
+            .background(Colors.activityBackground)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .imePadding()
-                .padding(20.dp)
+                .padding(24.dp)
         ) {
-            // Header with back button
+            // Header with X button
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
-                }
                 Text(
-                    text = "Settings",
+                    text = "Ustawienia",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.W700,
-                    color = Color.White,
-                    style = TextStyles.base,
-                    modifier = Modifier.padding(start = 8.dp)
+                    color = Color.Black,
+                    style = TextStyles.base
                 )
+
+                // X button
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Colors.buttonNormal)
+                        .clickable {
+                            saveSettings()
+                            onClose()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "✕",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.White,
+                        style = TextStyles.base
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Settings Card
-            Box(
-                Modifier
+            // Scrollable content
+            Column(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(2.dp, RoundedCornerShape(16.dp))
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                ) {
-                    // API Key
-                    Text(
-                        text = "Gemini API Key",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.W600,
-                        style = TextStyles.base,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, Colors.textFieldBorder, RoundedCornerShape(12.dp)),
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        colors = textFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
-                        visualTransformation = PasswordVisualTransformation()
+                // Gemini API Configuration Section
+                SettingsSection(title = "Konfiguracja Gemini API") {
+                    // Gemini API Key
+                    SettingsTextField(
+                        label = "Klucz API Gemini",
+                        value = geminiApiKey,
+                        onValueChange = { geminiApiKey = it },
+                        isPassword = true
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Model Name
-                    Text(
-                        text = "Model Name",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.W600,
-                        style = TextStyles.base,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, Colors.textFieldBorder, RoundedCornerShape(12.dp)),
+                    SettingsTextField(
+                        label = "Nazwa modelu",
                         value = modelName,
-                        onValueChange = { modelName = it },
-                        colors = textFieldColors(),
-                        shape = RoundedCornerShape(12.dp)
+                        onValueChange = { modelName = it }
+                    )
+                }
+
+                // Session Management Section
+                SettingsSection(title = "Zarządzanie sesją") {
+                    // Keep Screen Awake Toggle
+                    SettingsToggle(
+                        label = "Utrzymuj ekran włączony",
+                        checked = keepScreenAwake,
+                        onCheckedChange = { keepScreenAwake = it }
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Voice Selection
+                    // Session Timeout
+                    SettingsTextField(
+                        label = "Limit czasu sesji (minuty)",
+                        value = sessionTimeout,
+                        onValueChange = { 
+                            if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                                sessionTimeout = it
+                            }
+                        },
+                        keyboardType = KeyboardType.Number
+                    )
+                }
+
+                // Visual Preferences Section
+                SettingsSection(title = "Preferencje wizualne") {
+                    // Skin Selection
                     Text(
-                        text = "Voice",
-                        fontSize = 16.sp,
+                        text = "Wybór skórki",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
-                        style = TextStyles.base,
-                        color = Color.Black
+                        color = Color.Black,
+                        style = TextStyles.base
                     )
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    ExposedDropdownMenuBox(
-                        expanded = voiceExpanded,
-                        onExpandedChange = { voiceExpanded = it }
-                    ) {
-                        TextField(
+
+                    Box {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor()
-                                .border(1.dp, Colors.textFieldBorder, RoundedCornerShape(12.dp)),
-                            value = selectedVoice,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded) },
-                            colors = textFieldColors(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        ExposedDropdownMenu(
-                            expanded = voiceExpanded,
-                            onDismissRequest = { voiceExpanded = false }
+                                .height(48.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = Colors.textFieldBorder,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White)
+                                .clickable { showSkinDropdown = true }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            VoiceList.voices.forEach { voice ->
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = when (selectedSkin) {
+                                        "DEFAULT" -> "Domyślny"
+                                        "DARK_BLUE" -> "Ciemny Niebieski"
+                                        "WARM_ORANGE" -> "Ciepły Pomarańczowy"
+                                        else -> selectedSkin
+                                    },
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.W400,
+                                    color = Color.Black,
+                                    style = TextStyles.base
+                                )
+
+                                if (selectedSkin != "DEFAULT") {
+                                    Text(
+                                        text = "Wkrótce",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = Colors.buttonNormal,
+                                        style = TextStyles.base,
+                                        modifier = Modifier
+                                            .background(
+                                                Colors.buttonSection,
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showSkinDropdown,
+                            onDismissRequest = { showSkinDropdown = false },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White)
+                        ) {
+                            listOf(
+                                "DEFAULT" to "Domyślny",
+                                "DARK_BLUE" to "Ciemny Niebieski",
+                                "WARM_ORANGE" to "Ciepły Pomarańczowy"
+                            ).forEach { (value, label) ->
                                 DropdownMenuItem(
-                                    text = { Text(voice.name) },
+                                    text = {
+                                        Text(
+                                            text = label,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.W400,
+                                            color = Color.Black,
+                                            style = TextStyles.base
+                                        )
+                                    },
                                     onClick = {
-                                        selectedVoice = voice.name
-                                        voiceExpanded = false
+                                        selectedSkin = value
+                                        showSkinDropdown = false
                                     }
                                 )
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // System Prompt
-                    Text(
-                        text = "System Prompt",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.W600,
-                        style = TextStyles.base,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                            .border(1.dp, Colors.textFieldBorder, RoundedCornerShape(12.dp)),
-                        value = systemPrompt,
-                        onValueChange = { systemPrompt = it },
-                        colors = textFieldColors(),
-                        shape = RoundedCornerShape(12.dp),
-                        maxLines = 5
-                    )
 
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // Save Button
+                // Security Section
+                SettingsSection(title = "Bezpieczeństwo") {
+                    // Change PIN Button
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(48.dp)
+                            .border(
+                                width = 1.dp,
+                                color = Colors.buttonNormal,
+                                shape = RoundedCornerShape(8.dp)
+                            )
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Colors.buttonNormal)
-                            .clickable {
-                                Preferences.apiKey.value = apiKey
-                                Preferences.modelName.value = modelName
-                                Preferences.systemPrompt.value = systemPrompt
-                                Preferences.selectedVoice.value = selectedVoice
-                                onBackClick()
-                            }
-                            .padding(vertical = 12.dp),
+                            .background(Color.White)
+                            .clickable { showChangePINDialog = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Save",
+                            text = "Zmień PIN",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
-                            color = Color.White,
+                            color = Colors.buttonNormal,
                             style = TextStyles.base
                         )
                     }
                 }
+
+                // Logout Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Colors.buttonWarning)
+                        .clickable {
+                            saveSettings()
+                            onLogout()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Wyloguj",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.White,
+                        style = TextStyles.base
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
+        
+        // Show Change PIN Dialog
+        if (showChangePINDialog) {
+            ChangePINDialog(
+                onPINChanged = {
+                    showChangePINDialog = false
+                },
+                onDismiss = {
+                    showChangePINDialog = false
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Settings section container with title
+ */
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.W700,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        content()
+    }
+}
+
+/**
+ * Settings text field component
+ */
+@Composable
+private fun SettingsTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    isPassword: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W600,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                focusedIndicatorColor = Colors.buttonNormal,
+                unfocusedIndicatorColor = Colors.textFieldBorder,
+                cursorColor = Colors.buttonNormal
+            ),
+            textStyle = TextStyles.base.copy(
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.Black
+            ),
+            visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
+        )
+    }
+}
+
+/**
+ * Settings toggle component
+ */
+@Composable
+private fun SettingsToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W600,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Colors.buttonNormal,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Colors.lightGrey
+            )
+        )
     }
 }

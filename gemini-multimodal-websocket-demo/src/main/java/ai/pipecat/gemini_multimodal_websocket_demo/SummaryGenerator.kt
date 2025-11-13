@@ -2,12 +2,13 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.models.network.LessonSummaryData
 import ai.pipecat.gemini_multimodal_websocket_demo.models.network.ParentReportData
+import android.content.Context
 
 /**
  * Generates session summaries for learning sessions.
  * Analyzes transcripts to create lesson summaries and parent reports.
  */
-class SummaryGenerator {
+class SummaryGenerator(private val context: Context) {
     
     /**
      * Generates a lesson summary based on session transcripts.
@@ -290,4 +291,6 @@ class SummaryGenerator {
             }
         }
     }
+    
+
 }

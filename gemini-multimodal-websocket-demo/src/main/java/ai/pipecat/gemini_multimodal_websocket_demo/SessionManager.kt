@@ -5,7 +5,10 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.runBlocking
 import java.util.UUID
+import kotlin.coroutines.resume
 
 /**
  * Manages learning session context including transcripts, images, and context updates.
@@ -16,8 +19,11 @@ class SessionManager(
     private val libreChatService: LibreChatService
 ) {
     
-    // Summary generator for session analysis
-    private val summaryGenerator = SummaryGenerator()
+    // Summary generator for session analysis (fallback)
+    private val summaryGenerator = SummaryGenerator(context)
+    
+    // VoiceClientManager reference (set after construction to avoid circular dependency)
+    var voiceClientManager: VoiceClientManager? = null
     
     companion object {
         private const val TAG = "SessionManager"
@@ -290,9 +296,8 @@ class SessionManager(
     }
 
     /**
-     * End the current session and send summaries to LibreChat
-     * Generates lesson summary and parent report, then sends to LibreChat
-     * Falls back to offline queue if sending fails
+     * End the current session and send transcript to LibreChat
+     * Formats all transcripts with speaker roles and sends to LibreChat
      * 
      * @return Result indicating success or failure
      */
@@ -314,63 +319,36 @@ class SessionManager(
             
             val duration = System.currentTimeMillis() - session.startTime
             
-            // Generate summaries using SummaryGenerator
-            val lessonSummaryData = summaryGenerator.generateLessonSummary(
-                transcripts = session.transcripts,
-                duration = duration
-            )
+            Log.d(TAG, "📊 Session statistics:")
+            Log.d(TAG, "  Duration: ${duration / 60000} minutes")
+            Log.d(TAG, "  Transcripts: ${session.transcripts.size} entries")
+            Log.d(TAG, "  User transcripts: ${session.transcripts.count { it.speaker == Speaker.USER }}")
+            Log.d(TAG, "  Bot transcripts: ${session.transcripts.count { it.speaker == Speaker.BOT }}")
             
-            val parentReportData = summaryGenerator.generateParentReport(
-                lessonSummary = lessonSummaryData,
-                subject = "Learning Session",
-                duration = duration
-            )
+            // Stop the voice client connection
+            voiceClientManager?.stop()
             
-            // Build a simple text summary for LibreChat
-            val summaryText = buildString {
-                appendLine("📚 Podsumowanie sesji nauki")
-                appendLine()
-                appendLine("Temat: ${parentReportData.subject}")
-                appendLine("Czas trwania: ${duration / 60000} minut")
-                appendLine()
-                
-                if (lessonSummaryData.keyTopics.isNotEmpty()) {
-                    appendLine("🎯 Omówione tematy:")
-                    lessonSummaryData.keyTopics.forEach { appendLine("  • $it") }
-                    appendLine()
-                }
-                
-                if (lessonSummaryData.studentDifficulties.isNotEmpty()) {
-                    appendLine("⚠️ Trudności:")
-                    lessonSummaryData.studentDifficulties.forEach { appendLine("  • $it") }
-                    appendLine()
-                }
-                
-                appendLine("📊 Ocena postępu:")
-                appendLine(lessonSummaryData.progressAssessment)
-                appendLine()
-                
-                if (lessonSummaryData.nextSteps.isNotEmpty()) {
-                    appendLine("➡️ Następne kroki:")
-                    lessonSummaryData.nextSteps.forEach { appendLine("  • $it") }
-                }
-            }
+            // Format transcripts as conversation
+            val transcriptText = formatTranscriptsForLibreChat(session.transcripts, duration)
             
-            // Create simple summary request
+            Log.d(TAG, "📝 Formatted transcript:")
+            Log.d(TAG, "  Length: ${transcriptText.length} chars")
+            Log.d(TAG, "  Preview: ${transcriptText.take(300)}...")
+            
+            // Create summary request with transcript
             val summaryRequest = SummaryRequest(
                 conversationId = session.conversationId,
-                sessionSummary = summaryText
+                sessionSummary = transcriptText
             )
             
-            Log.d(TAG, "📤 Sending session summary:")
+            Log.d(TAG, "📤 Sending session transcript to LibreChat:")
             Log.d(TAG, "  Conversation ID: ${session.conversationId}")
-            Log.d(TAG, "  Summary length: ${summaryText.length} chars")
             
-            // Try to send summary to LibreChat
+            // Try to send transcript to LibreChat
             val sendResult = libreChatService.sendSessionSummary(summaryRequest)
             
             if (sendResult.isSuccess) {
-                Log.d(TAG, "Session summary sent successfully")
+                Log.d(TAG, "✅ Session transcript sent successfully")
                 // Clear session context on successful submission
                 currentSession = null
                 lastContextUpdateTime = 0
@@ -378,7 +356,7 @@ class SessionManager(
                 Result.success(Unit)
             } else {
                 // Handle failure by queuing for offline retry
-                Log.w(TAG, "Failed to send summary, will retry later")
+                Log.w(TAG, "⚠️ Failed to send transcript, will retry later")
                 // Note: Offline queue functionality can be added later if needed
                 
                 // Clear session even though send failed (it's queued)
@@ -386,14 +364,75 @@ class SessionManager(
                 lastContextUpdateTime = 0
                 isEndingSession = false
                 
-                Result.failure(sendResult.exceptionOrNull() ?: Exception("Failed to send summary"))
+                Result.failure(sendResult.exceptionOrNull() ?: Exception("Failed to send transcript"))
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error ending session", e)
+            Log.e(TAG, "❌ Error ending session", e)
             isEndingSession = false
             Result.failure(e)
         }
+    }
+    
+    /**
+     * Format transcripts for LibreChat with speaker roles
+     * Adds header and formats each transcript entry with timestamp and speaker
+     */
+    private fun formatTranscriptsForLibreChat(
+        transcripts: List<TranscriptEntry>,
+        duration: Long
+    ): String {
+        if (transcripts.isEmpty()) {
+            return "## TRANSKRYPCJA ##\n\nBrak transkrypcji - sesja była zbyt krótka lub nie zarejestrowano żadnych wypowiedzi."
+        }
+        
+        val durationMinutes = duration / 60000
+        val durationSeconds = (duration % 60000) / 1000
+        
+        val builder = StringBuilder()
+        builder.append("## TRANSKRYPCJA ##\n\n")
+        builder.append("Czas trwania sesji: ${durationMinutes}m ${durationSeconds}s\n")
+        builder.append("Liczba wypowiedzi: ${transcripts.size}\n\n")
+        builder.append("---\n\n")
+        
+        // Group consecutive messages from the same speaker
+        var lastSpeaker: Speaker? = null
+        var currentMessage = StringBuilder()
+        
+        for (transcript in transcripts) {
+            if (transcript.speaker != lastSpeaker) {
+                // Flush previous message
+                if (lastSpeaker != null && currentMessage.isNotEmpty()) {
+                    val speakerLabel = when (lastSpeaker) {
+                        Speaker.USER -> "**Uczeń:**"
+                        Speaker.BOT -> "**Asystent:**"
+                    }
+                    builder.append("$speakerLabel ${currentMessage.toString().trim()}\n\n")
+                    currentMessage.clear()
+                }
+                lastSpeaker = transcript.speaker
+            }
+            
+            // Append to current message
+            if (currentMessage.isNotEmpty()) {
+                currentMessage.append(" ")
+            }
+            currentMessage.append(transcript.text.trim())
+        }
+        
+        // Flush last message
+        if (lastSpeaker != null && currentMessage.isNotEmpty()) {
+            val speakerLabel = when (lastSpeaker) {
+                Speaker.USER -> "**Uczeń:**"
+                Speaker.BOT -> "**Asystent:**"
+            }
+            builder.append("$speakerLabel ${currentMessage.toString().trim()}\n\n")
+        }
+        
+        builder.append("---\n\n")
+        builder.append("*Koniec transkrypcji*")
+        
+        return builder.toString()
     }
     
 

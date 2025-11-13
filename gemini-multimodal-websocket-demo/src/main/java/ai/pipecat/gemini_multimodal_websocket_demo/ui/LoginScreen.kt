@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.AuthManager
+import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.LibreChatError
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
@@ -27,6 +28,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,21 +52,37 @@ import kotlinx.coroutines.launch
  * Allows users to enter their LibreChat server URL, email, and password
  * 
  * @param authManager AuthManager instance for handling authentication
+ * @param initialError Optional error message to display (e.g., from auto-login failure)
  * @param onLoginSuccess Callback invoked when login is successful
  */
 @Composable
 fun LoginScreen(
     authManager: AuthManager,
+    initialError: String? = null,
     onLoginSuccess: () -> Unit
 ) {
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     
-    var serverUrl by remember { mutableStateOf(authManager.getServerUrl() ?: "") }
+    // Load stored server URL from Preferences, or use default if not available
+    var serverUrl by remember { 
+        mutableStateOf(
+            authManager.getServerUrl() ?: Preferences.defaultServerUrl.value ?: "www.kumpel-chat.fun"
+        ) 
+    }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<LibreChatError?>(null) }
+    var error by remember { mutableStateOf<LibreChatError?>(
+        initialError?.let { LibreChatError.AuthenticationError(it) }
+    ) }
+    
+    // Store server URL to Preferences when it changes
+    LaunchedEffect(serverUrl) {
+        if (serverUrl.isNotBlank()) {
+            Preferences.defaultServerUrl.value = serverUrl
+        }
+    }
 
     Box(
         modifier = Modifier
