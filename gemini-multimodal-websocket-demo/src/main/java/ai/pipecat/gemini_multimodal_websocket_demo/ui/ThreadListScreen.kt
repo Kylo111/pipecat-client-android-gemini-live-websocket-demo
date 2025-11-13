@@ -83,8 +83,16 @@ fun ThreadListScreen(
         if (result.isSuccess) {
             threads = result.getOrNull() ?: emptyList()
         } else {
-            error = result.exceptionOrNull() as? LibreChatError
+            val err = result.exceptionOrNull() as? LibreChatError
                 ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
+            
+            // If token expired, logout automatically
+            if (err is LibreChatError.TokenExpired) {
+                authManager.logout()
+                onLogout()
+            } else {
+                error = err
+            }
         }
     }
 
@@ -185,8 +193,18 @@ fun ThreadListScreen(
                                     if (result.isSuccess) {
                                         threads = result.getOrNull() ?: emptyList()
                                     } else {
-                                        error = result.exceptionOrNull() as? LibreChatError
+                                        val err = result.exceptionOrNull() as? LibreChatError
                                             ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
+                                        
+                                        // If token expired, logout automatically
+                                        if (err is LibreChatError.TokenExpired) {
+                                            coroutineScope.launch {
+                                                authManager.logout()
+                                                onLogout()
+                                            }
+                                        } else {
+                                            error = err
+                                        }
                                     }
                                 }
                             },
@@ -228,23 +246,8 @@ fun ThreadListScreen(
                                 isSelected = selectedThreadId == thread.id,
                                 isLoading = isLoadingContext && selectedThreadId == thread.id,
                                 onClick = {
-                                    selectedThreadId = thread.id
-                                    isLoadingContext = true
-                                    error = null
-                                    
-                                    coroutineScope.launch {
-                                        val result = libreChatService.getLearningContext(thread.id)
-                                        
-                                        isLoadingContext = false
-                                        
-                                        if (result.isSuccess) {
-                                            onThreadSelected(thread.id)
-                                        } else {
-                                            error = result.exceptionOrNull() as? LibreChatError
-                                                ?: LibreChatError.NetworkError("Nie udało się załadować kontekstu")
-                                            selectedThreadId = null
-                                        }
-                                    }
+                                    // SessionManager will fetch context, no need to do it here
+                                    onThreadSelected(thread.id)
                                 }
                             )
                         }

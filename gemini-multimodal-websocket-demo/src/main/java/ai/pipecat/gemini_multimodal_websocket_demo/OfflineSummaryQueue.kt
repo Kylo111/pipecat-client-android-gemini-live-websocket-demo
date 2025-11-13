@@ -108,25 +108,10 @@ class OfflineSummaryQueue(context: Context) {
         while (size() > 0) {
             val summary = dequeue() ?: break
             
-            // Convert SummaryRequest to SessionSummary for LibreChatService
-            val sessionSummary = LibreChatService.SessionSummary(
-                conversationId = summary.conversationId,
-                lessonSummary = LibreChatService.LessonSummary(
-                    keyTopics = summary.lessonSummary.keyTopics,
-                    studentDifficulties = summary.lessonSummary.studentDifficulties,
-                    progressAssessment = summary.lessonSummary.progressAssessment,
-                    nextSteps = summary.lessonSummary.nextSteps
-                ),
-                parentReport = LibreChatService.ParentReport(
-                    subject = summary.parentReport.subject,
-                    duration = summary.parentReport.duration,
-                    topicsCovered = summary.parentReport.topicsCovered,
-                    identifiedDifficulties = summary.parentReport.identifiedDifficulties,
-                    overallPerformance = summary.parentReport.overallPerformance
-                )
-            )
+            Log.d(TAG, "Processing queued summary for conversation: ${summary.conversationId}")
+            Log.d(TAG, "  Summary: ${summary.sessionSummary.take(100)}...")
             
-            val result = libreChatService.sendSessionSummary(sessionSummary)
+            val result = libreChatService.sendSessionSummary(summary)
             
             if (result.isSuccess) {
                 processedCount++

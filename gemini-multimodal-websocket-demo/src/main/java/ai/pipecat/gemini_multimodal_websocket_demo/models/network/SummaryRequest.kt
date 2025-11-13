@@ -5,10 +5,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class SummaryRequest(
     val conversationId: String,
-    val lessonSummary: LessonSummaryData,
-    val parentReport: ParentReportData
+    val sessionSummary: String
 )
 
+// Internal data classes for summary generation (not sent to LibreChat)
 @Serializable
 data class LessonSummaryData(
     val keyTopics: List<String>,

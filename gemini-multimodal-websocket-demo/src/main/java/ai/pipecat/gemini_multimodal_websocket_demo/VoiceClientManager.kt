@@ -182,12 +182,23 @@ class VoiceClientManager(
 
         val model = Preferences.modelName.value ?: "gemini-2.5-flash-native-audio-preview-09-2025"
         val voiceName = Preferences.selectedVoice.value ?: "Puck"
-        val systemPrompt = Preferences.systemPrompt.value ?: "You are a helpful assistant"
+        
+        // Get system prompt from current session context (from LibreChat) or fallback to preferences
+        val currentSession = sessionManager?.getCurrentSession()
+        val systemPrompt = if (currentSession != null) {
+            Log.i(TAG, "✅ Using system prompt from LibreChat session context")
+            currentSession.systemPrompt
+        } else {
+            Log.w(TAG, "⚠️ No active session context, using default system prompt from preferences")
+            Preferences.systemPrompt.value ?: "You are a helpful assistant"
+        }
 
         Log.i(TAG, "Starting connection with:")
         Log.i(TAG, "  Model: $model")
         Log.i(TAG, "  Voice: $voiceName")
         Log.i(TAG, "  System Prompt: $systemPrompt")
+        Log.i(TAG, "  Session ID: ${currentSession?.sessionId ?: "none"}")
+        Log.i(TAG, "  Conversation ID: ${currentSession?.conversationId ?: "none"}")
 
         state.value = ConnectionState.CONNECTING
         scope = CoroutineScope(Dispatchers.IO)
@@ -257,7 +268,13 @@ class VoiceClientManager(
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket failure: ${t.message}", t)
-                errors.add(Error("Connection failed: ${t.message}"))
+                
+                // Ignore AudioTrack errors - they're cleanup issues, not connection failures
+                val isAudioTrackError = t.message?.contains("AudioTrack") == true
+                if (!isAudioTrackError) {
+                    errors.add(Error("Connection failed: ${t.message}"))
+                }
+                
                 handleDisconnect()
             }
         })
@@ -664,11 +681,19 @@ class VoiceClientManager(
         recordingJob?.cancel()
         recordingJob = null
         
-        audioRecord?.stop()
+        try {
+            audioRecord?.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error stopping audio record: ${e.message}")
+        }
         audioRecord?.release()
         audioRecord = null
         
-        audioTrack?.stop()
+        try {
+            audioTrack?.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error stopping audio track: ${e.message}")
+        }
         audioTrack?.release()
         audioTrack = null
         

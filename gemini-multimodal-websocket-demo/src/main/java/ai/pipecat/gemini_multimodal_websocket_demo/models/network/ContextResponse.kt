@@ -4,28 +4,16 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ContextResponse(
-    val readyToUseContext: ReadyContextData,
-    val metadata: MetadataData
-)
-
-@Serializable
-data class ReadyContextData(
     val systemPrompt: String,
-    val initialMessage: String,
-    val voiceParameters: VoiceParametersData
+    val conversationTitle: String? = null,
+    val agentName: String? = null,
+    val userMemory: List<String?>? = null,
+    val recentMessages: List<RecentMessage>? = null
 )
 
 @Serializable
-data class VoiceParametersData(
-    val tone: String,
-    val pace: String,
-    val style: String
-)
-
-@Serializable
-data class MetadataData(
-    val subject: String,
-    val gradeLevel: String,
-    val estimatedDuration: String,
-    val materialsUsed: List<String>
+data class RecentMessage(
+    val text: String,
+    val sender: String,
+    val createdAt: String
 )

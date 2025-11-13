@@ -43,6 +43,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -226,9 +227,39 @@ class MainActivity : ComponentActivity() {
                                     )
                                 } else {
                                     // Connection ended - end session and return to thread list
-                                    LaunchedEffect(Unit) {
-                                        sessionManager.endSession()
-                                        currentScreen = Screen.THREAD_LIST
+                                    var isEndingSession by remember { mutableStateOf(false) }
+                                    
+                                    LaunchedEffect(vcState) {
+                                        // Only run when state changes to disconnected
+                                        if (vcState == ConnectionState.DISCONNECTED && !isEndingSession) {
+                                            isEndingSession = true
+                                            sessionManager.endSession()
+                                            currentScreen = Screen.THREAD_LIST
+                                        }
+                                    }
+                                    
+                                    // Show loading indicator while ending session
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(48.dp),
+                                                color = Colors.buttonNormal,
+                                                strokeWidth = 4.dp
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                text = "Zapisywanie podsumowania...",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.W400,
+                                                color = Color.Black,
+                                                style = TextStyles.base
+                                            )
+                                        }
                                     }
                                 }
                             }

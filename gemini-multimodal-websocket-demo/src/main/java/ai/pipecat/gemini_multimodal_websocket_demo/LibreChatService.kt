@@ -125,7 +125,9 @@ class LibreChatService(
                 .build()
             
             try {
-                val response = httpClient.newCall(request).execute()
+                val response = withContext(Dispatchers.IO) {
+                    httpClient.newCall(request).execute()
+                }
                 Log.d(TAG, "Response code: ${response.code}")
                 
                 when (response.code) {
@@ -182,48 +184,93 @@ class LibreChatService(
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build()
             
+            val token = authManager.getStoredToken()
+            Log.d(TAG, "📤 Fetching learning context:")
+            Log.d(TAG, "  URL: $serverUrl/api/learning/context/$conversationId")
+            Log.d(TAG, "  Token: ${token?.accessToken?.take(50)}...")
+            
             val request = Request.Builder()
                 .url("$serverUrl/api/learning/context/$conversationId")
                 .get()
                 .build()
             
             try {
-                val response = contextClient.newCall(request).execute()
+                val response = withContext(Dispatchers.IO) {
+                    contextClient.newCall(request).execute()
+                }
+                
+                Log.d(TAG, "📥 Context response code: ${response.code}")
                 
                 when (response.code) {
                     200 -> {
                         val body = response.body?.string()
                             ?: throw LibreChatError.ParseError("Empty response body")
                         
+                        Log.d(TAG, "📥 Context response body: ${body.take(200)}...")
                         val contextResponse = json.decodeFromString<ai.pipecat.gemini_multimodal_websocket_demo.models.network.ContextResponse>(body)
-                        Log.d(TAG, "Successfully fetched learning context for conversation $conversationId")
+                        Log.d(TAG, "✅ Successfully fetched learning context for conversation $conversationId")
+                        
+                        // Build full system prompt with memory and recent messages
+                        val memoryContext = if (!contextResponse.userMemory.isNullOrEmpty()) {
+                            val memories = contextResponse.userMemory.filterNotNull().joinToString("\n- ")
+                            "\n\nUser Memory:\n- $memories"
+                        } else {
+                            ""
+                        }
+                        
+                        val recentContext = if (!contextResponse.recentMessages.isNullOrEmpty()) {
+                            val messages = contextResponse.recentMessages.takeLast(4).joinToString("\n") {
+                                "${it.sender}: ${it.text.take(200)}"
+                            }
+                            "\n\nRecent conversation:\n$messages"
+                        } else {
+                            ""
+                        }
+                        
+                        // Replace {memory} placeholder and add context
+                        val fullSystemPrompt = contextResponse.systemPrompt
+                            .replace("{memory}", memoryContext)
+                            .plus(recentContext)
+                        
+                        Log.d(TAG, "📝 Full system prompt length: ${fullSystemPrompt.length} chars")
+                        
+                        // Build initial message from recent messages if available
+                        val initialMessage = if (!contextResponse.recentMessages.isNullOrEmpty()) {
+                            "Witaj! Kontynuujmy naszą rozmowę o ${contextResponse.conversationTitle ?: "nauce"}."
+                        } else {
+                            "Witaj! Jestem gotowy aby Ci pomóc w nauce."
+                        }
                         
                         LearningContext(
                             readyToUseContext = ReadyContext(
-                                systemPrompt = contextResponse.readyToUseContext.systemPrompt,
-                                initialMessage = contextResponse.readyToUseContext.initialMessage,
+                                systemPrompt = fullSystemPrompt,
+                                initialMessage = initialMessage,
                                 voiceParameters = VoiceParameters(
-                                    tone = contextResponse.readyToUseContext.voiceParameters.tone,
-                                    pace = contextResponse.readyToUseContext.voiceParameters.pace,
-                                    style = contextResponse.readyToUseContext.voiceParameters.style
+                                    tone = "friendly",
+                                    pace = "moderate",
+                                    style = "educational"
                                 )
                             ),
                             metadata = ContextMetadata(
-                                subject = contextResponse.metadata.subject,
-                                gradeLevel = contextResponse.metadata.gradeLevel,
-                                estimatedDuration = contextResponse.metadata.estimatedDuration,
-                                materialsUsed = contextResponse.metadata.materialsUsed
+                                subject = contextResponse.conversationTitle ?: "General",
+                                gradeLevel = "Unknown",
+                                estimatedDuration = "30 minutes",
+                                materialsUsed = emptyList()
                             )
                         )
                     }
                     401 -> {
+                        val errorBody = response.body?.string() ?: "No error body"
+                        Log.e(TAG, "❌ 401 Unauthorized - Error body: $errorBody")
                         throw LibreChatError.TokenExpired
                     }
                     403 -> {
+                        val errorBody = response.body?.string() ?: "No error body"
+                        Log.e(TAG, "❌ 403 Forbidden - Error body: $errorBody")
                         throw LibreChatError.AuthenticationError("Access forbidden")
                     }
                     404 -> {
-                        Log.w(TAG, "Context not found for conversation $conversationId, using default")
+                        Log.w(TAG, "⚠️ Context not found for conversation $conversationId, using default")
                         // Return default context as fallback
                         LearningContext(
                             readyToUseContext = ReadyContext(
@@ -261,30 +308,18 @@ class LibreChatService(
             }
         }
     
-    suspend fun sendSessionSummary(summary: SessionSummary): Result<Unit> = 
-        RetryPolicy.withRetry {
+    suspend fun sendSessionSummary(summaryRequest: SummaryRequest): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
             authManager.getStoredToken()
                 ?: throw LibreChatError.AuthenticationError("No valid token available")
             
             val serverUrl = authManager.getServerUrl()?.trimEnd('/')
                 ?: throw LibreChatError.AuthenticationError("No server URL stored")
             
-            val summaryRequest = ai.pipecat.gemini_multimodal_websocket_demo.models.network.SummaryRequest(
-                conversationId = summary.conversationId,
-                lessonSummary = ai.pipecat.gemini_multimodal_websocket_demo.models.network.LessonSummaryData(
-                    keyTopics = summary.lessonSummary.keyTopics,
-                    studentDifficulties = summary.lessonSummary.studentDifficulties,
-                    progressAssessment = summary.lessonSummary.progressAssessment,
-                    nextSteps = summary.lessonSummary.nextSteps
-                ),
-                parentReport = ai.pipecat.gemini_multimodal_websocket_demo.models.network.ParentReportData(
-                    subject = summary.parentReport.subject,
-                    duration = summary.parentReport.duration,
-                    topicsCovered = summary.parentReport.topicsCovered,
-                    identifiedDifficulties = summary.parentReport.identifiedDifficulties,
-                    overallPerformance = summary.parentReport.overallPerformance
-                )
-            )
+            Log.d(TAG, "📤 Sending session summary to LibreChat:")
+            Log.d(TAG, "  Conversation ID: ${summaryRequest.conversationId}")
+            Log.d(TAG, "  Summary length: ${summaryRequest.sessionSummary.length} chars")
+            Log.d(TAG, "  Summary preview: ${summaryRequest.sessionSummary.take(100)}...")
             
             val requestBody = json.encodeToString(summaryRequest).toRequestBody(JSON_MEDIA_TYPE)
             
@@ -294,7 +329,9 @@ class LibreChatService(
                 .build()
             
             try {
-                val response = httpClient.newCall(request).execute()
+                val response = withContext(Dispatchers.IO) {
+                    httpClient.newCall(request).execute()
+                }
                 
                 when (response.code) {
                     200, 201 -> {
@@ -320,21 +357,26 @@ class LibreChatService(
                         throw LibreChatError.NetworkError("Unexpected response code: ${response.code}")
                     }
                 }
+                Result.success(Unit)
             } catch (e: Exception) {
                 when (e) {
                     is LibreChatError -> {
-                        Log.e(TAG, "Error sending session summary, enqueueing for retry", e)
+                        Log.e(TAG, "Error sending session summary", e)
                         // Enqueue the summary for retry when network is available
                         offlineSummaryQueue?.enqueue(summaryRequest)
-                        throw e
+                        Result.failure(e)
                     }
                     else -> {
                         Log.e(TAG, "Error sending session summary", e)
                         // Enqueue the summary for retry
                         offlineSummaryQueue?.enqueue(summaryRequest)
-                        throw LibreChatError.NetworkError(e.message ?: "Unknown network error")
+                        Result.failure(LibreChatError.NetworkError(e.message ?: "Unknown network error"))
                     }
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to prepare summary", e)
+            Result.failure(e)
         }
+    }
 }

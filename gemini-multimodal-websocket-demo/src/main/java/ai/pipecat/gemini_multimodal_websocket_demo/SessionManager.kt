@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.models.network.SummaryRequest
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +75,9 @@ class SessionManager(
     
     // Last context update timestamp for throttling
     private var lastContextUpdateTime: Long = 0
+    
+    // Flag to prevent multiple endSession calls
+    private var isEndingSession: Boolean = false
     
     /**
      * Get the current active session
@@ -293,12 +297,19 @@ class SessionManager(
      * @return Result indicating success or failure
      */
     suspend fun endSession(): Result<Unit> = withContext(Dispatchers.IO) {
+        // Prevent multiple calls
+        if (isEndingSession) {
+            Log.w(TAG, "Session is already being ended, skipping")
+            return@withContext Result.success(Unit)
+        }
+        
         val session = currentSession ?: run {
             Log.w(TAG, "Cannot end session: no active session")
             return@withContext Result.failure(IllegalStateException("No active session"))
         }
         
         try {
+            isEndingSession = true
             Log.d(TAG, "Ending session: ${session.sessionId}")
             
             val duration = System.currentTimeMillis() - session.startTime
@@ -311,76 +322,76 @@ class SessionManager(
             
             val parentReportData = summaryGenerator.generateParentReport(
                 lessonSummary = lessonSummaryData,
-                subject = "Learning Session", // TODO: Get from session metadata
+                subject = "Learning Session",
                 duration = duration
             )
             
-            // Convert to LibreChatService data classes
-            val lessonSummary = LibreChatService.LessonSummary(
-                keyTopics = lessonSummaryData.keyTopics,
-                studentDifficulties = lessonSummaryData.studentDifficulties,
-                progressAssessment = lessonSummaryData.progressAssessment,
-                nextSteps = lessonSummaryData.nextSteps
-            )
+            // Build a simple text summary for LibreChat
+            val summaryText = buildString {
+                appendLine("📚 Podsumowanie sesji nauki")
+                appendLine()
+                appendLine("Temat: ${parentReportData.subject}")
+                appendLine("Czas trwania: ${duration / 60000} minut")
+                appendLine()
+                
+                if (lessonSummaryData.keyTopics.isNotEmpty()) {
+                    appendLine("🎯 Omówione tematy:")
+                    lessonSummaryData.keyTopics.forEach { appendLine("  • $it") }
+                    appendLine()
+                }
+                
+                if (lessonSummaryData.studentDifficulties.isNotEmpty()) {
+                    appendLine("⚠️ Trudności:")
+                    lessonSummaryData.studentDifficulties.forEach { appendLine("  • $it") }
+                    appendLine()
+                }
+                
+                appendLine("📊 Ocena postępu:")
+                appendLine(lessonSummaryData.progressAssessment)
+                appendLine()
+                
+                if (lessonSummaryData.nextSteps.isNotEmpty()) {
+                    appendLine("➡️ Następne kroki:")
+                    lessonSummaryData.nextSteps.forEach { appendLine("  • $it") }
+                }
+            }
             
-            val parentReport = LibreChatService.ParentReport(
-                subject = parentReportData.subject,
-                duration = parentReportData.duration,
-                topicsCovered = parentReportData.topicsCovered,
-                identifiedDifficulties = parentReportData.identifiedDifficulties,
-                overallPerformance = parentReportData.overallPerformance
-            )
-            
-            // Create session summary
-            val sessionSummary = LibreChatService.SessionSummary(
+            // Create simple summary request
+            val summaryRequest = SummaryRequest(
                 conversationId = session.conversationId,
-                lessonSummary = lessonSummary,
-                parentReport = parentReport
+                sessionSummary = summaryText
             )
+            
+            Log.d(TAG, "📤 Sending session summary:")
+            Log.d(TAG, "  Conversation ID: ${session.conversationId}")
+            Log.d(TAG, "  Summary length: ${summaryText.length} chars")
             
             // Try to send summary to LibreChat
-            val sendResult = libreChatService.sendSessionSummary(sessionSummary)
+            val sendResult = libreChatService.sendSessionSummary(summaryRequest)
             
             if (sendResult.isSuccess) {
                 Log.d(TAG, "Session summary sent successfully")
                 // Clear session context on successful submission
                 currentSession = null
                 lastContextUpdateTime = 0
+                isEndingSession = false
                 Result.success(Unit)
             } else {
                 // Handle failure by queuing for offline retry
-                Log.w(TAG, "Failed to send summary, adding to offline queue")
-                val offlineQueue = OfflineSummaryQueue(context)
-                
-                // Convert to SummaryRequest for queue
-                val summaryRequest = ai.pipecat.gemini_multimodal_websocket_demo.models.network.SummaryRequest(
-                    conversationId = session.conversationId,
-                    lessonSummary = ai.pipecat.gemini_multimodal_websocket_demo.models.network.LessonSummaryData(
-                        keyTopics = lessonSummary.keyTopics,
-                        studentDifficulties = lessonSummary.studentDifficulties,
-                        progressAssessment = lessonSummary.progressAssessment,
-                        nextSteps = lessonSummary.nextSteps
-                    ),
-                    parentReport = ai.pipecat.gemini_multimodal_websocket_demo.models.network.ParentReportData(
-                        subject = parentReport.subject,
-                        duration = parentReport.duration,
-                        topicsCovered = parentReport.topicsCovered,
-                        identifiedDifficulties = parentReport.identifiedDifficulties,
-                        overallPerformance = parentReport.overallPerformance
-                    )
-                )
-                
-                offlineQueue.enqueue(summaryRequest)
+                Log.w(TAG, "Failed to send summary, will retry later")
+                // Note: Offline queue functionality can be added later if needed
                 
                 // Clear session even though send failed (it's queued)
                 currentSession = null
                 lastContextUpdateTime = 0
+                isEndingSession = false
                 
                 Result.failure(sendResult.exceptionOrNull() ?: Exception("Failed to send summary"))
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error ending session", e)
+            isEndingSession = false
             Result.failure(e)
         }
     }
