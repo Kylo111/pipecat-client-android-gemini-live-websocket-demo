@@ -181,6 +181,10 @@ class VoiceClientManager(
     private var idleCheckJob: Job? = null
     private var onSessionTimeout: (() -> Unit)? = null
     
+    // Auto-pause monitoring
+    private var autoPauseJob: Job? = null
+    val secondsUntilAutoPause = mutableStateOf(-1) // -1 = disabled, 0+ = seconds remaining
+    
     // Image processing
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
     private var pendingImage: Uri? = null
@@ -270,47 +274,15 @@ class VoiceClientManager(
      * Update last activity time (called when user speaks or interacts)
      */
     private fun updateActivity() {
-        lastActivityTime = System.currentTimeMillis()
-    }
-    
-    /**
-     * Start monitoring for idle timeout (auto-pause)
-     * When user is inactive for configured time, automatically pause the session
-     */
-    private fun startIdleMonitoring() {
-        val timeoutSeconds = Preferences.sessionTimeoutMinutes.value
-        if (timeoutSeconds <= 0) {
-            Log.i(TAG, "Auto-pause disabled (timeout = $timeoutSeconds seconds)")
-            return
-        }
-        
-        val timeoutMillis = timeoutSeconds * 1000L // Now in seconds, not minutes
-        Log.i(TAG, "Starting idle monitoring with auto-pause after: $timeoutSeconds seconds")
-        
-        lastActivityTime = System.currentTimeMillis()
-        
-        idleCheckJob = scope?.launch {
-            while (isActive && state.value == ConnectionState.CONNECTED) {
-                delay(1000) // Check every second for more responsive auto-pause
-                
-                val idleTime = System.currentTimeMillis() - lastActivityTime
-                if (idleTime >= timeoutMillis) {
-                    Log.i(TAG, "Auto-pause triggered after ${idleTime / 1000} seconds of inactivity")
-                    // Pause the session (not stop - preserves session handle and context)
-                    pause()
-                    break
-                }
-            }
+        if (!botIsTalking.value) {
+            lastActivityTime = System.currentTimeMillis()
+            val timeout = Preferences.autoPauseTimeoutSeconds.value
+            secondsUntilAutoPause.value = timeout
+            Log.d(TAG, "User activity detected - timer reset to ${timeout}s")
         }
     }
     
-    /**
-     * Stop idle monitoring
-     */
-    private fun stopIdleMonitoring() {
-        idleCheckJob?.cancel()
-        idleCheckJob = null
-    }
+
 
     fun start(threadSettings: ThreadSettings? = null) {
         // Allow start only if DISCONNECTED, RECONNECTING, or if we're stuck in CONNECTING
@@ -680,9 +652,9 @@ class VoiceClientManager(
                 acquireWakeLock()
                 increaseAudioVolume()
                 
-                // Only start idle monitoring if not already running
-                if (idleCheckJob == null) {
-                    startIdleMonitoring()
+                // Only start auto-pause monitoring if not already running
+                if (autoPauseJob == null || !autoPauseJob!!.isActive) {
+                    startAutoPauseMonitoring()
                 }
                 
                 // Retry pending image if any (after reconnection)
@@ -905,6 +877,11 @@ class VoiceClientManager(
                             if (isTalking) {
                                 Log.i(TAG, "User started speaking (audio level: $level, threshold: $threshold)")
                                 updateActivity() // User is active
+                                
+                                // Start auto-pause monitoring if not already running
+                                if (autoPauseJob == null || !autoPauseJob!!.isActive) {
+                                    startAutoPauseMonitoring()
+                                }
                             } else {
                                 Log.i(TAG, "User stopped speaking")
                             }
@@ -1001,6 +978,9 @@ class VoiceClientManager(
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
         
+        // Stop auto-pause monitoring
+        stopAutoPauseMonitoring()
+        
         // Mark as paused and disable mic
         isPaused.value = true
         mic.value = false // Update mic state to reflect paused session
@@ -1026,6 +1006,9 @@ class VoiceClientManager(
         
         // Clear paused flag
         isPaused.value = false
+        
+        // Start auto-pause monitoring
+        startAutoPauseMonitoring()
         
         if (sessionResumptionHandle == null) {
             Log.w(TAG, "⚠️ Resume called but no session handle available - starting new session")
@@ -1152,8 +1135,8 @@ class VoiceClientManager(
         audioTrack = null
         Log.d(TAG, "AudioTrack released")
         
-        stopIdleMonitoring()
-        Log.d(TAG, "Idle monitoring stopped")
+        stopAutoPauseMonitoring()
+        Log.d(TAG, "Auto-pause monitoring stopped")
         
         webSocket = null
         Log.d(TAG, "WebSocket reference cleared")
@@ -1492,29 +1475,6 @@ class VoiceClientManager(
         }
         
         /**
-         * Cancel ongoing reconnection attempts
-         */
-        fun cancelReconnection() {
-            Log.i(TAG, "Cancelling reconnection")
-            reconnectJob?.cancel()
-            reconnectJob = null
-            attemptCount = 0
-            reconnectionAttempt.value = 0 // Reset UI state
-        }
-        
-        /**
-         * Reset the reconnection state (called on successful connection)
-         */
-        fun reset() {
-            Log.i(TAG, "Resetting reconnection manager")
-            attemptCount = 0
-            reconnectionAttempt.value = 0 // Reset UI state
-            updateServiceNotification() // Update notification to clear attempt count
-            reconnectJob?.cancel()
-            reconnectJob = null
-        }
-        
-        /**
          * Calculate exponential backoff delay
          * Returns: 1s, 2s, 4s, 8s, 16s (capped at 16s)
          */
@@ -1580,5 +1540,89 @@ class VoiceClientManager(
             // Invoke callback to notify UI layer to show dialog
             onMaxReconnectionAttemptsReached?.invoke()
         }
+        
+        /**
+         * Cancel ongoing reconnection attempts
+         */
+        fun cancelReconnection() {
+            Log.i(TAG, "Cancelling reconnection")
+            reconnectJob?.cancel()
+            reconnectJob = null
+            attemptCount = 0
+            reconnectionAttempt.value = 0 // Reset UI state
+        }
+        
+        /**
+         * Reset the reconnection state (called on successful connection)
+         */
+        fun reset() {
+            Log.i(TAG, "Resetting reconnection manager")
+            attemptCount = 0
+            reconnectionAttempt.value = 0 // Reset UI state
+            updateServiceNotification() // Update notification to clear attempt count
+            reconnectJob?.cancel()
+            reconnectJob = null
+        }
+    }
+    
+    /**
+     * Start auto-pause monitoring
+     * Timer counts down only when bot is NOT speaking
+     * When timer reaches 0, session is paused
+     */
+    private fun startAutoPauseMonitoring() {
+        // Cancel existing job
+        autoPauseJob?.cancel()
+        
+        val timeout = Preferences.autoPauseTimeoutSeconds.value
+        if (timeout <= 0) {
+            Log.i(TAG, "Auto-pause disabled (timeout = $timeout)")
+            secondsUntilAutoPause.value = -1
+            return
+        }
+        
+        Log.i(TAG, "Starting auto-pause monitoring (timeout: ${timeout}s)")
+        lastActivityTime = System.currentTimeMillis()
+        secondsUntilAutoPause.value = timeout
+        
+        autoPauseJob = scope?.launch {
+            while (isActive) {
+                delay(1000) // Check every second
+                
+                // Only count down if bot is NOT speaking
+                if (!botIsTalking.value && state.value == ConnectionState.CONNECTED) {
+                    val elapsed = (System.currentTimeMillis() - lastActivityTime) / 1000
+                    val remaining = timeout - elapsed.toInt()
+                    
+                    secondsUntilAutoPause.value = remaining.coerceAtLeast(0)
+                    
+                    if (remaining <= 0) {
+                        Log.i(TAG, "⏸️ Auto-pause triggered after ${timeout}s of inactivity")
+                        pause()
+                        secondsUntilAutoPause.value = -1
+                        break
+                    }
+                    
+                    if (remaining <= 5 && remaining > 0) {
+                        Log.d(TAG, "Auto-pause in ${remaining}s...")
+                    }
+                } else if (botIsTalking.value) {
+                    // Bot is speaking - don't count down, but show current value
+                    val elapsed = (System.currentTimeMillis() - lastActivityTime) / 1000
+                    val remaining = timeout - elapsed.toInt()
+                    secondsUntilAutoPause.value = remaining.coerceAtLeast(0)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop auto-pause monitoring
+     */
+    private fun stopAutoPauseMonitoring() {
+        Log.d(TAG, "Stopping auto-pause monitoring")
+        autoPauseJob?.cancel()
+        autoPauseJob = null
+        secondsUntilAutoPause.value = -1
     }
 }

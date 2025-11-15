@@ -23,6 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -62,7 +64,8 @@ fun SettingsScreen(
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
     var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
     var keepScreenAwake by remember { mutableStateOf(Preferences.keepScreenAwake.value) }
-    var sessionTimeout by remember { mutableStateOf(Preferences.sessionTimeoutMinutes.value.toString()) }
+    var autoPauseTimeout by remember { mutableStateOf(Preferences.autoPauseTimeoutSeconds.value) }
+    var activityThreshold by remember { mutableStateOf(Preferences.activityDetectionThreshold.value) }
     var selectedSkin by remember { mutableStateOf(Preferences.selectedSkin.value ?: "DEFAULT") }
     var showSkinDropdown by remember { mutableStateOf(false) }
     var showChangePINDialog by remember { mutableStateOf(false) }
@@ -72,7 +75,8 @@ fun SettingsScreen(
         Preferences.geminiApiKey.value = geminiApiKey
         Preferences.modelName.value = modelName
         Preferences.keepScreenAwake.value = keepScreenAwake
-        Preferences.sessionTimeoutMinutes.value = sessionTimeout.toIntOrNull() ?: 30
+        Preferences.autoPauseTimeoutSeconds.value = autoPauseTimeout
+        Preferences.activityDetectionThreshold.value = activityThreshold
         Preferences.selectedSkin.value = selectedSkin
     }
 
@@ -163,17 +167,147 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Auto-pause timeout
-                    SettingsTextField(
-                        label = "Automatyczne pauzowanie po (sekundy)",
-                        value = sessionTimeout,
-                        onValueChange = { 
-                            if (it.isEmpty() || it.all { char -> char.isDigit() }) {
-                                sessionTimeout = it
-                            }
-                        },
-                        keyboardType = KeyboardType.Number
-                    )
+                    // Auto-pause timeout slider
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Automatyczne pauzowanie po",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            Text(
+                                text = "${autoPauseTimeout}s",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Slider(
+                            value = autoPauseTimeout.toFloat(),
+                            onValueChange = { autoPauseTimeout = it.toInt() },
+                            valueRange = 10f..120f,
+                            steps = 21, // 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFF007AFF),
+                                activeTrackColor = Color(0xFF007AFF),
+                                inactiveTrackColor = Color.LightGray
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "10s",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                            Text(
+                                text = "120s (2 min)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Czas bezczynności użytkownika po którym sesja jest pauzowana (bot mówiący nie liczy się jako aktywność)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Activity detection threshold slider
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Czułość wykrywania aktywności",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            Text(
+                                text = String.format("%.3f", activityThreshold),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Slider(
+                            value = activityThreshold,
+                            onValueChange = { activityThreshold = it },
+                            valueRange = 0.01f..0.10f,
+                            steps = 89, // 90 steps for 0.001 increments
+                            colors = SliderDefaults.colors(
+                                thumbColor = Colors.buttonNormal,
+                                activeTrackColor = Colors.buttonNormal,
+                                inactiveTrackColor = Colors.textFieldBorder
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Bardzo czuły (0.01)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                            Text(
+                                text = "Mało czuły (0.10)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Próg poziomu dźwięku dla wykrywania aktywności użytkownika (nie wpływa na głośność nagrania)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
                 }
 
                 // Visual Preferences Section

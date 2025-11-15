@@ -16,6 +16,7 @@ object Preferences {
     private const val PREF_MODEL_NAME = "model_name"
     private const val PREF_GEMINI_API_KEY = "gemini_api_key"
     private const val PREF_SESSION_TIMEOUT_MINUTES = "session_timeout_minutes"
+    private const val PREF_AUTO_PAUSE_TIMEOUT_SECONDS = "auto_pause_timeout_seconds"
     private const val PREF_ACTIVITY_DETECTION_THRESHOLD = "activity_detection_threshold"
     private const val PREF_KEEP_SCREEN_AWAKE = "keep_screen_awake"
     private const val PREF_SELECTED_SKIN = "selected_skin"
@@ -30,7 +31,7 @@ object Preferences {
 
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
-            geminiApiKey, sessionTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
+            geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme
         ).forEach { it.init() }
     }
@@ -164,7 +165,8 @@ object Preferences {
 
     // New preferences
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
-    val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Now in seconds (auto-pause)
+    val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Legacy - kept for compatibility
+    val autoPauseTimeoutSeconds = IntPref(PREF_AUTO_PAUSE_TIMEOUT_SECONDS, 30) // Auto-pause after X seconds of user inactivity
     val activityDetectionThreshold = FloatPref(PREF_ACTIVITY_DETECTION_THRESHOLD, 0.02f) // Audio level threshold for detecting user activity
     val keepScreenAwake = BooleanPref(PREF_KEEP_SCREEN_AWAKE, true)
     val selectedSkin = StringPref(PREF_SELECTED_SKIN, "DEFAULT")
