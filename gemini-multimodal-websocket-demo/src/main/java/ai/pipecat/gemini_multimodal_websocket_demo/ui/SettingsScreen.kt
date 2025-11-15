@@ -163,9 +163,9 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Session Timeout
+                    // Auto-pause timeout
                     SettingsTextField(
-                        label = "Limit czasu sesji (minuty)",
+                        label = "Automatyczne pauzowanie po (sekundy)",
                         value = sessionTimeout,
                         onValueChange = { 
                             if (it.isEmpty() || it.all { char -> char.isDigit() }) {

@@ -39,6 +39,15 @@ fun InCallLayout(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
             ) {
+                // Connection status indicator
+                ConnectionStatusIndicator(
+                    connectionState = voiceClientManager.state.value,
+                    reconnectionAttempt = voiceClientManager.reconnectionAttempt.value,
+                    maxReconnectionAttempts = voiceClientManager.maxReconnectionAttempts,
+                    isPaused = voiceClientManager.isPaused.value,
+                    modifier = Modifier
+                )
+                
                 BotIndicator(
                     modifier = Modifier,
                     isReady = voiceClientManager.botReady.value,

@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">Pipecat Gemini Websocket Demo</string>
+    
+    <!-- Connection Status -->
+    <string name="connection_status_reconnecting">Ponowne łączenie...</string>
+    <string name="connection_status_reconnecting_with_attempt">Ponowne łączenie… próba %1$d z %2$d</string>
+    <string name="connection_status_connecting">Łączenie...</string>
+    <string name="connection_status_connected">Połączono</string>
+    <string name="connection_status_disconnected">Rozłączono</string>
+    
+    <!-- Reconnection Dialog -->
+    <string name="reconnection_dialog_title">Problem z połączeniem</string>
+    <string name="reconnection_dialog_message">Nie udało się połączyć po 5 próbach. Kontynuować próby?</string>
+    <string name="reconnection_dialog_continue">Kontynuuj</string>
+    <string name="reconnection_dialog_end">Zakończ rozmowę</string>
 </resources>

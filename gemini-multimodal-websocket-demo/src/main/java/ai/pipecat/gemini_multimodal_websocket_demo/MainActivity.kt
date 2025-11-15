@@ -5,6 +5,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.NetworkStatusBanner
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThreadListScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
@@ -113,17 +114,23 @@ class MainActivity : ComponentActivity() {
             var tempImageUri by remember { mutableStateOf<Uri?>(null) }
             var selectedConversationId by remember { mutableStateOf<String?>(null) }
             var showPINEntryDialog by remember { mutableStateOf(false) }
+            var showReconnectionDialog by remember { mutableStateOf(false) }
             
             // Set up session timeout callback
             LaunchedEffect(Unit) {
                 voiceClientManager.setSessionTimeoutCallback {
-                    // Session timed out - end session and return to thread list
+                    // Session timed out - end session but stay in conversation screen
+                    // User will see disconnected state and can manually navigate back
                     lifecycleScope.launch {
                         // Generate and send summary
                         sessionManager.endSession()
-                        // Navigate back to thread list
-                        currentScreen = Screen.THREAD_LIST
+                        // Don't navigate automatically - let user see timeout message
                     }
+                }
+                
+                // Set up reconnection dialog callback
+                voiceClientManager.onMaxReconnectionAttemptsReached = {
+                    showReconnectionDialog = true
                 }
             }
             
@@ -219,7 +226,9 @@ class MainActivity : ComponentActivity() {
                             PermissionScreen()
 
                             val vcState = voiceClientManager.state.value
-                            val isConnected = vcState == ConnectionState.CONNECTED || vcState == ConnectionState.CONNECTING
+                            val isConnected = vcState == ConnectionState.CONNECTED || 
+                                            vcState == ConnectionState.CONNECTING || 
+                                            vcState == ConnectionState.RECONNECTING
 
                             when (currentScreen) {
                             Screen.LOGIN -> {
@@ -383,57 +392,22 @@ class MainActivity : ComponentActivity() {
                                 // }
                             }
                             Screen.IN_CALL -> {
-                                if (isConnected) {
-                                    InCallLayout(
-                                        voiceClientManager = voiceClientManager,
-                                        onSettingsClick = { currentScreen = Screen.SETTINGS },
-                                        onEndSession = {
-                                            // End session with summary generation
-                                            lifecycleScope.launch {
-                                                sessionManager.endSession()
-                                                // Connection will be closed by endSessionWithSummary
-                                            }
-                                        },
-                                        onCameraClick = onCameraClick,
-                                        onGalleryClick = onGalleryClick
-                                    )
-                                } else {
-                                    // Connection ended - end session and return to thread list
-                                    var isEndingSession by remember { mutableStateOf(false) }
-                                    
-                                    LaunchedEffect(vcState) {
-                                        // Only run when state changes to disconnected
-                                        if (vcState == ConnectionState.DISCONNECTED && !isEndingSession) {
-                                            isEndingSession = true
+                                // Always show InCallLayout regardless of connection state
+                                // This allows users to see reconnection status and stay in conversation
+                                InCallLayout(
+                                    voiceClientManager = voiceClientManager,
+                                    onSettingsClick = { currentScreen = Screen.SETTINGS },
+                                    onEndSession = {
+                                        // End session with summary generation
+                                        lifecycleScope.launch {
                                             sessionManager.endSession()
+                                            // Navigate to thread list after ending session
                                             currentScreen = Screen.THREAD_LIST
                                         }
-                                    }
-                                    
-                                    // Show loading indicator while ending session
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(48.dp),
-                                                color = Colors.buttonNormal,
-                                                strokeWidth = 4.dp
-                                            )
-                                            Spacer(modifier = Modifier.height(16.dp))
-                                            Text(
-                                                text = "Zapisywanie podsumowania...",
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.W400,
-                                                color = Color.Black,
-                                                style = TextStyles.base
-                                            )
-                                        }
-                                    }
-                                }
+                                    },
+                                    onCameraClick = onCameraClick,
+                                    onGalleryClick = onGalleryClick
+                                )
                             }
                             Screen.CONNECT -> {
                                 if (isConnected) {
@@ -497,6 +471,27 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = {
                                     // User cancelled PIN entry
                                     showPINEntryDialog = false
+                                }
+                            )
+                        }
+                        
+                        // Reconnection dialog when max attempts reached
+                        if (showReconnectionDialog) {
+                            ReconnectionDialog(
+                                onContinue = {
+                                    // User wants to continue reconnection attempts
+                                    showReconnectionDialog = false
+                                    lifecycleScope.launch {
+                                        voiceClientManager.continueReconnection()
+                                    }
+                                },
+                                onEndConversation = {
+                                    // User wants to end the conversation
+                                    showReconnectionDialog = false
+                                    lifecycleScope.launch {
+                                        sessionManager.endSession()
+                                        currentScreen = Screen.THREAD_LIST
+                                    }
                                 }
                             )
                         }
@@ -568,8 +563,8 @@ fun ConnectSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, Colors.textFieldBorder, RoundedCornerShape(12.dp)),
-                    value = Preferences.apiKey.value ?: "",
-                    onValueChange = { Preferences.apiKey.value = it },
+                    value = Preferences.geminiApiKey.value ?: "",
+                    onValueChange = { Preferences.geminiApiKey.value = it },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Go

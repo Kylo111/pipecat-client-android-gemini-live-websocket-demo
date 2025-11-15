@@ -142,7 +142,7 @@ object Preferences {
 
     // New preferences
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
-    val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30)
+    val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Now in seconds (auto-pause)
     val keepScreenAwake = BooleanPref(PREF_KEEP_SCREEN_AWAKE, true)
     val selectedSkin = StringPref(PREF_SELECTED_SKIN, "DEFAULT")
     val userPin = StringPref(PREF_USER_PIN, "2222")
