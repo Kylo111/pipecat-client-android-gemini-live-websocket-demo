@@ -65,6 +65,7 @@ fun SettingsScreen(
     var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
     var keepScreenAwake by remember { mutableStateOf(Preferences.keepScreenAwake.value) }
     var autoPauseTimeout by remember { mutableStateOf(Preferences.autoPauseTimeoutSeconds.value) }
+    var botResponseTimeout by remember { mutableStateOf(Preferences.botResponseTimeoutMinutes.value) }
     var activityThreshold by remember { mutableStateOf(Preferences.activityDetectionThreshold.value) }
     var selectedSkin by remember { mutableStateOf(Preferences.selectedSkin.value ?: "DEFAULT") }
     var showSkinDropdown by remember { mutableStateOf(false) }
@@ -76,6 +77,7 @@ fun SettingsScreen(
         Preferences.modelName.value = modelName
         Preferences.keepScreenAwake.value = keepScreenAwake
         Preferences.autoPauseTimeoutSeconds.value = autoPauseTimeout
+        Preferences.botResponseTimeoutMinutes.value = botResponseTimeout
         Preferences.activityDetectionThreshold.value = activityThreshold
         Preferences.selectedSkin.value = selectedSkin
     }
@@ -229,6 +231,78 @@ fun SettingsScreen(
                         
                         Text(
                             text = "Czas bezczynności użytkownika po którym sesja jest pauzowana (bot mówiący nie liczy się jako aktywność)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Bot response timeout slider
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Timeout braku odpowiedzi bota",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            Text(
+                                text = "${botResponseTimeout}min",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Slider(
+                            value = botResponseTimeout.toFloat(),
+                            onValueChange = { botResponseTimeout = it.toInt() },
+                            valueRange = 1f..15f,
+                            steps = 13, // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFF007AFF),
+                                activeTrackColor = Color(0xFF007AFF),
+                                inactiveTrackColor = Color.LightGray
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "1 min",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                            Text(
+                                text = "15 min",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Czas bez odpowiedzi od bota po którym sesja jest pauzowana (zabezpiecza przed głośnymi dźwiękami w tle)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Pipecat Gemini Websocket Demo</string>
+    <string name="app_name">Live_Bot</string>
     
     <!-- Connection Status -->
     <string name="connection_status_reconnecting">Ponowne łączenie...</string>

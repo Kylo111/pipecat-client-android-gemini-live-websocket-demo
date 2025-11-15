@@ -31,7 +31,7 @@ object Preferences {
 
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
-            geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, activityDetectionThreshold, keepScreenAwake,
+            geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme
         ).forEach { it.init() }
     }
@@ -167,6 +167,7 @@ object Preferences {
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
     val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Legacy - kept for compatibility
     val autoPauseTimeoutSeconds = IntPref(PREF_AUTO_PAUSE_TIMEOUT_SECONDS, 30) // Auto-pause after X seconds of user inactivity
+    val botResponseTimeoutMinutes = IntPref("bot_response_timeout_minutes", 5) // Auto-pause after X minutes without bot response
     val activityDetectionThreshold = FloatPref(PREF_ACTIVITY_DETECTION_THRESHOLD, 0.02f) // Audio level threshold for detecting user activity
     val keepScreenAwake = BooleanPref(PREF_KEEP_SCREEN_AWAKE, true)
     val selectedSkin = StringPref(PREF_SELECTED_SKIN, "DEFAULT")

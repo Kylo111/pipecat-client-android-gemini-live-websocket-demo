@@ -178,12 +178,17 @@ class VoiceClientManager(
     private var currentSpeechSpeed: Float = 1.0f
     private var currentVolumeBoost: Float = 1.0f
     private var lastActivityTime: Long = 0L
+    private var lastBotResponseTime: Long = 0L
     private var idleCheckJob: Job? = null
     private var onSessionTimeout: (() -> Unit)? = null
     
     // Auto-pause monitoring
     private var autoPauseJob: Job? = null
     val secondsUntilAutoPause = mutableStateOf(-1) // -1 = disabled, 0+ = seconds remaining
+    
+    // Bot response timeout monitoring
+    private var botResponseTimeoutJob: Job? = null
+    val minutesUntilBotTimeout = mutableStateOf(-1) // -1 = disabled, 0+ = minutes remaining
     
     // Image processing
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
@@ -280,6 +285,16 @@ class VoiceClientManager(
             secondsUntilAutoPause.value = timeout
             Log.d(TAG, "User activity detected - timer reset to ${timeout}s")
         }
+    }
+    
+    /**
+     * Update last bot response time (called when bot responds with audio or text)
+     */
+    private fun updateBotResponseTime() {
+        lastBotResponseTime = System.currentTimeMillis()
+        val timeout = Preferences.botResponseTimeoutMinutes.value
+        minutesUntilBotTimeout.value = timeout
+        Log.d(TAG, "Bot response detected - timer reset to ${timeout}min")
     }
     
 
@@ -657,6 +672,11 @@ class VoiceClientManager(
                     startAutoPauseMonitoring()
                 }
                 
+                // Start bot response timeout monitoring
+                if (botResponseTimeoutJob == null || !botResponseTimeoutJob!!.isActive) {
+                    startBotResponseTimeoutMonitoring()
+                }
+                
                 // Retry pending image if any (after reconnection)
                 retryPendingImage()
                 
@@ -679,6 +699,7 @@ class VoiceClientManager(
                         Log.d(TAG, "Bot transcript (from outputTranscription): $transcriptText")
                         sessionManager?.captureBotTranscript(transcriptText)
                         onBotTranscript?.invoke(transcriptText)
+                        updateBotResponseTime() // Bot responded
                     }
                 }
                 
@@ -720,6 +741,7 @@ class VoiceClientManager(
                                             Log.i(TAG, "Bot started speaking")
                                             botIsTalking.value = true
                                         }
+                                        updateBotResponseTime() // Bot responded with audio
                                     }
                                 }
                             }
@@ -1624,5 +1646,67 @@ class VoiceClientManager(
         autoPauseJob?.cancel()
         autoPauseJob = null
         secondsUntilAutoPause.value = -1
+        
+        // Also stop bot response timeout monitoring
+        stopBotResponseTimeoutMonitoring()
+    }
+    
+    /**
+     * Start bot response timeout monitoring
+     * Monitors time since last bot response
+     * If bot doesn't respond for configured time, session is paused
+     * This protects against situations where background noise prevents auto-pause
+     * but bot is not actually responding
+     */
+    private fun startBotResponseTimeoutMonitoring() {
+        // Cancel existing job
+        botResponseTimeoutJob?.cancel()
+        
+        val timeoutMinutes = Preferences.botResponseTimeoutMinutes.value
+        if (timeoutMinutes <= 0) {
+            Log.i(TAG, "Bot response timeout disabled (timeout = $timeoutMinutes)")
+            minutesUntilBotTimeout.value = -1
+            return
+        }
+        
+        Log.i(TAG, "Starting bot response timeout monitoring (timeout: ${timeoutMinutes}min)")
+        lastBotResponseTime = System.currentTimeMillis()
+        minutesUntilBotTimeout.value = timeoutMinutes
+        
+        botResponseTimeoutJob = scope?.launch {
+            while (isActive) {
+                delay(10000) // Check every 10 seconds
+                
+                // Only monitor if connected
+                if (state.value == ConnectionState.CONNECTED) {
+                    val elapsedMinutes = (System.currentTimeMillis() - lastBotResponseTime) / 60000
+                    val remainingMinutes = timeoutMinutes - elapsedMinutes.toInt()
+                    
+                    minutesUntilBotTimeout.value = remainingMinutes.coerceAtLeast(0)
+                    
+                    if (remainingMinutes <= 0) {
+                        Log.w(TAG, "⏸️ Bot response timeout triggered after ${timeoutMinutes}min without response")
+                        Log.w(TAG, "This may indicate background noise preventing auto-pause while bot is not responding")
+                        pause()
+                        minutesUntilBotTimeout.value = -1
+                        break
+                    }
+                    
+                    if (remainingMinutes == 1) {
+                        Log.d(TAG, "Bot response timeout in 1 minute...")
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop bot response timeout monitoring
+     */
+    private fun stopBotResponseTimeoutMonitoring() {
+        Log.d(TAG, "Stopping bot response timeout monitoring")
+        botResponseTimeoutJob?.cancel()
+        botResponseTimeoutJob = null
+        minutesUntilBotTimeout.value = -1
     }
 }

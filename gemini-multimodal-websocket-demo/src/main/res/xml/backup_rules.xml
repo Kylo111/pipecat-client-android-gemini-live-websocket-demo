@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include all SharedPreferences -->
+    <include domain="sharedpref" path="." />
+    
+    <!-- Explicitly include thread settings -->
+    <include domain="sharedpref" path="thread_settings.xml" />
+    
+    <!-- Explicitly include app preferences -->
+    <include domain="sharedpref" path="prefs.xml" />
+    
+    <!-- Explicitly include encrypted auth preferences -->
+    <include domain="sharedpref" path="librechat_auth_prefs.xml" />
+</full-backup-content>
