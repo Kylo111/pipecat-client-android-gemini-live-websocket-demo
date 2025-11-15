@@ -5,6 +5,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.utils.Timestamp
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.WebSocketErrorClassifier
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
@@ -174,6 +175,8 @@ class VoiceClientManager(
     private var scope: CoroutineScope? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioManager: AudioManager? = null
+    private var isBluetoothScoOn = false
+    private var bluetoothScoReceiver: android.content.BroadcastReceiver? = null
     private var currentThreadSettings: ThreadSettings? = null
     private var currentSpeechSpeed: Float = 1.0f
     private var currentVolumeBoost: Float = 1.0f
@@ -658,6 +661,8 @@ class VoiceClientManager(
                 
                 // Only start audio if not already started (for reconnection case)
                 if (audioRecord == null) {
+                    registerBluetoothScoReceiver()
+                    setupAudioManager()
                     startAudioRecording()
                 }
                 if (audioTrack == null) {
@@ -847,6 +852,189 @@ class VoiceClientManager(
         return (rms * 10f).coerceIn(0f, 1f)
     }
 
+    /**
+     * Setup AudioManager for proper Bluetooth audio routing
+     */
+    private fun setupAudioManager() {
+        try {
+            if (audioManager == null) {
+                audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            }
+            
+            audioManager?.let { am ->
+                Log.i(TAG, "🎧 Setting up AudioManager for Bluetooth support")
+                
+                // Set mode to MODE_IN_COMMUNICATION for VoIP calls
+                // This enables proper audio routing for Bluetooth devices
+                val previousMode = am.mode
+                am.mode = AudioManager.MODE_IN_COMMUNICATION
+                Log.i(TAG, "AudioManager mode changed: $previousMode -> MODE_IN_COMMUNICATION")
+                
+                // Check if Bluetooth SCO is available
+                val isBluetoothAvailable = am.isBluetoothScoAvailableOffCall
+                val isBluetoothA2dpOn = am.isBluetoothA2dpOn
+                Log.i(TAG, "Bluetooth status:")
+                Log.i(TAG, "  - SCO available: $isBluetoothAvailable")
+                Log.i(TAG, "  - A2DP on: $isBluetoothA2dpOn")
+                Log.i(TAG, "  - Current SCO state: ${am.isBluetoothScoOn}")
+                
+                // If Bluetooth headset is connected, start Bluetooth SCO
+                if (isBluetoothAvailable) {
+                    Log.i(TAG, "🔵 Starting Bluetooth SCO...")
+                    
+                    // Force audio routing to Bluetooth before starting SCO
+                    // This ensures the system knows we want BT audio
+                    am.isBluetoothScoOn = true
+                    am.startBluetoothSco()
+                    isBluetoothScoOn = true
+                    
+                    // Give SCO time to establish - increased to 1 second for reliability
+                    Thread.sleep(1000)
+                    
+                    val scoState = am.isBluetoothScoOn
+                    if (scoState) {
+                        Log.i(TAG, "✅ Bluetooth SCO started successfully - BT microphone active")
+                        Log.i(TAG, "   Verifying audio routing to Bluetooth...")
+                        
+                        // Double-check that audio is routed to Bluetooth
+                        if (!am.isBluetoothScoOn) {
+                            Log.w(TAG, "⚠️ SCO state inconsistent, forcing ON again")
+                            am.isBluetoothScoOn = true
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ Bluetooth SCO start requested but state is still OFF")
+                        Log.w(TAG, "   Attempting to force SCO ON...")
+                        am.isBluetoothScoOn = true
+                    }
+                } else {
+                    Log.i(TAG, "ℹ️ No Bluetooth SCO available, using built-in microphone")
+                }
+                
+                // Disable speakerphone to ensure proper routing
+                val wasSpeakerOn = am.isSpeakerphoneOn
+                am.isSpeakerphoneOn = false
+                if (wasSpeakerOn) {
+                    Log.i(TAG, "Speakerphone was ON, now disabled")
+                } else {
+                    Log.i(TAG, "Speakerphone already disabled")
+                }
+                
+                // Log final audio routing state
+                Log.i(TAG, "Audio routing configured:")
+                Log.i(TAG, "  - Mode: ${am.mode}")
+                Log.i(TAG, "  - SCO On: ${am.isBluetoothScoOn}")
+                Log.i(TAG, "  - Speakerphone: ${am.isSpeakerphoneOn}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error setting up AudioManager: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Register Bluetooth SCO state receiver to monitor connection
+     */
+    private fun registerBluetoothScoReceiver() {
+        try {
+            if (bluetoothScoReceiver != null) {
+                return // Already registered
+            }
+            
+            bluetoothScoReceiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    when (intent?.action) {
+                        AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED -> {
+                            val state = intent.getIntExtra(
+                                AudioManager.EXTRA_SCO_AUDIO_STATE,
+                                AudioManager.SCO_AUDIO_STATE_DISCONNECTED
+                            )
+                            val previousState = intent.getIntExtra(
+                                AudioManager.EXTRA_SCO_AUDIO_PREVIOUS_STATE,
+                                AudioManager.SCO_AUDIO_STATE_DISCONNECTED
+                            )
+                            
+                            val stateStr = when (state) {
+                                AudioManager.SCO_AUDIO_STATE_DISCONNECTED -> "DISCONNECTED"
+                                AudioManager.SCO_AUDIO_STATE_CONNECTING -> "CONNECTING"
+                                AudioManager.SCO_AUDIO_STATE_CONNECTED -> "CONNECTED"
+                                AudioManager.SCO_AUDIO_STATE_ERROR -> "ERROR"
+                                else -> "UNKNOWN($state)"
+                            }
+                            
+                            val prevStateStr = when (previousState) {
+                                AudioManager.SCO_AUDIO_STATE_DISCONNECTED -> "DISCONNECTED"
+                                AudioManager.SCO_AUDIO_STATE_CONNECTING -> "CONNECTING"
+                                AudioManager.SCO_AUDIO_STATE_CONNECTED -> "CONNECTED"
+                                AudioManager.SCO_AUDIO_STATE_ERROR -> "ERROR"
+                                else -> "UNKNOWN($previousState)"
+                            }
+                            
+                            Log.i(TAG, "🔵 Bluetooth SCO state changed: $prevStateStr -> $stateStr")
+                            
+                            when (state) {
+                                AudioManager.SCO_AUDIO_STATE_CONNECTED -> {
+                                    Log.i(TAG, "✅ Bluetooth SCO connected - BT microphone is now active")
+                                }
+                                AudioManager.SCO_AUDIO_STATE_DISCONNECTED -> {
+                                    Log.w(TAG, "⚠️ Bluetooth SCO disconnected - falling back to built-in mic")
+                                }
+                                AudioManager.SCO_AUDIO_STATE_ERROR -> {
+                                    Log.e(TAG, "❌ Bluetooth SCO error")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            val filter = android.content.IntentFilter(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED)
+            context.registerReceiver(bluetoothScoReceiver, filter)
+            Log.i(TAG, "Bluetooth SCO state receiver registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error registering Bluetooth SCO receiver: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Unregister Bluetooth SCO state receiver
+     */
+    private fun unregisterBluetoothScoReceiver() {
+        try {
+            bluetoothScoReceiver?.let {
+                context.unregisterReceiver(it)
+                bluetoothScoReceiver = null
+                Log.i(TAG, "Bluetooth SCO state receiver unregistered")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering Bluetooth SCO receiver: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Cleanup AudioManager and stop Bluetooth SCO
+     */
+    private fun cleanupAudioManager() {
+        try {
+            unregisterBluetoothScoReceiver()
+            
+            audioManager?.let { am ->
+                if (isBluetoothScoOn) {
+                    Log.i(TAG, "🔵 Stopping Bluetooth SCO...")
+                    am.stopBluetoothSco()
+                    am.isBluetoothScoOn = false
+                    isBluetoothScoOn = false
+                    Log.i(TAG, "Bluetooth SCO stopped")
+                }
+                
+                // Reset audio mode to normal
+                val previousMode = am.mode
+                am.mode = AudioManager.MODE_NORMAL
+                Log.i(TAG, "AudioManager mode reset: $previousMode -> MODE_NORMAL")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error cleaning up AudioManager: ${e.message}", e)
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private fun startAudioRecording() {
         try {
@@ -868,6 +1056,25 @@ class VoiceClientManager(
 
             audioRecord?.startRecording()
             mic.value = true
+            
+            // Log audio routing status after AudioRecord is created
+            audioManager?.let { am ->
+                Log.i(TAG, "📱 Audio routing status after AudioRecord creation:")
+                Log.i(TAG, "   - Mode: ${am.mode}")
+                Log.i(TAG, "   - Bluetooth SCO ON: ${am.isBluetoothScoOn}")
+                Log.i(TAG, "   - Speakerphone ON: ${am.isSpeakerphoneOn}")
+                Log.i(TAG, "   - Wired headset ON: ${am.isWiredHeadsetOn}")
+                
+                // Log which audio source AudioRecord will use
+                val audioSource = MediaRecorder.AudioSource.VOICE_COMMUNICATION
+                Log.i(TAG, "   - AudioRecord source: VOICE_COMMUNICATION ($audioSource)")
+                
+                if (am.isBluetoothScoOn) {
+                    Log.i(TAG, "   ✅ Bluetooth SCO is active - should use BT microphone")
+                } else {
+                    Log.w(TAG, "   ⚠️ Bluetooth SCO is NOT active - will use built-in microphone")
+                }
+            }
 
             recordingJob = scope?.launch {
                 val buffer = ByteArray(bufferSize)
@@ -1156,6 +1363,9 @@ class VoiceClientManager(
         audioTrack?.release()
         audioTrack = null
         Log.d(TAG, "AudioTrack released")
+        
+        cleanupAudioManager()
+        Log.d(TAG, "AudioManager cleaned up")
         
         stopAutoPauseMonitoring()
         Log.d(TAG, "Auto-pause monitoring stopped")
