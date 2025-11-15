@@ -11,11 +11,7 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.net.Uri
-import android.os.Bundle
 import android.os.PowerManager
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.util.Base64
 import android.util.Log
 import android.webkit.MimeTypeMap
@@ -33,6 +29,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -146,7 +144,7 @@ data class SessionResumptionUpdate(
 @Stable
 class VoiceClientManager(
     private val context: Context,
-    private val sessionManager: SessionManager? = null
+    val sessionManager: SessionManager? = null
 ) {
 
     companion object {
@@ -164,7 +162,8 @@ class VoiceClientManager(
 
     private val json = Json { 
         ignoreUnknownKeys = true
-        encodeDefaults = true
+        encodeDefaults = false // Don't encode default (null) values
+        explicitNulls = false // Don't include null fields in JSON
     }
 
     private var webSocket: WebSocket? = null
@@ -175,15 +174,17 @@ class VoiceClientManager(
     private var scope: CoroutineScope? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioManager: AudioManager? = null
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var isRecognizing = false
-    private var lastRecognitionTime = 0L
     private var currentThreadSettings: ThreadSettings? = null
     private var currentSpeechSpeed: Float = 1.0f
     private var currentVolumeBoost: Float = 1.0f
     private var lastActivityTime: Long = 0L
     private var idleCheckJob: Job? = null
     private var onSessionTimeout: (() -> Unit)? = null
+    
+    // Image processing
+    private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
+    private var pendingImage: Uri? = null
+    private var imageProcessingJob: Job? = null
     
     // Session resumption support
     private var sessionResumptionHandle: String? = null
@@ -208,6 +209,7 @@ class VoiceClientManager(
     val userAudioLevel = mutableFloatStateOf(0f)
     val mic = mutableStateOf(false)
     val camera = mutableStateOf(false)
+    val isProcessingImage = mutableStateOf(false)
     
     // Indicates if session is paused (disconnected but can be resumed)
     val isPaused = mutableStateOf(false)
@@ -294,10 +296,8 @@ class VoiceClientManager(
                 val idleTime = System.currentTimeMillis() - lastActivityTime
                 if (idleTime >= timeoutMillis) {
                     Log.i(TAG, "Auto-pause triggered after ${idleTime / 1000} seconds of inactivity")
-                    // Pause the session (not stop - preserves session handle)
+                    // Pause the session (not stop - preserves session handle and context)
                     pause()
-                    // Notify callback
-                    onSessionTimeout?.invoke()
                     break
                 }
             }
@@ -326,7 +326,7 @@ class VoiceClientManager(
 
         val apiKey = Preferences.geminiApiKey.value
         if (apiKey.isNullOrBlank()) {
-            errors.add(Error("API key is required"))
+            errors.add(Error(context.getString(R.string.error_api_key_required)))
             return
         }
 
@@ -357,7 +357,9 @@ class VoiceClientManager(
         Log.i(TAG, "  Speech Speed: $currentSpeechSpeed")
         Log.i(TAG, "  Volume Boost: $currentVolumeBoost")
         Log.i(TAG, "  Temperature: $temperature")
-        Log.i(TAG, "  System Prompt: $systemPrompt")
+        Log.i(TAG, "  Transcription: Auto-detect (Gemini Live API)")
+        Log.i(TAG, "  System Prompt length: ${systemPrompt.length} chars")
+        Log.i(TAG, "  System Prompt preview: ${systemPrompt.take(200)}...")
         Log.i(TAG, "  Session ID: ${currentSession?.sessionId ?: "none"}")
         Log.i(TAG, "  Conversation ID: ${currentSession?.conversationId ?: "none"}")
         if (threadSettings != null) {
@@ -371,6 +373,7 @@ class VoiceClientManager(
             val previousState = state.value
             state.value = ConnectionState.CONNECTING
             Log.i(TAG, "State transition: $previousState -> CONNECTING")
+            updateServiceNotification()
         } else {
             Log.i(TAG, "Reconnection attempt in progress, maintaining RECONNECTING state")
         }
@@ -433,6 +436,9 @@ class VoiceClientManager(
                             parts = listOf(Part(text = systemPrompt))
                         ),
                         // Enable transcription for both input and output audio
+                        // Gemini Live API provides high-quality transcription with automatic language detection
+                        // Note: Gemini API does not support explicit language_code parameter for transcription
+                        // Language is automatically detected from audio
                         output_audio_transcription = OutputAudioTranscription(),
                         input_audio_transcription = InputAudioTranscription(),
                         // Session resumption configuration:
@@ -451,7 +457,12 @@ class VoiceClientManager(
                 )
                 
                 val setupJson = json.encodeToString(setupMsg)
-                Log.i(TAG, "Sending setup: $setupJson")
+                Log.i(TAG, "📤 Sending setup message:")
+                Log.i(TAG, "  Total JSON length: ${setupJson.length} chars")
+                Log.i(TAG, "  System instruction length: ${systemPrompt.length} chars")
+                if (DEBUG_LOGGING) {
+                    Log.d(TAG, "  Full setup JSON: $setupJson")
+                }
                 webSocket.send(setupJson)
             }
 
@@ -506,6 +517,7 @@ class VoiceClientManager(
                 // Unexpected closure - attempt reconnection
                 Log.w(TAG, "Unexpected WebSocket closure, attempting reconnection")
                 state.value = ConnectionState.RECONNECTING
+                updateServiceNotification()
                 scope?.launch {
                     reconnectionManager.startReconnection()
                 }
@@ -539,11 +551,20 @@ class VoiceClientManager(
                     WebSocketErrorClassifier.ErrorType.RECOVERABLE -> {
                         Log.i(TAG, "Recoverable error detected, attempting reconnection")
                         Log.i(TAG, "Reason: ${t.message}")
-                        errors.add(Error("Utracono połączenie: ${t.message}"))
+                        
+                        // Get user-friendly error message based on error type
+                        val errorMessage = when (t) {
+                            is java.net.SocketTimeoutException -> context.getString(R.string.error_network_timeout)
+                            is java.net.UnknownHostException -> context.getString(R.string.error_dns_failure)
+                            is java.net.ConnectException -> context.getString(R.string.error_connection_refused)
+                            else -> context.getString(R.string.error_connection_lost, t.message ?: "")
+                        }
+                        errors.add(Error(errorMessage))
                         
                         // Transition to RECONNECTING state
                         if (state.value != ConnectionState.RECONNECTING) {
                             state.value = ConnectionState.RECONNECTING
+                            updateServiceNotification()
                             scope?.launch {
                                 reconnectionManager.startReconnection()
                             }
@@ -556,7 +577,13 @@ class VoiceClientManager(
                         if (DEBUG_LOGGING) {
                             Log.e(TAG, "Fatal error cause: ${t.cause?.message}")
                         }
-                        errors.add(Error("Błąd krytyczny: ${t.message}"))
+                        
+                        // Get user-friendly error message based on error type
+                        val errorMessage = when (t) {
+                            is javax.net.ssl.SSLException -> context.getString(R.string.error_ssl_error)
+                            else -> context.getString(R.string.error_critical, t.message ?: "")
+                        }
+                        errors.add(Error(errorMessage))
                         handleDisconnect()
                     }
                     
@@ -566,11 +593,12 @@ class VoiceClientManager(
                         if (DEBUG_LOGGING) {
                             Log.w(TAG, "Unknown error cause: ${t.cause?.message}")
                         }
-                        errors.add(Error("Nieznany błąd: ${t.message}"))
+                        errors.add(Error(context.getString(R.string.error_unknown, t.message ?: "")))
                         
                         // Treat unknown errors as recoverable
                         if (state.value != ConnectionState.RECONNECTING) {
                             state.value = ConnectionState.RECONNECTING
+                            updateServiceNotification()
                             scope?.launch {
                                 reconnectionManager.startReconnection()
                             }
@@ -636,6 +664,7 @@ class VoiceClientManager(
                 Log.i(TAG, "Setup complete - State transition: $previousState -> CONNECTED")
                 state.value = ConnectionState.CONNECTED
                 botReady.value = true
+                updateServiceNotification()
                 
                 // Reset reconnection manager on successful connection
                 reconnectionManager.reset()
@@ -656,8 +685,12 @@ class VoiceClientManager(
                     startIdleMonitoring()
                 }
                 
-                // Note: We no longer use Android SpeechRecognizer
-                // Gemini Live API provides transcription via input_audio_transcription
+                // Retry pending image if any (after reconnection)
+                retryPendingImage()
+                
+                // Note: We use Gemini Live API's built-in transcription
+                // Both input and output audio are transcribed automatically
+                
                 return
             }
 
@@ -683,7 +716,7 @@ class VoiceClientManager(
                     val transcriptText = inputTranscription?.get("text")?.jsonPrimitive?.content
                     
                     if (!transcriptText.isNullOrBlank()) {
-                        Log.d(TAG, "User transcript (from inputTranscription): $transcriptText")
+                        Log.d(TAG, "User transcript (from Gemini inputTranscription): $transcriptText")
                         sessionManager?.captureUserTranscript(transcriptText)
                         onUserTranscript?.invoke(transcriptText)
                         updateActivity() // User is active
@@ -862,12 +895,15 @@ class VoiceClientManager(
                         val level = calculateAudioLevel(buffer.copyOf(read))
                         userAudioLevel.floatValue = level
                         
-                        // Detect if user is talking (simple threshold)
-                        val isTalking = level > 0.02f
+                        // Detect if user is talking using configurable threshold
+                        // This threshold affects ONLY activity detection for auto-pause,
+                        // NOT the audio volume sent to Gemini
+                        val threshold = Preferences.activityDetectionThreshold.value
+                        val isTalking = level > threshold
                         if (userIsTalking.value != isTalking) {
                             userIsTalking.value = isTalking
                             if (isTalking) {
-                                Log.i(TAG, "User started speaking (audio level: $level)")
+                                Log.i(TAG, "User started speaking (audio level: $level, threshold: $threshold)")
                                 updateActivity() // User is active
                             } else {
                                 Log.i(TAG, "User stopped speaking")
@@ -913,7 +949,7 @@ class VoiceClientManager(
             if (DEBUG_LOGGING) {
                 Log.e(TAG, "Audio recording error details:", e)
             }
-            errors.add(Error("Failed to start microphone: ${e.message}"))
+            errors.add(Error(context.getString(R.string.error_microphone_start_failed, e.message ?: "")))
         }
     }
 
@@ -943,146 +979,10 @@ class VoiceClientManager(
             if (DEBUG_LOGGING) {
                 Log.e(TAG, "Audio playback error details:", e)
             }
-            errors.add(Error("Failed to start audio playback: ${e.message}"))
+            errors.add(Error(context.getString(R.string.error_audio_playback_failed, e.message ?: "")))
         }
     }
     
-    private fun initializeSpeechRecognizer() {
-        try {
-            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-                Log.w(TAG, "Speech recognition not available on this device")
-                return
-            }
-            
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    Log.d(TAG, "SpeechRecognizer ready for speech")
-                }
-                
-                override fun onBeginningOfSpeech() {
-                    Log.d(TAG, "SpeechRecognizer detected beginning of speech")
-                }
-                
-                override fun onRmsChanged(rmsdB: Float) {
-                    // Audio level changes - not used
-                }
-                
-                override fun onBufferReceived(buffer: ByteArray?) {
-                    // Audio buffer - not used
-                }
-                
-                override fun onEndOfSpeech() {
-                    Log.d(TAG, "SpeechRecognizer detected end of speech")
-                    isRecognizing = false
-                }
-                
-                override fun onError(error: Int) {
-                    val errorMessage = when (error) {
-                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-                        SpeechRecognizer.ERROR_CLIENT -> "Client side error"
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
-                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-                        SpeechRecognizer.ERROR_NO_MATCH -> "No speech match"
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognition service busy"
-                        SpeechRecognizer.ERROR_SERVER -> "Server error"
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
-                        else -> "Unknown error: $error"
-                    }
-                    
-                    // Only log errors that are not normal (no match and timeout are expected)
-                    if (error != SpeechRecognizer.ERROR_NO_MATCH && 
-                        error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                        Log.w(TAG, "SpeechRecognizer error: $errorMessage")
-                    }
-                    
-                    isRecognizing = false
-                    
-                    // Restart recognition if still connected
-                    if (state.value == ConnectionState.CONNECTED) {
-                        scope?.launch {
-                            delay(500)
-                            startContinuousRecognition()
-                        }
-                    }
-                }
-                
-                override fun onResults(results: Bundle?) {
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    if (!matches.isNullOrEmpty()) {
-                        val transcribedText = matches[0]
-                        if (transcribedText.isNotBlank()) {
-                            Log.i(TAG, "User transcript: $transcribedText")
-                            sessionManager?.captureUserTranscript(transcribedText)
-                            onUserTranscript?.invoke(transcribedText)
-                            updateActivity() // User is active
-                        }
-                    }
-                    
-                    isRecognizing = false
-                    
-                    // Restart recognition for continuous transcription
-                    if (state.value == ConnectionState.CONNECTED) {
-                        scope?.launch {
-                            delay(100)
-                            startContinuousRecognition()
-                        }
-                    }
-                }
-                
-                override fun onPartialResults(partialResults: Bundle?) {
-                    // Partial results - could be used for real-time feedback
-                }
-                
-                override fun onEvent(eventType: Int, params: Bundle?) {
-                    // Additional events - not used
-                }
-            })
-            
-            Log.i(TAG, "SpeechRecognizer initialized")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize SpeechRecognizer", e)
-        }
-    }
-    
-    private fun startContinuousRecognition() {
-        if (isRecognizing || speechRecognizer == null) {
-            return
-        }
-        
-        if (state.value != ConnectionState.CONNECTED) {
-            return
-        }
-        
-        try {
-            val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pl-PL") // Polish language
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            }
-            
-            speechRecognizer?.startListening(intent)
-            isRecognizing = true
-            lastRecognitionTime = System.currentTimeMillis()
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start speech recognition", e)
-            isRecognizing = false
-        }
-    }
-    
-    private fun stopSpeechRecognition() {
-        try {
-            isRecognizing = false
-            speechRecognizer?.stopListening()
-            speechRecognizer?.cancel()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping speech recognition", e)
-        }
-    }
-
     /**
      * Pause the session (disconnect but keep session handle for resumption)
      * Called when user disables microphone or when auto-pause triggers
@@ -1096,6 +996,7 @@ class VoiceClientManager(
         val previousState = state.value
         state.value = ConnectionState.DISCONNECTING
         Log.i(TAG, "State transition: $previousState -> DISCONNECTING (pause - session handle preserved)")
+        updateServiceNotification()
         
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
@@ -1179,6 +1080,7 @@ class VoiceClientManager(
         val previousState = state.value
         state.value = ConnectionState.DISCONNECTING
         Log.i(TAG, "State transition: $previousState -> DISCONNECTING (user initiated)")
+        updateServiceNotification()
         
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
@@ -1204,6 +1106,20 @@ class VoiceClientManager(
         
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
+        
+        // Cancel image processing job
+        imageProcessingJob?.cancel()
+        imageProcessingJob = null
+        isProcessingImage.value = false
+        Log.d(TAG, "Image processing job cancelled")
+        
+        // Clear pending image if not preserving session
+        if (!preserveSessionHandle) {
+            pendingImage = null
+            Log.d(TAG, "Pending image cleared")
+        } else {
+            Log.d(TAG, "Pending image preserved for session resumption")
+        }
         
         // Log session handle status
         if (preserveSessionHandle && sessionResumptionHandle != null) {
@@ -1236,12 +1152,6 @@ class VoiceClientManager(
         audioTrack = null
         Log.d(TAG, "AudioTrack released")
         
-        stopSpeechRecognition()
-        speechRecognizer?.destroy()
-        speechRecognizer = null
-        isRecognizing = false
-        Log.d(TAG, "SpeechRecognizer destroyed")
-        
         stopIdleMonitoring()
         Log.d(TAG, "Idle monitoring stopped")
         
@@ -1268,6 +1178,7 @@ class VoiceClientManager(
         val previousState = state.value
         state.value = ConnectionState.DISCONNECTED
         Log.i(TAG, "State transition: $previousState -> DISCONNECTED (cleanup complete)")
+        updateServiceNotification()
         
         botReady.value = false
         botIsTalking.value = false
@@ -1288,79 +1199,141 @@ class VoiceClientManager(
     }
 
     fun sendImage(uri: Uri) {
+        // Check if not connected - queue the image for retry after reconnection
         if (state.value != ConnectionState.CONNECTED) {
             Log.w(TAG, "Cannot send image - not connected (state: ${state.value})")
-            errors.add(Error("Not connected"))
+            pendingImage = uri
+            errors.add(Error(context.getString(R.string.error_image_queued_for_retry)))
+            Log.i(TAG, "Image queued for retry after reconnection: $uri")
             return
         }
 
-        Log.i(TAG, "Starting image send - URI: $uri")
+        Log.i(TAG, "Starting image send with processing - URI: $uri")
         val startTime = System.currentTimeMillis()
 
-        try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            if (inputStream == null) {
-                Log.e(TAG, "Failed to open input stream for image URI: $uri")
-                errors.add(Error("Failed to read image file"))
-                return
-            }
-
-            val imageBytes = inputStream.use { it.readBytes() }
-            val mimeType = getMimeType(uri)
-            
-            Log.i(TAG, "Image loaded - Size: ${imageBytes.size} bytes (${imageBytes.size / 1024} KB), MIME: $mimeType")
-
-            if (mimeType != "image/jpeg" && mimeType != "image/png") {
-                Log.e(TAG, "Unsupported image format: $mimeType")
-                errors.add(Error("Unsupported image format. Please use JPG or PNG"))
-                return
-            }
-
-            val base64Image = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
-            val base64Size = base64Image.length
-            
-            Log.i(TAG, "Image encoded to Base64 - Size: $base64Size chars (${base64Size / 1024} KB)")
-            
-            val message = RealtimeInputMessage(
-                realtime_input = RealtimeInput(
-                    media_chunks = listOf(
-                        MediaChunk(
-                            mime_type = mimeType,
-                            data = base64Image
+        // Cancel any existing image processing job
+        imageProcessingJob?.cancel()
+        
+        // Launch image processing with timeout
+        imageProcessingJob = scope?.launch(Dispatchers.IO) {
+            try {
+                // Set processing state for UI progress indicator
+                isProcessingImage.value = true
+                
+                // Process image with timeout (30 seconds)
+                val processingResult = kotlinx.coroutines.withTimeout(30000L) {
+                    imageProcessor.processImage(uri)
+                }
+                
+                processingResult.onSuccess { processedImage ->
+                    Log.i(TAG, "Image processed successfully:")
+                    Log.i(TAG, "  Original size: ${processedImage.originalSize} bytes")
+                    Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
+                    Log.i(TAG, "  Dimensions: ${processedImage.dimensions.first}x${processedImage.dimensions.second}")
+                    Log.i(TAG, "  MIME type: ${processedImage.mimeType}")
+                    
+                    // Encode to Base64
+                    val base64Image = Base64.encodeToString(processedImage.data, Base64.NO_WRAP)
+                    val base64Size = base64Image.length
+                    
+                    Log.i(TAG, "Image encoded to Base64 - Size: $base64Size chars (${base64Size / 1024} KB)")
+                    
+                    // Check if still connected before sending
+                    if (state.value != ConnectionState.CONNECTED) {
+                        Log.w(TAG, "Connection lost during image processing, queuing for retry")
+                        pendingImage = uri
+                        withContext(Dispatchers.Main) {
+                            errors.add(Error(context.getString(R.string.error_image_queued_for_retry)))
+                        }
+                        return@launch
+                    }
+                    
+                    // Build and send message
+                    val message = RealtimeInputMessage(
+                        realtime_input = RealtimeInput(
+                            media_chunks = listOf(
+                                MediaChunk(
+                                    mime_type = processedImage.mimeType,
+                                    data = base64Image
+                                )
+                            )
                         )
                     )
-                )
-            )
-            
-            val messageJson = json.encodeToString(message)
-            val messageSent = webSocket?.send(messageJson) ?: false
-            
-            val elapsedTime = System.currentTimeMillis() - startTime
-            
-            if (messageSent) {
-                Log.i(TAG, "Image sent successfully in ${elapsedTime}ms")
-                Log.i(TAG, "Image details - Original: ${imageBytes.size} bytes, Base64: $base64Size chars, MIME: $mimeType")
+                    
+                    val messageJson = json.encodeToString(message)
+                    val messageSent = webSocket?.send(messageJson) ?: false
+                    
+                    val elapsedTime = System.currentTimeMillis() - startTime
+                    
+                    if (messageSent) {
+                        Log.i(TAG, "Image sent successfully in ${elapsedTime}ms")
+                        
+                        // Clear pending image on successful send
+                        pendingImage = null
+                        
+                        // Record image event in session
+                        val imageDescription = "Image sent: ${uri.lastPathSegment ?: "unknown"} " +
+                                "(${processedImage.processedSize} bytes, ${processedImage.dimensions.first}x${processedImage.dimensions.second})"
+                        sessionManager?.recordImageSent(imageDescription)
+                        
+                        updateActivity() // User interaction
+                    } else {
+                        Log.e(TAG, "Failed to send image - WebSocket send returned false")
+                        withContext(Dispatchers.Main) {
+                            errors.add(Error(context.getString(R.string.error_image_send_failed, context.getString(R.string.error_image_send_connection_problem))))
+                        }
+                    }
+                    
+                }.onFailure { error ->
+                    Log.e(TAG, "Image processing failed: ${error.message}", error)
+                    
+                    val errorMessage = when (error) {
+                        is OutOfMemoryError -> context.getString(R.string.error_image_too_large_memory)
+                        is kotlinx.coroutines.TimeoutCancellationException -> context.getString(R.string.error_image_processing_timeout)
+                        else -> context.getString(R.string.error_image_processing_failed_with_message, error.message ?: "")
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        errors.add(Error(errorMessage))
+                    }
+                }
                 
-                // Record image event in session
-                val imageDescription = "Image sent: ${uri.lastPathSegment ?: "unknown"} (${imageBytes.size} bytes, $mimeType)"
-                sessionManager?.recordImageSent(imageDescription)
-            } else {
-                Log.e(TAG, "Failed to send image - WebSocket send returned false")
-                errors.add(Error("Failed to send image - connection issue"))
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                Log.e(TAG, "Image processing timeout after 30 seconds", e)
+                withContext(Dispatchers.Main) {
+                    errors.add(Error(context.getString(R.string.error_image_processing_timeout)))
+                }
+            } catch (e: OutOfMemoryError) {
+                Log.e(TAG, "Out of memory while processing image", e)
+                withContext(Dispatchers.Main) {
+                    errors.add(Error(context.getString(R.string.error_image_too_large_memory)))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending image: ${e.message}", e)
+                if (DEBUG_LOGGING) {
+                    Log.e(TAG, "Image send error details:", e)
+                }
+                withContext(Dispatchers.Main) {
+                    errors.add(Error(context.getString(R.string.error_image_send_failed, e.message ?: "")))
+                }
+            } finally {
+                // Clear processing state
+                isProcessingImage.value = false
             }
-
-        } catch (e: OutOfMemoryError) {
-            Log.e(TAG, "Out of memory while processing image", e)
-            errors.add(Error("Image too large - out of memory"))
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending image: ${e.message}", e)
-            if (DEBUG_LOGGING) {
-                Log.e(TAG, "Image send error details:", e)
-            }
-            errors.add(Error("Failed to send image: ${e.message}"))
         }
     }
 
+    /**
+     * Retry sending pending image after successful reconnection
+     * Called automatically when connection is restored
+     */
+    private fun retryPendingImage() {
+        pendingImage?.let { uri ->
+            Log.i(TAG, "Retrying pending image send after reconnection: $uri")
+            sendImage(uri)
+        }
+    }
+    
     private fun getMimeType(uri: Uri): String {
         return if (uri.scheme == "content") {
             context.contentResolver.getType(uri) ?: "image/jpeg"
@@ -1432,6 +1405,43 @@ class VoiceClientManager(
     }
     
     /**
+     * Update VoiceService notification based on current connection state
+     * Called whenever connection state changes
+     */
+    private fun updateServiceNotification() {
+        try {
+            val service = VoiceService.getInstance()
+            if (service == null) {
+                if (DEBUG_LOGGING) {
+                    Log.d(TAG, "VoiceService not running, skipping notification update")
+                }
+                return
+            }
+            
+            val statusText = when (state.value) {
+                ConnectionState.CONNECTED -> "Trwa rozmowa głosowa"
+                ConnectionState.RECONNECTING -> {
+                    val attempt = reconnectionAttempt.value
+                    if (attempt > 0) {
+                        "Ponowne łączenie... próba $attempt z $maxReconnectionAttempts"
+                    } else {
+                        "Ponowne łączenie..."
+                    }
+                }
+                ConnectionState.DISCONNECTED -> "Rozłączono"
+                ConnectionState.CONNECTING -> "Łączenie..."
+                ConnectionState.DISCONNECTING -> "Rozłączanie..."
+            }
+            
+            service.updateNotification(statusText)
+            Log.d(TAG, "Service notification updated: $statusText")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update service notification", e)
+        }
+    }
+    
+    /**
      * Inner class to manage automatic reconnection with exponential backoff
      */
     private inner class ReconnectionManager {
@@ -1453,6 +1463,7 @@ class VoiceClientManager(
                 while (isActive && attemptCount < maxAttempts) {
                     attemptCount++
                     reconnectionAttempt.value = attemptCount // Update UI state
+                    updateServiceNotification() // Update notification with attempt count
                     val delay = calculateBackoff(attemptCount)
                     
                     Log.i(TAG, "Reconnection attempt $attemptCount of $maxAttempts (delay: ${delay}ms)")
@@ -1498,6 +1509,7 @@ class VoiceClientManager(
             Log.i(TAG, "Resetting reconnection manager")
             attemptCount = 0
             reconnectionAttempt.value = 0 // Reset UI state
+            updateServiceNotification() // Update notification to clear attempt count
             reconnectJob?.cancel()
             reconnectJob = null
         }
@@ -1563,7 +1575,7 @@ class VoiceClientManager(
             Log.i(TAG, "Showing max attempts dialog to user")
             
             // Add error message that will be displayed in UI
-            errors.add(Error("Nie udało się połączyć po $maxAttempts próbach. Kontynuować próby?"))
+            errors.add(Error(context.getString(R.string.error_reconnection_max_attempts, maxAttempts)))
             
             // Invoke callback to notify UI layer to show dialog
             onMaxReconnectionAttemptsReached?.invoke()

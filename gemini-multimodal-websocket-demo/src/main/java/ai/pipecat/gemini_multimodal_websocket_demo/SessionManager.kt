@@ -7,6 +7,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.coroutines.resume
 
@@ -16,7 +22,8 @@ import kotlin.coroutines.resume
  */
 class SessionManager(
     private val context: Context,
-    private val libreChatService: LibreChatService
+    private val libreChatService: LibreChatService,
+    private val scope: CoroutineScope
 ) {
     
     // Summary generator for session analysis (fallback)
@@ -25,11 +32,30 @@ class SessionManager(
     // VoiceClientManager reference (set after construction to avoid circular dependency)
     var voiceClientManager: VoiceClientManager? = null
     
+    // Transcript sync manager for reliable transcript synchronization
+    private val transcriptSyncManager = TranscriptSyncManager()
+    
     companion object {
         private const val TAG = "SessionManager"
         private const val MAX_TRANSCRIPTS = 10000
         private const val CONTEXT_UPDATE_THROTTLE_MS = 30000L // 30 seconds
     }
+    
+    /**
+     * Sealed class representing the status of transcript synchronization
+     */
+    sealed class SyncStatus {
+        object Idle : SyncStatus()
+        data class Syncing(val attempt: Int) : SyncStatus()
+        object Success : SyncStatus()
+        data class Error(val message: String, val willRetry: Boolean) : SyncStatus()
+    }
+    
+    /**
+     * Get the current sync status as observable StateFlow
+     */
+    val syncStatus: StateFlow<SyncStatus>
+        get() = transcriptSyncManager.syncStatus
     
     /**
      * Represents the current learning session context
@@ -298,6 +324,7 @@ class SessionManager(
     /**
      * End the current session and send transcript to LibreChat
      * Formats all transcripts with speaker roles and sends to LibreChat
+     * Uses TranscriptSyncManager for reliable delivery with infinite retry
      * 
      * @return Result indicating success or failure
      */
@@ -341,37 +368,54 @@ class SessionManager(
                 sessionSummary = transcriptText
             )
             
-            Log.d(TAG, "📤 Sending session transcript to LibreChat:")
-            Log.d(TAG, "  Conversation ID: ${session.conversationId}")
+            Log.d(TAG, "📤 Starting transcript synchronization with infinite retry")
             
-            // Try to send transcript to LibreChat
-            val sendResult = libreChatService.sendSessionSummary(summaryRequest)
+            // Use TranscriptSyncManager for reliable delivery with infinite retry
+            val syncResult = transcriptSyncManager.syncTranscripts(summaryRequest)
             
-            if (sendResult.isSuccess) {
-                Log.d(TAG, "✅ Session transcript sent successfully")
+            if (syncResult.isSuccess) {
+                Log.d(TAG, "✅ Session transcript synchronized successfully")
                 // Clear session context on successful submission
                 currentSession = null
                 lastContextUpdateTime = 0
+                transcriptSyncManager.reset()
                 isEndingSession = false
                 Result.success(Unit)
             } else {
-                // Handle failure by queuing for offline retry
-                Log.w(TAG, "⚠️ Failed to send transcript, will retry later")
-                // Note: Offline queue functionality can be added later if needed
+                // Sync was cancelled or failed
+                Log.w(TAG, "⚠️ Transcript synchronization was cancelled or failed")
                 
-                // Clear session even though send failed (it's queued)
+                // Clear session even though sync failed/cancelled
                 currentSession = null
                 lastContextUpdateTime = 0
+                transcriptSyncManager.reset()
                 isEndingSession = false
                 
-                Result.failure(sendResult.exceptionOrNull() ?: Exception("Failed to send transcript"))
+                Result.failure(syncResult.exceptionOrNull() ?: Exception("Transcript sync failed"))
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error ending session", e)
             isEndingSession = false
+            transcriptSyncManager.reset()
             Result.failure(e)
         }
+    }
+    
+    /**
+     * Cancel ongoing transcript synchronization
+     * Shows warning that transcripts may be lost
+     */
+    fun cancelTranscriptSync() {
+        transcriptSyncManager.cancelSync()
+    }
+    
+    /**
+     * Check if transcript synchronization is in progress
+     * Used to block new conversations until sync completes
+     */
+    fun isSyncInProgress(): Boolean {
+        return syncStatus.value is SyncStatus.Syncing
     }
     
     /**
@@ -435,5 +479,136 @@ class SessionManager(
         return builder.toString()
     }
     
+    /**
+     * Inner class managing transcript synchronization with infinite retry
+     * Ensures transcripts are reliably sent to LibreChat even with network issues
+     */
+    private inner class TranscriptSyncManager {
+        
+        private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+        val syncStatus: StateFlow<SyncStatus> = _syncStatus
+        
+        private var syncJob: Job? = null
+        private var isCancelled = false
+        
+        // Constants for retry logic
+        private val TAG = "TranscriptSyncManager"
+        private val BASE_DELAY = 1000L // 1 second
+        private val MAX_DELAY = 30000L // 30 seconds
+        private val BACKOFF_FACTOR = 2.0
+        
+        /**
+         * Synchronize transcripts with infinite retry until success or cancellation
+         * 
+         * @param summaryRequest The summary request containing transcripts
+         * @return Result indicating success or cancellation
+         */
+        suspend fun syncTranscripts(summaryRequest: SummaryRequest): Result<Unit> {
+            isCancelled = false
+            var attempt = 0
+            
+            syncJob = scope.launch {
+                while (!isCancelled) {
+                    attempt++
+                    
+                    Log.d(TAG, "📤 Transcript sync attempt $attempt")
+                    _syncStatus.value = SyncStatus.Syncing(attempt)
+                    
+                    try {
+                        // Attempt to send transcripts
+                        val result = libreChatService.sendSessionSummary(summaryRequest)
+                        
+                        if (result.isSuccess) {
+                            Log.d(TAG, "✅ Transcript sync successful on attempt $attempt")
+                            _syncStatus.value = SyncStatus.Success
+                            return@launch
+                        } else {
+                            val error = result.exceptionOrNull()
+                            Log.w(TAG, "⚠️ Transcript sync failed on attempt $attempt: ${error?.message}")
+                            
+                            if (!isCancelled) {
+                                _syncStatus.value = SyncStatus.Error(
+                                    message = error?.message ?: "Unknown error",
+                                    willRetry = true
+                                )
+                                
+                                // Calculate exponential backoff delay
+                                val delay = calculateBackoff(attempt)
+                                Log.d(TAG, "⏳ Waiting ${delay}ms before retry...")
+                                delay(delay)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Exception during transcript sync attempt $attempt", e)
+                        
+                        if (!isCancelled) {
+                            _syncStatus.value = SyncStatus.Error(
+                                message = e.message ?: "Unknown error",
+                                willRetry = true
+                            )
+                            
+                            // Calculate exponential backoff delay
+                            val delay = calculateBackoff(attempt)
+                            Log.d(TAG, "⏳ Waiting ${delay}ms before retry...")
+                            delay(delay)
+                        }
+                    }
+                }
+                
+                // If we exit the loop, it means we were cancelled
+                if (isCancelled) {
+                    Log.w(TAG, "🚫 Transcript sync cancelled by user after $attempt attempts")
+                    _syncStatus.value = SyncStatus.Error(
+                        message = "Synchronization cancelled by user",
+                        willRetry = false
+                    )
+                }
+            }
+            
+            // Wait for the job to complete
+            syncJob?.join()
+            
+            return if (_syncStatus.value is SyncStatus.Success) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Transcript sync failed or was cancelled"))
+            }
+        }
+        
+        /**
+         * Cancel ongoing transcript synchronization
+         * Shows warning that transcripts will be lost
+         */
+        fun cancelSync() {
+            Log.w(TAG, "⚠️ Cancelling transcript synchronization - transcripts may be lost")
+            isCancelled = true
+            syncJob?.cancel()
+            _syncStatus.value = SyncStatus.Error(
+                message = "Cancelled by user",
+                willRetry = false
+            )
+        }
+        
+        /**
+         * Calculate exponential backoff delay with cap
+         * 
+         * @param attempt The current attempt number (1-indexed)
+         * @return Delay in milliseconds
+         */
+        private fun calculateBackoff(attempt: Int): Long {
+            val delay = (BASE_DELAY * Math.pow(BACKOFF_FACTOR, (attempt - 1).toDouble())).toLong()
+            return delay.coerceAtMost(MAX_DELAY)
+        }
+        
+        /**
+         * Reset sync status to idle
+         */
+        fun reset() {
+            isCancelled = false
+            syncJob?.cancel()
+            syncJob = null
+            _syncStatus.value = SyncStatus.Idle
+        }
+    }
 
 }

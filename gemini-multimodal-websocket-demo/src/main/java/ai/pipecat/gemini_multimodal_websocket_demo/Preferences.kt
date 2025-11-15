@@ -16,6 +16,7 @@ object Preferences {
     private const val PREF_MODEL_NAME = "model_name"
     private const val PREF_GEMINI_API_KEY = "gemini_api_key"
     private const val PREF_SESSION_TIMEOUT_MINUTES = "session_timeout_minutes"
+    private const val PREF_ACTIVITY_DETECTION_THRESHOLD = "activity_detection_threshold"
     private const val PREF_KEEP_SCREEN_AWAKE = "keep_screen_awake"
     private const val PREF_SELECTED_SKIN = "selected_skin"
     private const val PREF_USER_PIN = "user_pin"
@@ -29,7 +30,7 @@ object Preferences {
 
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
-            geminiApiKey, sessionTimeoutMinutes, keepScreenAwake,
+            geminiApiKey, sessionTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme
         ).forEach { it.init() }
     }
@@ -113,6 +114,27 @@ object Preferences {
             }
     }
 
+    class FloatPref(private val key: String, private val defaultValue: Float): BasePref {
+        private val cachedValue = mutableStateOf(defaultValue)
+
+        override fun init() {
+            val storedValue = prefs.getFloat(key, defaultValue)
+            cachedValue.value = storedValue
+            prefs.registerOnSharedPreferenceChangeListener { _, changedKey ->
+                if (key == changedKey) {
+                    cachedValue.value = prefs.getFloat(key, defaultValue)
+                }
+            }
+        }
+
+        var value: Float
+            get() = cachedValue.value
+            set(newValue) {
+                cachedValue.value = newValue
+                prefs.edit().putFloat(key, newValue).apply()
+            }
+    }
+
     class BooleanPref(private val key: String, private val defaultValue: Boolean = false): BasePref {
         private val cachedValue = mutableStateOf(defaultValue)
 
@@ -143,6 +165,7 @@ object Preferences {
     // New preferences
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
     val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Now in seconds (auto-pause)
+    val activityDetectionThreshold = FloatPref(PREF_ACTIVITY_DETECTION_THRESHOLD, 0.02f) // Audio level threshold for detecting user activity
     val keepScreenAwake = BooleanPref(PREF_KEEP_SCREEN_AWAKE, true)
     val selectedSkin = StringPref(PREF_SELECTED_SKIN, "DEFAULT")
     val userPin = StringPref(PREF_USER_PIN, "2222")

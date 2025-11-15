@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.BackPressHandler
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.NetworkStatusBanner
@@ -8,19 +9,24 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThreadListScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.NetworkMonitor
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import java.io.File
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
@@ -68,7 +74,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 enum class Screen {
@@ -82,6 +90,7 @@ enum class Screen {
 class MainActivity : ComponentActivity() {
 
     private lateinit var networkMonitor: NetworkMonitor
+    private lateinit var voiceClientManager: VoiceClientManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,17 +101,47 @@ class MainActivity : ComponentActivity() {
         val offlineSummaryQueue = OfflineSummaryQueue(this)
         val libreChatService = LibreChatService(authManager, offlineSummaryQueue)
         
-        // Create sessionManager first
-        val sessionManager = SessionManager(this, libreChatService)
+        // Create sessionManager first with lifecycleScope for transcript sync
+        val sessionManager = SessionManager(this, libreChatService, lifecycleScope)
         
-        // Create voiceClientManager with sessionManager
-        val voiceClientManager = VoiceClientManager(this, sessionManager)
+        // Create voiceClientManager with sessionManager and store as instance variable
+        voiceClientManager = VoiceClientManager(this, sessionManager)
         
         // Set voiceClientManager reference in sessionManager (circular dependency resolution)
         sessionManager.voiceClientManager = voiceClientManager
         
         // Initialize network monitor
         networkMonitor = NetworkMonitor(this)
+        
+        // Set up connection state observer to manage VoiceService lifecycle
+        lifecycleScope.launch {
+            snapshotFlow { voiceClientManager.state.value }.collectLatest { state ->
+                when (state) {
+                    ConnectionState.CONNECTED -> {
+                        // Start VoiceService when connection is established
+                        startVoiceService()
+                        updateVoiceServiceNotification("Połączono - rozmowa aktywna")
+                        Log.d("MainActivity", "Connection established - VoiceService started")
+                    }
+                    ConnectionState.RECONNECTING -> {
+                        // Update notification during reconnection
+                        updateVoiceServiceNotification("Ponowne łączenie...")
+                        Log.d("MainActivity", "Reconnecting - updating VoiceService notification")
+                    }
+                    ConnectionState.DISCONNECTED -> {
+                        // Stop VoiceService when connection is terminated
+                        stopVoiceService()
+                        Log.d("MainActivity", "Disconnected - VoiceService stopped")
+                    }
+                    else -> {
+                        // Do nothing for CONNECTING state
+                    }
+                }
+            }
+        }
+        
+        // Handle intent actions (e.g., from notification)
+        handleIntent(intent)
         
         // Set up session timeout callback
         var currentScreenRef: Screen? = null
@@ -119,12 +158,20 @@ class MainActivity : ComponentActivity() {
             // Set up session timeout callback
             LaunchedEffect(Unit) {
                 voiceClientManager.setSessionTimeoutCallback {
-                    // Session timed out - end session but stay in conversation screen
-                    // User will see disconnected state and can manually navigate back
+                    // Session timed out - end session and stop VoiceService
+                    // This works both in foreground and background
                     lifecycleScope.launch {
+                        Log.d("MainActivity", "Session timeout callback triggered")
+                        
+                        // Stop VoiceService (releases wake lock and stops notification)
+                        stopVoiceService()
+                        
                         // Generate and send summary
                         sessionManager.endSession()
+                        
                         // Don't navigate automatically - let user see timeout message
+                        // User will see disconnected state and can manually navigate back
+                        Log.d("MainActivity", "Session ended due to timeout - VoiceService stopped")
                     }
                 }
                 
@@ -289,6 +336,12 @@ class MainActivity : ComponentActivity() {
                                     onThreadSelected = { conversationId ->
                                         selectedConversationId = conversationId
                                         lifecycleScope.launch {
+                                            // Block new conversations if transcript sync is in progress
+                                            if (sessionManager.isSyncInProgress()) {
+                                                voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
+                                                return@launch
+                                            }
+                                            
                                             // Check token validity before starting session
                                             if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
                                                 val autoLoginResult = authManager.autoLogin()
@@ -495,6 +548,30 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        
+                        // Transcript sync indicator - blocks new conversations until sync completes
+                        val syncStatus by sessionManager.syncStatus.collectAsState()
+                        TranscriptSyncIndicator(
+                            syncStatus = syncStatus,
+                            onCancelSync = {
+                                sessionManager.cancelTranscriptSync()
+                            }
+                        )
+                        
+                        // Back press handler
+                        BackPressHandler(
+                            currentScreen = currentScreen,
+                            connectionState = voiceClientManager.state.value,
+                            onEndSession = {
+                                lifecycleScope.launch {
+                                    sessionManager.endSession()
+                                    currentScreen = Screen.THREAD_LIST
+                                }
+                            },
+                            onNavigateBack = {
+                                currentScreen = Screen.THREAD_LIST
+                            }
+                        )
                         }
                     }
                 }
@@ -502,8 +579,107 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    /**
+     * Starts VoiceService as a foreground service to maintain conversation in background
+     */
+    private fun startVoiceService() {
+        try {
+            val intent = Intent(this, VoiceService::class.java).apply {
+                action = VoiceService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            Log.d("MainActivity", "VoiceService start requested")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to start VoiceService", e)
+            // Show error to user if service fails to start
+            voiceClientManager.errors.add(Error("Nie udało się uruchomić usługi w tle: ${e.message}"))
+        }
+    }
+
+    /**
+     * Stops VoiceService and cleans up background resources
+     */
+    private fun stopVoiceService() {
+        try {
+            val intent = Intent(this, VoiceService::class.java).apply {
+                action = VoiceService.ACTION_STOP
+            }
+            stopService(intent)
+            Log.d("MainActivity", "VoiceService stop requested")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to stop VoiceService", e)
+        }
+    }
+    
+    /**
+     * Updates VoiceService notification with current status
+     */
+    private fun updateVoiceServiceNotification(status: String) {
+        try {
+            VoiceService.getInstance()?.updateNotification(status)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to update VoiceService notification", e)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // VoiceService is already running if conversation is active
+        // No need to start it here - it's started when connection is established
+        Log.d("MainActivity", "App paused - VoiceService continues running if active")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Service continues running in background, just update UI
+        // No need to stop the service - it will continue until conversation ends
+        Log.d("MainActivity", "App resumed - VoiceService continues running if active")
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Handle new intents (e.g., from notification when app is already running)
+        handleIntent(intent)
+    }
+    
+    /**
+     * Handles intent actions from notifications or other sources
+     */
+    private fun handleIntent(intent: Intent?) {
+        val action = intent?.getStringExtra("action")
+        if (action == "end_conversation") {
+            Log.d("MainActivity", "End conversation action received from notification")
+            lifecycleScope.launch {
+                // End session and stop voice client
+                voiceClientManager.sessionManager?.endSession()
+                voiceClientManager.stop()
+                // Note: We don't navigate here as the activity might not be visible yet
+                // The UI will update automatically based on connection state
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        // Only stop service if activity is finishing (not just configuration change)
+        if (isFinishing) {
+            // Check if conversation is still active
+            val connectionState = voiceClientManager.state.value
+            if (connectionState == ConnectionState.CONNECTED || 
+                connectionState == ConnectionState.RECONNECTING) {
+                // Don't stop service - let it continue in background
+                // User can end conversation from notification
+                Log.d("MainActivity", "Activity finishing but conversation active - VoiceService continues")
+            } else {
+                // No active conversation, safe to stop service
+                stopVoiceService()
+                Log.d("MainActivity", "Activity finishing with no active conversation - stopping VoiceService")
+            }
+        }
         networkMonitor.unregister()
     }
 }

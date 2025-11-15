@@ -9,4 +9,6 @@ data class ThreadSettings(
     val speechSpeed: Float = 1.0f,
     val volumeBoost: Float = 1.0f,
     val temperature: Float = 1.0f
+    // Note: Gemini Live API does not support explicit language selection for transcription
+    // Language is automatically detected from audio
 )

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +36,9 @@ fun InCallLayout(
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
             ) {
@@ -45,6 +48,12 @@ fun InCallLayout(
                     reconnectionAttempt = voiceClientManager.reconnectionAttempt.value,
                     maxReconnectionAttempts = voiceClientManager.maxReconnectionAttempts,
                     isPaused = voiceClientManager.isPaused.value,
+                    modifier = Modifier
+                )
+                
+                // Image processing indicator
+                ImageProcessingIndicator(
+                    isProcessing = voiceClientManager.isProcessingImage.value,
                     modifier = Modifier
                 )
                 

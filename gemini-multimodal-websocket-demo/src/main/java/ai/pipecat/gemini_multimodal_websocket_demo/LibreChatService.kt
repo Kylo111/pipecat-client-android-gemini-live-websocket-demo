@@ -219,8 +219,10 @@ class LibreChatService(
                         }
                         
                         val recentContext = if (!contextResponse.recentMessages.isNullOrEmpty()) {
+                            // Take last 4 messages with FULL content (no truncation)
+                            // LibreChat sends ~5000 tokens which is well within Gemini's 32k limit
                             val messages = contextResponse.recentMessages.takeLast(4).joinToString("\n") {
-                                "${it.sender}: ${it.text.take(200)}"
+                                "${it.sender}: ${it.text}"
                             }
                             "\n\nRecent conversation:\n$messages"
                         } else {

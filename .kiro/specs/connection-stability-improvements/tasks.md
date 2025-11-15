@@ -375,24 +375,16 @@
 **File:** `utils/ImageProcessor.kt` (new)
 **Estimated time:** 1.5 hours
 
-- [ ] Create `ImageProcessor` class
-- [ ] Implement `ProcessedImage` data class
-- [ ] Implement `processImage(uri: Uri)` method
-- [ ] Implement image loading with `BitmapFactory.Options.inSampleSize`
-- [ ] Implement resize logic (max 2300px on longest dimension)
-- [ ] Implement compression (85% JPEG quality)
-- [ ] Add size validation (max 5MB raw)
-- [ ] Add OutOfMemoryError handling
-- [ ] Return `Result<ProcessedImage>`
-- [ ] Add unit tests
+- [x] Create `ImageProcessor` class with `ProcessedImage` data class, implement `processImage(uri: Uri)` method with image loading using `BitmapFactory.Options.inSampleSize`, resize logic (max 2300px on longest dimension), compression (85% JPEG quality), size validation (max 5MB raw), OutOfMemoryError handling, return `Result<ProcessedImage>`, and add unit tests
+
+
+
+
+
+
 
 **Acceptance Criteria:**
-- Images are resized to max 2300px on longest dimension
-- Images are compressed to 85% JPEG quality
-- Aspect ratio is maintained
-- OutOfMemoryError is handled gracefully
-- Processing runs on IO dispatcher
-- Unit tests pass
+- Images are resized to max 2300px on longest dimension with maintained aspect ratio, compressed to 85% JPEG quality, OutOfMemoryError is handled gracefully, processing runs on IO dispatcher, and unit tests pass
 
 ---
 
@@ -400,46 +392,32 @@
 **File:** `VoiceClientManager.kt`
 **Estimated time:** 1 hour
 
-- [ ] Integrate `ImageProcessor` into `sendImage()` method
-- [ ] Add progress indicator during processing
-- [ ] Add image queue for retry (`pendingImage: Uri?`)
-- [ ] Queue image if not connected
-- [ ] Show message: "Obraz zostanie wysłany po ponownym połączeniu"
-- [ ] Implement `retryPendingImage()` method
-- [ ] Call `retryPendingImage()` after successful reconnection
-- [ ] Add error handling for processing failures
-- [ ] Add timeout (30 seconds)
+- [x] Integrate `ImageProcessor` into `sendImage()` method, add progress indicator during processing, add image queue for retry (`pendingImage: Uri?`), queue image if not connected with message "Obraz zostanie wysłany po ponownym połączeniu", implement `retryPendingImage()` method, call it after successful reconnection, add error handling for processing failures, and add timeout (30 seconds)
+
+
+
+
+
+
 
 **Acceptance Criteria:**
-- Images are processed before sending
-- Progress indicator is shown during processing
-- Images are queued when not connected
-- Queued images are sent after reconnection
-- Processing failures show appropriate error messages
+- Images are processed before sending, progress indicator is shown during processing, images are queued when not connected, queued images are sent after reconnection, and processing failures show appropriate error messages
 
 ---
 
 ### Task 2.5: BackPressHandler Implementation
 **File:** `MainActivity.kt`
 **Estimated time:** 45 minutes
+-
 
-- [ ] Create `BackPressHandler` composable
-- [ ] Use Compose `BackHandler` API
-- [ ] Check current screen and connection state
-- [ ] Show confirmation dialog when in IN_CALL with active connection
-- [ ] Dialog text: "Czy chcesz zakończyć rozmowę?"
-- [ ] Buttons: "Tak" (ends session), "Nie" (stays)
-- [ ] No dialog when disconnected - navigate directly
-- [ ] No dialog on thread list - exit app
-- [ ] Integrate with MainActivity
+- [x] Create `BackPressHandler` composable using Compose `BackHandler` API, check current screen and connection state, show confirmation dialog "Czy chcesz zakończyć rozmowę?" when in IN_CALL with active connection, add buttons "Tak" (ends session) and "Nie" (stays), no dialog when disconnected (navigate directly), no dialog on thread list (exit app), and integrate with MainActivity
+
+
+
+
 
 **Acceptance Criteria:**
-- Back button shows confirmation dialog during active conversation
-- Dialog is in Polish
-- "Tak" ends session and navigates to thread list
-- "Nie" stays in conversation
-- No dialog when already disconnected
-- Back on thread list exits app
+- Back button shows confirmation dialog during active conversation in Polish, "Tak" ends session and navigates to thread list, "Nie" stays in conversation, no dialog when already disconnected, and back on thread list exits app
 
 ---
 
@@ -447,17 +425,15 @@
 **File:** `VoiceClientManager.kt`, `MainActivity.kt`
 **Estimated time:** 30 minutes
 
-- [ ] Remove all automatic navigation to thread list on errors
-- [ ] Ensure RECONNECTING state keeps user in conversation screen
-- [ ] Only navigate when user explicitly ends session
-- [ ] Update error handling to not trigger navigation
-- [ ] Test all error scenarios
+- [x] Remove all automatic navigation to thread list on errors, ensure RECONNECTING state keeps user in conversation screen, only navigate when user explicitly ends session, update error handling to not trigger navigation, and test all error scenarios
+
+
+
+
+
 
 **Acceptance Criteria:**
-- App never automatically navigates away from conversation
-- User stays in conversation during reconnection
-- Only explicit user action (ending session) navigates away
-- All error scenarios tested
+- App never automatically navigates away from conversation, user stays in conversation during reconnection, only explicit user action (ending session) navigates away, and all error scenarios tested
 
 ---
 
@@ -467,24 +443,15 @@
 **File:** `VoiceService.kt` (new)
 **Estimated time:** 2 hours
 
-- [ ] Create `VoiceService` class extending `Service`
-- [ ] Implement `onStartCommand()` with ACTION_START and ACTION_STOP
-- [ ] Create notification channel "voice_conversation"
-- [ ] Implement `createNotification()` method
-- [ ] Notification title: "Rozmowa z AI"
-- [ ] Notification text: "Trwa rozmowa głosowa"
-- [ ] Add "Zakończ" action button
-- [ ] Implement foreground service start
-- [ ] Implement service stop and cleanup
-- [ ] Add to AndroidManifest.xml
-- [ ] Add FOREGROUND_SERVICE permission
+- [x] Create `VoiceService` class extending `Service`, implement `onStartCommand()` with ACTION_START and ACTION_STOP, create notification channel "voice_conversation", implement `createNotification()` method with title "Rozmowa z AI" and text "Trwa rozmowa głosowa", add "Zakończ" action button, implement foreground service start, implement service stop and cleanup, add to AndroidManifest.xml, and add FOREGROUND_SERVICE permission
+
+
+
+
+
 
 **Acceptance Criteria:**
-- Service runs as foreground service
-- Notification is shown when service is active
-- "Zakończ" button ends conversation
-- Service stops when conversation ends
-- Proper cleanup on service destroy
+- Service runs as foreground service, notification is shown when service is active, "Zakończ" button ends conversation, service stops when conversation ends, and proper cleanup on service destroy
 
 ---
 
@@ -492,22 +459,14 @@
 **File:** `VoiceService.kt`
 **Estimated time:** 45 minutes
 
-- [ ] Add `PowerManager.WakeLock` field
-- [ ] Implement `acquireWakeLock()` method
-- [ ] Use `PARTIAL_WAKE_LOCK` type
-- [ ] Set timeout to 2 hours as safety measure
-- [ ] Implement `releaseWakeLock()` method
-- [ ] Acquire wake lock when service starts
-- [ ] Release wake lock when service stops
-- [ ] Add WAKE_LOCK permission to manifest
-- [ ] Handle wake lock exceptions
+- [x] Add `PowerManager.WakeLock` field, implement `acquireWakeLock()` method using `PARTIAL_WAKE_LOCK` type with 2-hour timeout as safety measure, implement `releaseWakeLock()` method, acquire wake lock when service starts, release wake lock when service stops, add WAKE_LOCK permission to manifest, and handle wake lock exceptions
+
+
+
+
 
 **Acceptance Criteria:**
-- Wake lock is acquired when conversation goes to background
-- Wake lock is PARTIAL_WAKE_LOCK type
-- Wake lock has 2-hour timeout
-- Wake lock is released when conversation ends
-- No wake lock leaks
+- Wake lock is acquired when conversation goes to background, wake lock is PARTIAL_WAKE_LOCK type with 2-hour timeout, wake lock is released when conversation ends, and no wake lock leaks
 
 ---
 
@@ -515,18 +474,13 @@
 **File:** `VoiceService.kt`
 **Estimated time:** 30 minutes
 
-- [ ] Implement `updateNotification(status: String)` method
-- [ ] Update notification text based on connection state:
-  - "Trwa rozmowa głosowa" (CONNECTED)
-  - "Ponowne łączenie..." (RECONNECTING)
-  - "Rozłączono" (DISCONNECTED)
-- [ ] Integrate with VoiceClientManager state changes
-- [ ] Test notification updates
+- [x] Implement `updateNotification(status: String)` method, update notification text based on connection state ("Trwa rozmowa głosowa" for CONNECTED, "Ponowne łączenie..." for RECONNECTING, "Rozłączono" for DISCONNECTED), integrate with VoiceClientManager state changes, and test notification updates
+
+
+
 
 **Acceptance Criteria:**
-- Notification text reflects current connection state
-- Updates happen in real-time
-- Notification is always visible when service is running
+- Notification text reflects current connection state, updates happen in real-time, and notification is always visible when service is running
 
 ---
 
@@ -534,19 +488,14 @@
 **File:** `MainActivity.kt`
 **Estimated time:** 1 hour
 
-- [ ] Implement `startVoiceService()` method
-- [ ] Implement `stopVoiceService()` method
-- [ ] Override `onPause()` - start service if conversation active
-- [ ] Override `onResume()` - update UI, keep service running
-- [ ] Override `onDestroy()` - stop service
-- [ ] Handle service start for API 26+ (startForegroundService)
-- [ ] Test lifecycle transitions
+- [x] Implement `startVoiceService()` and `stopVoiceService()` methods, override `onPause()` to start service if conversation active, override `onResume()` to update UI and keep service running, override `onDestroy()` to stop service, handle service start for API 26+ (startForegroundService), and test lifecycle transitions
+
+
+
+
 
 **Acceptance Criteria:**
-- Service starts when app goes to background with active conversation
-- Service continues when app returns to foreground
-- Service stops when app is destroyed
-- Works on Android 8.0+ (API 26+)
+- Service starts when app goes to background with active conversation, service continues when app returns to foreground, service stops when app is destroyed, and works on Android 8.0+ (API 26+)
 
 ---
 
@@ -554,17 +503,14 @@
 **File:** `VoiceClientManager.kt`
 **Estimated time:** 30 minutes
 
-- [ ] Ensure session timeout works in background
-- [ ] Stop VoiceService when timeout occurs
-- [ ] Release wake lock on timeout
-- [ ] Test timeout while app is in background
-- [ ] Verify proper cleanup
+- [x] Ensure session timeout works in background, stop VoiceService when timeout occurs, release wake lock on timeout, test timeout while app is in background, and verify proper cleanup
+
+
+
+
 
 **Acceptance Criteria:**
-- Session timeout works in background
-- Service stops on timeout
-- Wake lock is released on timeout
-- User returns to thread list after timeout
+- Session timeout works in background, service stops on timeout, wake lock is released on timeout, and user returns to thread list after timeout
 
 ---
 
@@ -574,21 +520,14 @@
 **File:** `SessionManager.kt`
 **Estimated time:** 1 hour
 
-- [ ] Create `TranscriptSyncManager` class
-- [ ] Implement infinite retry with exponential backoff
-- [ ] Add `SyncStatus` sealed class (Idle, Syncing, Success, Error)
-- [ ] Implement `syncTranscripts()` method
-- [ ] Show progress: "Zapisywanie transkrypcji... próba X"
-- [ ] Block new conversations until sync completes
-- [ ] Add cancel option with warning
-- [ ] Integrate with existing RetryPolicy
+- [x] Create `TranscriptSyncManager` class, implement infinite retry with exponential backoff, add `SyncStatus` sealed class (Idle, Syncing, Success, Error), implement `syncTranscripts()` method, show progress "Zapisywanie transkrypcji... próba X", block new conversations until sync completes, add cancel option with warning, and integrate with existing RetryPolicy
+
+
+
+
 
 **Acceptance Criteria:**
-- Transcripts are retried until success
-- Progress is shown to user
-- New conversations are blocked during sync
-- User can cancel with warning
-- Sync status is observable
+- Transcripts are retried until success, progress is shown to user, new conversations are blocked during sync, user can cancel with warning, and sync status is observable
 
 ---
 
@@ -596,39 +535,35 @@
 **File:** `VoiceClientManager.kt`, `strings.xml`
 **Estimated time:** 45 minutes
 
-- [ ] Add Polish error messages for all error types
-- [ ] Network timeout: "Przekroczono limit czasu połączenia"
-- [ ] DNS failure: "Nie można znaleźć serwera"
-- [ ] Connection refused: "Serwer niedostępny"
-- [ ] SSL error: "Błąd certyfikatu SSL"
-- [ ] Image too large: "Obraz za duży"
-- [ ] Image processing failed: "Nie udało się przetworzyć obrazu"
-- [ ] Add to strings.xml
-- [ ] Update error handling to use string resources
+- [x] Add Polish error messages for all error types (Network timeout: "Przekroczono limit czasu połączenia", DNS failure: "Nie można znaleźć serwera", Connection refused: "Serwer niedostępny", SSL error: "Błąd certyfikatu SSL", Image too large: "Obraz za duży", Image processing failed: "Nie udało się przetworzyć obrazu"), add to strings.xml, and update error handling to use string resources
+
+
+
+
 
 **Acceptance Criteria:**
-- All error messages are in Polish
-- Messages are user-friendly
-- Messages are stored in strings.xml
-- Appropriate message for each error type
+- All error messages are in Polish, messages are user-friendly, messages are stored in strings.xml, and appropriate message for each error type
 
 ---
 
 ### Task 4.3: Image Processing Progress Indicator
 **File:** `ui/ImageProcessingIndicator.kt` (new)
 **Estimated time:** 30 minutes
+- [x] Create `ImageProcessingIndicator` composable, show progress bar during image processing, show text "Przetwarzanie obrazu...", show cancel button (optional), integrate with sendImage flow, and test with large images
 
-- [ ] Create `ImageProcessingIndicator` composable
-- [ ] Show progress bar during image processing
-- [ ] Show text: "Przetwarzanie obrazu..."
-- [ ] Show cancel button (optional)
-- [ ] Integrate with sendImage flow
-- [ ] Test with large images
+
+
+
+
+
+
+
+
+- [ ] Create `ImageProcessingIndicator` composable, show progress bar during image processing, show text "Przetwarzanie obrazu...", show cancel button (optional), integrate with sendImage flow, and test with large images
+
 
 **Acceptance Criteria:**
-- Progress indicator is shown during image processing
-- User knows image is being processed
-- Indicator disappears after processing completes
+- Progress indicator is shown during image processing, user knows image is being processed, and indicator disappears after processing completes
 
 ---
 
@@ -636,19 +571,13 @@
 **File:** `VoiceClientManager.kt`, `ImageProcessor.kt`
 **Estimated time:** 1 hour
 
-- [ ] Profile image processing performance
-- [ ] Optimize bitmap loading with inSampleSize
-- [ ] Optimize compression algorithm
-- [ ] Profile memory usage during image processing
-- [ ] Optimize reconnection backoff timing
-- [ ] Profile battery usage in background
-- [ ] Add performance logging
+- [x] Profile image processing performance, optimize bitmap loading with inSampleSize, optimize compression algorithm, profile memory usage during image processing, optimize reconnection backoff timing, profile battery usage in background, and add performance logging
+
+
+
 
 **Acceptance Criteria:**
-- Image processing takes < 2 seconds for typical images
-- Memory usage is optimized
-- Battery drain is < 5% per hour in background
-- No performance regressions
+- Image processing takes < 2 seconds for typical images, memory usage is optimized, battery drain is < 5% per hour in background, and no performance regressions
 
 ---
 
@@ -656,24 +585,13 @@
 **File:** Various test files
 **Estimated time:** 2 hours
 
-- [ ] Write unit tests for WebSocketErrorClassifier
-- [ ] Write unit tests for ImageProcessor
-- [ ] Write unit tests for ReconnectionManager
-- [ ] Write integration test for reconnection flow
-- [ ] Write integration test for background operation
-- [ ] Write integration test for back button handling
-- [ ] Write integration test for image send with compression
-- [ ] Manual test: network instability
-- [ ] Manual test: image send during poor connection
-- [ ] Manual test: long background session
-- [ ] Manual test: screen off operation
-- [ ] Manual test: session timeout in background
+- [x] Write unit tests for WebSocketErrorClassifier, ImageProcessor, and ReconnectionManager, write integration tests for reconnection flow, background operation, back button handling, and image send with compression, perform manual tests for network instability, image send during poor connection, long background session, screen off operation, and session timeout in background
+
+
+
 
 **Acceptance Criteria:**
-- All unit tests pass
-- All integration tests pass
-- All manual test scenarios pass
-- Code coverage > 80%
+- All unit tests pass, all integration tests pass, all manual test scenarios pass, and code coverage > 80%
 
 ---
 
@@ -681,19 +599,15 @@
 **File:** `README.md`, code comments
 **Estimated time:** 1 hour
 
-- [ ] Document new components in README
-- [ ] Add code comments for complex logic
-- [ ] Document reconnection strategy
-- [ ] Document image processing parameters
-- [ ] Document background operation requirements
-- [ ] Update architecture documentation
-- [ ] Add troubleshooting guide
+- [x] Document new components in README, add code comments for complex logic, document reconnection strategy, document image processing parameters, document background operation requirements, update architecture documentation, and add troubleshooting guide
+
+
+
+
+
 
 **Acceptance Criteria:**
-- All new components are documented
-- Complex logic has clear comments
-- README is updated
-- Troubleshooting guide is complete
+- All new components are documented, complex logic has clear comments, README is updated, and troubleshooting guide is complete
 
 ---
 

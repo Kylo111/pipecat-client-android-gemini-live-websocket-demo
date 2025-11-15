@@ -13,4 +13,34 @@
     <string name="reconnection_dialog_message">Nie udało się połączyć po 5 próbach. Kontynuować próby?</string>
     <string name="reconnection_dialog_continue">Kontynuuj</string>
     <string name="reconnection_dialog_end">Zakończ rozmowę</string>
+    
+    <!-- Transcript Sync -->
+    <string name="transcript_sync_in_progress">Zapisywanie transkrypcji… próba %1$d</string>
+    <string name="transcript_sync_success">Transkrypcja zapisana pomyślnie</string>
+    <string name="transcript_sync_error">Błąd zapisu transkrypcji: %1$s</string>
+    <string name="transcript_sync_blocking_message">Trwa zapisywanie transkrypcji. Proszę czekać…</string>
+    <string name="transcript_sync_cancel_warning">Czy na pewno chcesz anulować? Transkrypcja może zostać utracona.</string>
+    <string name="transcript_sync_cancel_confirm">Anuluj</string>
+    <string name="transcript_sync_cancel_dismiss">Kontynuuj zapisywanie</string>
+    
+    <!-- Error Messages -->
+    <string name="error_api_key_required">Klucz API jest wymagany</string>
+    <string name="error_connection_lost">Utracono połączenie: %1$s</string>
+    <string name="error_critical">Błąd krytyczny: %1$s</string>
+    <string name="error_unknown">Nieznany błąd: %1$s</string>
+    <string name="error_network_timeout">Przekroczono limit czasu połączenia</string>
+    <string name="error_dns_failure">Nie można znaleźć serwera</string>
+    <string name="error_connection_refused">Serwer niedostępny</string>
+    <string name="error_ssl_error">Błąd certyfikatu SSL</string>
+    <string name="error_image_too_large">Obraz za duży</string>
+    <string name="error_image_too_large_memory">Obraz za duży - brak pamięci</string>
+    <string name="error_image_processing_failed">Nie udało się przetworzyć obrazu</string>
+    <string name="error_image_processing_failed_with_message">Nie udało się przetworzyć obrazu: %1$s</string>
+    <string name="error_image_processing_timeout">Przekroczono limit czasu przetwarzania obrazu (30s)</string>
+    <string name="error_image_send_failed">Nie udało się wysłać obrazu: %1$s</string>
+    <string name="error_image_send_connection_problem">problem z połączeniem</string>
+    <string name="error_image_queued_for_retry">Obraz zostanie wysłany po ponownym połączeniu</string>
+    <string name="error_microphone_start_failed">Failed to start microphone: %1$s</string>
+    <string name="error_audio_playback_failed">Failed to start audio playback: %1$s</string>
+    <string name="error_reconnection_max_attempts">Nie udało się połączyć po %1$d próbach. Kontynuować próby?</string>
 </resources>
