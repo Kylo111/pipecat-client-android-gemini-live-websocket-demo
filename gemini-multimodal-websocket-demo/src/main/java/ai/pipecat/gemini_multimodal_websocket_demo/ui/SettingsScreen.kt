@@ -64,6 +64,7 @@ fun SettingsScreen(
     // Local state for settings
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
     var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
+    var toolsInstruction by remember { mutableStateOf(Preferences.toolsInstruction.value ?: "") }
     var keepScreenAwake by remember { mutableStateOf(Preferences.keepScreenAwake.value) }
     var autoPauseTimeout by remember { mutableStateOf(Preferences.autoPauseTimeoutSeconds.value) }
     var botResponseTimeout by remember { mutableStateOf(Preferences.botResponseTimeoutMinutes.value) }
@@ -76,6 +77,7 @@ fun SettingsScreen(
     val saveSettings = {
         Preferences.geminiApiKey.value = geminiApiKey
         Preferences.modelName.value = modelName
+        Preferences.toolsInstruction.value = toolsInstruction
         Preferences.keepScreenAwake.value = keepScreenAwake
         Preferences.autoPauseTimeoutSeconds.value = autoPauseTimeout
         Preferences.botResponseTimeoutMinutes.value = botResponseTimeout
@@ -157,6 +159,56 @@ fun SettingsScreen(
                         value = modelName,
                         onValueChange = { modelName = it }
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Tools Instruction
+                    Column {
+                        Text(
+                            text = "Instrukcje narzędzi (dodawane do każdego promptu)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        TextField(
+                            value = toolsInstruction,
+                            onValueChange = { toolsInstruction = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
+                                focusedIndicatorColor = Colors.buttonNormal,
+                                unfocusedIndicatorColor = Color.LightGray
+                            ),
+                            textStyle = TextStyles.base.copy(fontSize = 12.sp),
+                            placeholder = {
+                                Text(
+                                    "Wpisz instrukcje dotyczące używania narzędzi...",
+                                    style = TextStyles.base,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Ten tekst jest automatycznie dodawany do każdego promptu systemowego (LibreChat i offline). Pozostaw puste aby wyłączyć.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
                 }
 
                 // Session Management Section

@@ -357,27 +357,17 @@ class VoiceClientManager(
             Preferences.systemPrompt.value ?: "You are a helpful assistant"
         }
         
-        // Enhance system prompt with tool information
-        val systemPrompt = """
+        // Enhance system prompt with tool information from preferences
+        val toolsInstruction = Preferences.toolsInstruction.value ?: ""
+        val systemPrompt = if (toolsInstruction.isNotBlank()) {
+            """
             $baseSystemPrompt
             
-            IMPORTANT: You have access to the following tools that you can use to help the user:
-            
-            1. search_web(query) - Search the internet for current information, news, or facts. Use this when you need up-to-date information.
-            2. get_weather(location, units) - Get current weather and forecast for any location. Supports both celsius and fahrenheit.
-            3. get_current_time(timezone) - Get current date, time, and day of week.
-            4. get_location(include_address) - Get user's current GPS location with address.
-            5. calculate(expression) - Perform mathematical calculations.
-            6. create_note(title, content, app) - Create notes in Keep, Evernote, Notion, or default notes app.
-            7. control_media(action, query, app) - Control Spotify, YouTube Music, or other media apps (play, pause, next, search).
-            8. search_nearby(query, radius, max_results) - Find nearby places, restaurants, businesses, etc.
-            
-            Use these tools proactively when they can help answer the user's questions. For example:
-            - If asked about weather tomorrow, use get_weather to get the forecast
-            - If asked about current events, use search_web to find latest information
-            - If asked to remember something, use create_note
-            - If asked about nearby places, use search_nearby
-        """.trimIndent()
+            $toolsInstruction
+            """.trimIndent()
+        } else {
+            baseSystemPrompt
+        }
 
         Log.i(TAG, "Starting connection with:")
         Log.i(TAG, "  Model: $model")

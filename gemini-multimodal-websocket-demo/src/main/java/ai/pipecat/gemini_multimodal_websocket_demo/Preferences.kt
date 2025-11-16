@@ -24,6 +24,7 @@ object Preferences {
     private const val PREF_DEFAULT_SERVER_URL = "default_server_url"
     private const val PREF_IS_DARK_THEME = "is_dark_theme"
     private const val PREF_APP_THEME = "app_theme"
+    private const val PREF_TOOLS_INSTRUCTION = "tools_instruction"
 
     private lateinit var prefs: SharedPreferences
 
@@ -33,7 +34,7 @@ object Preferences {
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction
         ).forEach { it.init() }
     }
 
@@ -176,4 +177,22 @@ object Preferences {
     val defaultServerUrl = StringPref(PREF_DEFAULT_SERVER_URL, "www.kumpel-chat.fun")
     val isDarkTheme = BooleanPref(PREF_IS_DARK_THEME, false)
     val appTheme = StringPref(PREF_APP_THEME, "CLASSIC")
+    val toolsInstruction = StringPref(PREF_TOOLS_INSTRUCTION, """
+IMPORTANT: You have access to the following tools that you can use to help the user:
+
+1. search_web(query) - Search the internet for current information, news, or facts. Use this when you need up-to-date information.
+2. get_weather(location, units) - Get current weather and forecast for any location. Supports both celsius and fahrenheit.
+3. get_current_time(timezone) - Get current date, time, and day of week.
+4. get_location(include_address) - Get user's current GPS location with address.
+5. calculate(expression) - Perform mathematical calculations.
+6. create_note(title, content, app) - Create notes in Keep, Evernote, Notion, or default notes app.
+7. control_media(action, query, app) - Control Spotify, YouTube Music, or other media apps (play, pause, next, search).
+8. search_nearby(query, radius, max_results) - Find nearby places, restaurants, businesses, etc.
+
+Use these tools proactively when they can help answer the user's questions. For example:
+- If asked about weather tomorrow, use get_weather to get the forecast
+- If asked about current events, use search_web to find latest information
+- If asked to remember something, use create_note
+- If asked about nearby places, use search_nearby
+    """.trimIndent())
 }
