@@ -153,12 +153,13 @@ fun ConversationListScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Help icon
+                    val isParentalLockEnabled = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value
                     Icon(
                         painter = painterResource(id = R.drawable.help_circle),
                         contentDescription = "Help",
                         modifier = Modifier
                             .size(32.dp)
-                            .clickable {
+                            .clickable(enabled = !isParentalLockEnabled) {
                                 // Start help conversation
                                 val helpConv = OfflineConversationManager.getHelpConversation()
                                 if (helpConv != null) {
@@ -169,7 +170,7 @@ fun ConversationListScreen(
                                     ))
                                 }
                             },
-                        tint = Colors.buttonNormal
+                        tint = if (isParentalLockEnabled) Color.Gray else Colors.buttonNormal
                     )
                     
                     // Settings icon
@@ -187,14 +188,15 @@ fun ConversationListScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             // Add offline conversation button
+            val isParentalLockEnabled = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .shadow(2.dp, RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Colors.buttonNormal)
-                    .clickable { showOfflineDialog = true }
+                    .background(if (isParentalLockEnabled) Color.Gray else Colors.buttonNormal)
+                    .clickable(enabled = !isParentalLockEnabled) { showOfflineDialog = true }
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -203,7 +205,7 @@ fun ConversationListScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "+",
+                        text = if (isParentalLockEnabled) "🔒" else "+",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.W700,
                         color = Color.White,
@@ -211,7 +213,7 @@ fun ConversationListScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Nowa konwersacja offline",
+                        text = if (isParentalLockEnabled) "Zablokowane" else "Nowa konwersacja offline",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
@@ -315,20 +317,23 @@ fun ConversationListScreen(
                                     onConversationSelected(conversation)
                                 },
                                 onLongPress = {
-                                    when (conversation) {
-                                        is ConversationItem.LibreChatThread -> {
-                                            val thread = librechatThreads.find { it.id == conversation.id }
-                                            if (thread != null) {
-                                                configDialogThread = thread
-                                                configDialogSettings = ThreadSettingsManager.getSettings(thread.id)
-                                                showThreadConfigDialog = true
+                                    // Check parental lock before allowing settings access
+                                    if (!ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value) {
+                                        when (conversation) {
+                                            is ConversationItem.LibreChatThread -> {
+                                                val thread = librechatThreads.find { it.id == conversation.id }
+                                                if (thread != null) {
+                                                    configDialogThread = thread
+                                                    configDialogSettings = ThreadSettingsManager.getSettings(thread.id)
+                                                    showThreadConfigDialog = true
+                                                }
                                             }
-                                        }
-                                        is ConversationItem.Offline -> {
-                                            val offline = offlineConversations.find { it.id == conversation.id }
-                                            if (offline != null) {
-                                                editingOfflineConversation = offline
-                                                showOfflineDialog = true
+                                            is ConversationItem.Offline -> {
+                                                val offline = offlineConversations.find { it.id == conversation.id }
+                                                if (offline != null) {
+                                                    editingOfflineConversation = offline
+                                                    showOfflineDialog = true
+                                                }
                                             }
                                         }
                                     }

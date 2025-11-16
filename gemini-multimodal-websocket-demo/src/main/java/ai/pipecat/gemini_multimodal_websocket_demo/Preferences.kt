@@ -27,6 +27,7 @@ object Preferences {
     private const val PREF_TOOLS_INSTRUCTION = "tools_instruction"
     private const val PREF_USE_SUMMARY_MODE = "use_summary_mode"
     private const val PREF_SUMMARY_PROMPT = "summary_prompt"
+    private const val PREF_PARENTAL_LOCK_ENABLED = "parental_lock_enabled"
 
     private lateinit var prefs: SharedPreferences
 
@@ -36,7 +37,7 @@ object Preferences {
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, parentalLockEnabled
         ).forEach { it.init() }
     }
 
@@ -210,4 +211,7 @@ Przeanalizuj poniższą transkrypcję rozmowy i stwórz zwięzłe podsumowanie z
 
 Podsumowanie powinno być konkretne, rzeczowe i pomocne dla kontynuacji rozmowy.
     """.trimIndent())
+    
+    // Parental lock
+    val parentalLockEnabled = BooleanPref(PREF_PARENTAL_LOCK_ENABLED, false)
 }

@@ -74,6 +74,7 @@ fun SettingsScreen(
     var showChangePINDialog by remember { mutableStateOf(false) }
     var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
     var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
+    var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
 
     // Save settings function
     val saveSettings = {
@@ -87,6 +88,7 @@ fun SettingsScreen(
         Preferences.selectedSkin.value = selectedSkin
         Preferences.useSummaryMode.value = useSummaryMode
         Preferences.summaryPrompt.value = summaryPrompt
+        Preferences.parentalLockEnabled.value = parentalLockEnabled
     }
 
     Box(
@@ -678,6 +680,30 @@ fun SettingsScreen(
 
                 // Security Section
                 SettingsSection(title = "Bezpieczeństwo") {
+                    // Parental Lock Toggle
+                    SettingsToggle(
+                        label = "Blokada przed dziećmi",
+                        checked = parentalLockEnabled,
+                        onCheckedChange = { parentalLockEnabled = it }
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (parentalLockEnabled) {
+                            "Zablokowano tworzenie nowych konwersacji, bota pomocy i ustawienia konwersacji"
+                        } else {
+                            "Wyłączono blokadę - wszystkie funkcje dostępne"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
                     // Change PIN Button
                     Box(
                         modifier = Modifier
