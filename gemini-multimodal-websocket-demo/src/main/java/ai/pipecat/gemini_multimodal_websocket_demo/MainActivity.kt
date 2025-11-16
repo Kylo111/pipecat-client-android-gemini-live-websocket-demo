@@ -190,6 +190,13 @@ class MainActivity : ComponentActivity() {
                 // Check if we have a valid token
                 if (authManager.isTokenValid()) {
                     currentScreen = Screen.THREAD_LIST
+                    // Process offline queue on app start if logged in
+                    lifecycleScope.launch {
+                        val processed = sessionManager.processOfflineQueue()
+                        if (processed > 0) {
+                            Log.d("MainActivity", "Processed $processed offline items on app start")
+                        }
+                    }
                 } else if (authManager.hasStoredCredentials()) {
                     // Token is invalid but we have stored credentials - attempt auto-login
                     isAutoLoginInProgress = true
@@ -200,6 +207,13 @@ class MainActivity : ComponentActivity() {
                         // Auto-login successful, navigate to thread list
                         currentScreen = Screen.THREAD_LIST
                         autoLoginError = null
+                        // Process offline queue after successful login
+                        lifecycleScope.launch {
+                            val processed = sessionManager.processOfflineQueue()
+                            if (processed > 0) {
+                                Log.d("MainActivity", "Processed $processed offline items after auto-login")
+                            }
+                        }
                     }.onFailure { error ->
                         // Auto-login failed, show login screen with error
                         currentScreen = Screen.LOGIN
@@ -217,8 +231,13 @@ class MainActivity : ComponentActivity() {
             
             // Process offline queue when network reconnects
             LaunchedEffect(networkReconnectedTimestamp) {
-                if (networkReconnectedTimestamp > 0 && offlineSummaryQueue.size() > 0) {
-                    offlineSummaryQueue.processQueue(libreChatService)
+                if (networkReconnectedTimestamp > 0) {
+                    lifecycleScope.launch {
+                        val processed = sessionManager.processOfflineQueue()
+                        if (processed > 0) {
+                            Log.d("MainActivity", "Processed $processed offline items after network reconnect")
+                        }
+                    }
                 }
             }
             
@@ -314,6 +333,13 @@ class MainActivity : ComponentActivity() {
                                         onLoginSuccess = {
                                             currentScreen = Screen.THREAD_LIST
                                             autoLoginError = null
+                                            // Process offline queue after successful login
+                                            lifecycleScope.launch {
+                                                val processed = sessionManager.processOfflineQueue()
+                                                if (processed > 0) {
+                                                    Log.d("MainActivity", "Processed $processed offline items after manual login")
+                                                }
+                                            }
                                         }
                                     )
                                 }

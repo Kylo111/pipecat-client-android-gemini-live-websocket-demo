@@ -792,14 +792,21 @@ class VoiceClientManager(
                 
                 // Check for turn complete (bot stopped speaking)
                 if (serverContent?.containsKey("turnComplete") == true) {
-                    Log.i(TAG, "Bot stopped speaking")
+                    Log.i(TAG, "🔇 Bot stopped speaking (turnComplete in serverContent)")
                     botIsTalking.value = false
                 }
+            }
+            
+            // Check for turn complete at root level (bot stopped speaking)
+            if (jsonObject.containsKey("turnComplete")) {
+                Log.i(TAG, "🔇 Bot stopped speaking (turnComplete at root)")
+                botIsTalking.value = false
             }
 
             // Check for tool calls
             if (jsonObject.containsKey("toolCall")) {
-                Log.i(TAG, "🔧 Tool call received")
+                Log.i(TAG, "🔧 Tool call received - FULL MESSAGE:")
+                Log.i(TAG, text.take(500))
                 handleToolCall(jsonObject)
             }
 
@@ -815,39 +822,67 @@ class VoiceClientManager(
     private fun handleToolCall(message: JsonObject) {
         scope?.launch {
             try {
-                val toolCall = message["toolCall"]?.jsonObject ?: return@launch
-                val functionCalls = toolCall["functionCalls"]?.jsonArray ?: return@launch
+                Log.i(TAG, "🔧 handleToolCall START")
+                val toolCall = message["toolCall"]?.jsonObject
+                if (toolCall == null) {
+                    Log.e(TAG, "❌ toolCall is null!")
+                    return@launch
+                }
                 
-                Log.i(TAG, "Processing ${functionCalls.size} function call(s)")
+                val functionCalls = toolCall["functionCalls"]?.jsonArray
+                if (functionCalls == null) {
+                    Log.e(TAG, "❌ functionCalls is null!")
+                    return@launch
+                }
+                
+                Log.i(TAG, "📋 Processing ${functionCalls.size} function call(s)")
                 
                 // Process each function call
-                for (functionCall in functionCalls) {
+                for ((index, functionCall) in functionCalls.withIndex()) {
+                    Log.i(TAG, "🔧 Processing function call ${index + 1}/${functionCalls.size}")
+                    
                     val callObj = functionCall.jsonObject
-                    val id = callObj["id"]?.jsonPrimitive?.content ?: continue
-                    val name = callObj["name"]?.jsonPrimitive?.content ?: continue
+                    val id = callObj["id"]?.jsonPrimitive?.content
+                    val name = callObj["name"]?.jsonPrimitive?.content
                     val args = callObj["args"]?.jsonObject ?: JsonObject(emptyMap())
                     
-                    Log.i(TAG, "🔧 Executing tool: $name (id: $id)")
-                    if (DEBUG_LOGGING) {
-                        Log.d(TAG, "  Arguments: $args")
+                    if (id == null) {
+                        Log.e(TAG, "❌ Function call ID is null, skipping")
+                        continue
+                    }
+                    if (name == null) {
+                        Log.e(TAG, "❌ Function call name is null, skipping")
+                        continue
                     }
                     
+                    Log.i(TAG, "🔧 Executing tool: $name (id: $id)")
+                    Log.i(TAG, "  Arguments: $args")
+                    
                     // Execute the tool
+                    val startTime = System.currentTimeMillis()
                     val result = try {
-                        toolExecutor.executeTool(name, args)
+                        Log.i(TAG, "⏳ Starting tool execution...")
+                        val res = toolExecutor.executeTool(name, args)
+                        val duration = System.currentTimeMillis() - startTime
+                        Log.i(TAG, "✅ Tool execution completed in ${duration}ms")
+                        res
                     } catch (e: Exception) {
-                        Log.e(TAG, "Tool execution failed: ${e.message}", e)
+                        val duration = System.currentTimeMillis() - startTime
+                        Log.e(TAG, "❌ Tool execution failed after ${duration}ms: ${e.message}", e)
                         "Error: ${e.message}"
                     }
                     
-                    Log.i(TAG, "✅ Tool result: ${result.take(200)}${if (result.length > 200) "..." else ""}")
+                    Log.i(TAG, "📤 Tool result (${result.length} chars): ${result.take(200)}${if (result.length > 200) "..." else ""}")
                     
                     // Send tool response back to Gemini
                     sendToolResponse(id, result)
                 }
                 
+                Log.i(TAG, "🔧 handleToolCall END")
+                
             } catch (e: Exception) {
-                Log.e(TAG, "Error handling tool call: ${e.message}", e)
+                Log.e(TAG, "❌ Error handling tool call: ${e.message}", e)
+                e.printStackTrace()
             }
         }
     }

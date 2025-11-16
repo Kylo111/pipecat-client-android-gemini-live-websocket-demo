@@ -29,6 +29,9 @@ class SessionManager(
     // Summary generator for session analysis (fallback)
     private val summaryGenerator = SummaryGenerator(context)
     
+    // Gemini summary service for AI-powered summaries
+    private val geminiSummaryService = GeminiSummaryService(context)
+    
     // VoiceClientManager reference (set after construction to avoid circular dependency)
     var voiceClientManager: VoiceClientManager? = null
     
@@ -366,13 +369,55 @@ class SessionManager(
             Log.d(TAG, "  Length: ${transcriptText.length} chars")
             Log.d(TAG, "  Preview: ${transcriptText.take(300)}...")
             
-            // Create summary request with transcript
+            // Check if summary mode is enabled
+            val useSummaryMode = Preferences.useSummaryMode.value
+            val contentToSend: String
+            
+            if (useSummaryMode) {
+                Log.d(TAG, "🤖 Summary mode enabled - generating AI summary")
+                
+                // Get summary prompt and API key
+                val summaryPrompt = Preferences.summaryPrompt.value ?: ""
+                val apiKey = Preferences.geminiApiKey.value ?: ""
+                
+                if (summaryPrompt.isBlank()) {
+                    Log.w(TAG, "⚠️ Summary prompt is empty, falling back to transcript")
+                    contentToSend = transcriptText
+                } else if (apiKey.isBlank()) {
+                    Log.w(TAG, "⚠️ Gemini API key is empty, falling back to transcript")
+                    contentToSend = transcriptText
+                } else {
+                    // Generate summary using Gemini
+                    val summaryResult = geminiSummaryService.generateSummary(
+                        transcript = transcriptText,
+                        summaryPrompt = summaryPrompt,
+                        apiKey = apiKey
+                    )
+                    
+                    if (summaryResult.isSuccess) {
+                        val summary = summaryResult.getOrThrow()
+                        Log.d(TAG, "✅ Summary generated successfully")
+                        Log.d(TAG, "  Summary length: ${summary.length} chars")
+                        Log.d(TAG, "  Summary preview: ${summary.take(200)}...")
+                        contentToSend = "## PODSUMOWANIE ##\n\n$summary"
+                    } else {
+                        Log.e(TAG, "❌ Failed to generate summary: ${summaryResult.exceptionOrNull()?.message}")
+                        Log.w(TAG, "⚠️ Falling back to transcript")
+                        contentToSend = transcriptText
+                    }
+                }
+            } else {
+                Log.d(TAG, "📄 Transcript mode - sending raw transcript")
+                contentToSend = transcriptText
+            }
+            
+            // Create summary request with content (transcript or summary)
             val summaryRequest = SummaryRequest(
                 conversationId = session.conversationId,
-                sessionSummary = transcriptText
+                sessionSummary = contentToSend
             )
             
-            Log.d(TAG, "📤 Starting transcript synchronization with infinite retry")
+            Log.d(TAG, "📤 Starting content synchronization with infinite retry")
             
             // Use TranscriptSyncManager for reliable delivery with infinite retry
             val syncResult = transcriptSyncManager.syncTranscripts(summaryRequest)
@@ -420,6 +465,16 @@ class SessionManager(
      */
     fun isSyncInProgress(): Boolean {
         return syncStatus.value is SyncStatus.Syncing
+    }
+    
+    /**
+     * Process offline queue - attempt to send all queued transcripts/summaries
+     * Should be called on app start or when network becomes available
+     * 
+     * @return Number of successfully processed items
+     */
+    suspend fun processOfflineQueue(): Int {
+        return transcriptSyncManager.processOfflineQueue()
     }
     
     /**
@@ -486,6 +541,7 @@ class SessionManager(
     /**
      * Inner class managing transcript synchronization with infinite retry
      * Ensures transcripts are reliably sent to LibreChat even with network issues
+     * Uses OfflineSummaryQueue for persistence across app restarts
      */
     private inner class TranscriptSyncManager {
         
@@ -495,6 +551,9 @@ class SessionManager(
         private var syncJob: Job? = null
         private var isCancelled = false
         
+        // Offline queue for persistence
+        private val offlineQueue = OfflineSummaryQueue(context)
+        
         // Constants for retry logic
         private val TAG = "TranscriptSyncManager"
         private val BASE_DELAY = 1000L // 1 second
@@ -503,6 +562,7 @@ class SessionManager(
         
         /**
          * Synchronize transcripts with infinite retry until success or cancellation
+         * Saves to offline queue for persistence across app restarts
          * 
          * @param summaryRequest The summary request containing transcripts
          * @return Result indicating success or cancellation
@@ -510,6 +570,10 @@ class SessionManager(
         suspend fun syncTranscripts(summaryRequest: SummaryRequest): Result<Unit> {
             isCancelled = false
             var attempt = 0
+            
+            // Save to offline queue immediately for persistence
+            offlineQueue.enqueue(summaryRequest)
+            Log.d(TAG, "💾 Saved to offline queue for persistence")
             
             syncJob = scope.launch {
                 while (!isCancelled) {
@@ -524,6 +588,11 @@ class SessionManager(
                         
                         if (result.isSuccess) {
                             Log.d(TAG, "✅ Transcript sync successful on attempt $attempt")
+                            
+                            // Remove from offline queue on success
+                            offlineQueue.dequeue()
+                            Log.d(TAG, "🗑️ Removed from offline queue")
+                            
                             _syncStatus.value = SyncStatus.Success
                             return@launch
                         } else {
@@ -562,8 +631,9 @@ class SessionManager(
                 // If we exit the loop, it means we were cancelled
                 if (isCancelled) {
                     Log.w(TAG, "🚫 Transcript sync cancelled by user after $attempt attempts")
+                    Log.d(TAG, "💾 Content remains in offline queue for later retry")
                     _syncStatus.value = SyncStatus.Error(
-                        message = "Synchronization cancelled by user",
+                        message = "Synchronization cancelled - will retry later",
                         willRetry = false
                     )
                 }
@@ -581,14 +651,15 @@ class SessionManager(
         
         /**
          * Cancel ongoing transcript synchronization
-         * Shows warning that transcripts will be lost
+         * Content remains in offline queue for later retry
          */
         fun cancelSync() {
-            Log.w(TAG, "⚠️ Cancelling transcript synchronization - transcripts may be lost")
+            Log.w(TAG, "⚠️ Cancelling transcript synchronization")
+            Log.d(TAG, "💾 Content will remain in offline queue for later retry")
             isCancelled = true
             syncJob?.cancel()
             _syncStatus.value = SyncStatus.Error(
-                message = "Cancelled by user",
+                message = "Cancelled by user - will retry later",
                 willRetry = false
             )
         }
@@ -612,6 +683,15 @@ class SessionManager(
             syncJob?.cancel()
             syncJob = null
             _syncStatus.value = SyncStatus.Idle
+        }
+        
+        /**
+         * Process offline queue - attempt to send all queued items
+         * Called on app start or when network becomes available
+         */
+        suspend fun processOfflineQueue(): Int {
+            Log.d(TAG, "📦 Processing offline queue, size: ${offlineQueue.size()}")
+            return offlineQueue.processQueue(libreChatService)
         }
     }
 

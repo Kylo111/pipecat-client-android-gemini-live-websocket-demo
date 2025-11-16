@@ -25,6 +25,8 @@ object Preferences {
     private const val PREF_IS_DARK_THEME = "is_dark_theme"
     private const val PREF_APP_THEME = "app_theme"
     private const val PREF_TOOLS_INSTRUCTION = "tools_instruction"
+    private const val PREF_USE_SUMMARY_MODE = "use_summary_mode"
+    private const val PREF_SUMMARY_PROMPT = "summary_prompt"
 
     private lateinit var prefs: SharedPreferences
 
@@ -34,7 +36,7 @@ object Preferences {
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt
         ).forEach { it.init() }
     }
 
@@ -194,5 +196,18 @@ Use these tools proactively when they can help answer the user's questions. For 
 - If asked about current events, use search_web to find latest information
 - If asked to remember something, use create_note
 - If asked about nearby places, use search_nearby
+    """.trimIndent())
+    
+    // Summary mode preferences
+    val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, false)
+    val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, """
+Przeanalizuj poniższą transkrypcję rozmowy i stwórz zwięzłe podsumowanie zawierające:
+
+1. Główne tematy rozmowy
+2. Kluczowe informacje i wnioski
+3. Ewentualne pytania lub problemy wymagające dalszej uwagi
+4. Sugerowane następne kroki
+
+Podsumowanie powinno być konkretne, rzeczowe i pomocne dla kontynuacji rozmowy.
     """.trimIndent())
 }

@@ -72,6 +72,8 @@ fun SettingsScreen(
     var selectedSkin by remember { mutableStateOf(Preferences.selectedSkin.value ?: "DEFAULT") }
     var showSkinDropdown by remember { mutableStateOf(false) }
     var showChangePINDialog by remember { mutableStateOf(false) }
+    var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
+    var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
 
     // Save settings function
     val saveSettings = {
@@ -83,6 +85,8 @@ fun SettingsScreen(
         Preferences.botResponseTimeoutMinutes.value = botResponseTimeout
         Preferences.activityDetectionThreshold.value = activityThreshold
         Preferences.selectedSkin.value = selectedSkin
+        Preferences.useSummaryMode.value = useSummaryMode
+        Preferences.summaryPrompt.value = summaryPrompt
     }
 
     Box(
@@ -208,6 +212,83 @@ fun SettingsScreen(
                             style = TextStyles.base,
                             lineHeight = 14.sp
                         )
+                    }
+                }
+
+                // LibreChat Integration Section
+                SettingsSection(title = "Integracja z LibreChat") {
+                    // Summary mode toggle
+                    SettingsToggle(
+                        label = "Tryb podsumowania",
+                        checked = useSummaryMode,
+                        onCheckedChange = { useSummaryMode = it }
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (useSummaryMode) {
+                            "Transkrypcja będzie przetwarzana przez Gemini 2.5 Pro i wysyłane będzie podsumowanie"
+                        } else {
+                            "Pełna transkrypcja będzie wysyłana bezpośrednio do LibreChat"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    // Show summary prompt field only when summary mode is enabled
+                    if (useSummaryMode) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Column {
+                            Text(
+                                text = "Prompt do generowania podsumowania",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            TextField(
+                                value = summaryPrompt,
+                                onValueChange = { summaryPrompt = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White,
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
+                                    focusedIndicatorColor = Colors.buttonNormal,
+                                    unfocusedIndicatorColor = Color.LightGray
+                                ),
+                                textStyle = TextStyles.base.copy(fontSize = 12.sp),
+                                placeholder = {
+                                    Text(
+                                        "Wpisz instrukcje jak ma wyglądać podsumowanie...",
+                                        style = TextStyles.base,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Transkrypcja zostanie dodana do tego prompta i wysłana do Gemini 2.5 Pro. Odpowiedź zostanie wysłana do LibreChat.",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                        }
                     }
                 }
 
