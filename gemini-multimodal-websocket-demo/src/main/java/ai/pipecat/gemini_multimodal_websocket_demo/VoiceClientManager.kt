@@ -1132,17 +1132,24 @@ class VoiceClientManager(
                                 else -> "UNKNOWN($previousState)"
                             }
                             
-                            Log.i(TAG, "🔵 Bluetooth SCO state changed: $prevStateStr -> $stateStr")
+                            // Only log if DEBUG_LOGGING is enabled or if state is CONNECTED
+                            if (DEBUG_LOGGING || state == AudioManager.SCO_AUDIO_STATE_CONNECTED) {
+                                Log.i(TAG, "🔵 Bluetooth SCO state changed: $prevStateStr -> $stateStr")
+                            }
                             
                             when (state) {
                                 AudioManager.SCO_AUDIO_STATE_CONNECTED -> {
                                     Log.i(TAG, "✅ Bluetooth SCO connected - BT microphone is now active")
                                 }
                                 AudioManager.SCO_AUDIO_STATE_DISCONNECTED -> {
-                                    Log.w(TAG, "⚠️ Bluetooth SCO disconnected - falling back to built-in mic")
+                                    if (DEBUG_LOGGING) {
+                                        Log.d(TAG, "Bluetooth SCO disconnected - using built-in mic")
+                                    }
                                 }
                                 AudioManager.SCO_AUDIO_STATE_ERROR -> {
-                                    Log.e(TAG, "❌ Bluetooth SCO error")
+                                    if (DEBUG_LOGGING) {
+                                        Log.d(TAG, "Bluetooth SCO error (no BT device available)")
+                                    }
                                 }
                             }
                         }

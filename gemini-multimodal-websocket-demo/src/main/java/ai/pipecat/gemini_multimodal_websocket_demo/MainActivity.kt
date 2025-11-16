@@ -624,6 +624,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         
+
+                        
                         // Transcript sync indicator - blocks new conversations until sync completes
                         val syncStatus by sessionManager.syncStatus.collectAsState()
                         TranscriptSyncIndicator(

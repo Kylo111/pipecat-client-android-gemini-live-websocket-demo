@@ -79,6 +79,7 @@ class ToolExecutor(private val context: Context) {
                 "create_note" -> createNote(parameters)
                 "control_media" -> controlMedia(parameters)
                 "search_nearby" -> searchNearby(parameters)
+                "create_offline_conversation" -> createOfflineConversation(parameters)
                 else -> "Error: Unknown tool '$toolName'"
             }
         } catch (e: Exception) {
@@ -756,5 +757,32 @@ class ToolExecutor(private val context: Context) {
         val c = 2 * kotlin.math.atan2(sqrt(a), sqrt(1 - a))
         
         return (earthRadius * c).toInt()
+    }
+    
+    /**
+     * Create a new offline conversation
+     */
+    private suspend fun createOfflineConversation(params: JsonObject): String = withContext(Dispatchers.Main) {
+        val name = params["name"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing name parameter"
+        val systemPrompt = params["systemPrompt"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing systemPrompt parameter"
+        
+        Log.i(TAG, "Creating offline conversation: $name")
+        
+        try {
+            // Import OfflineConversationManager
+            val manager = ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
+            
+            // Create the conversation
+            val conversation = manager.create(
+                title = name.take(30), // Limit to 30 characters
+                systemPrompt = systemPrompt
+            )
+            
+            "Successfully created offline conversation '$name'! You can now find it in the conversation list. The bot is ready to use with the following behavior: ${systemPrompt.take(100)}${if (systemPrompt.length > 100) "..." else ""}"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating offline conversation: ${e.message}", e)
+            "Error: Could not create conversation - ${e.message}"
+        }
     }
 }

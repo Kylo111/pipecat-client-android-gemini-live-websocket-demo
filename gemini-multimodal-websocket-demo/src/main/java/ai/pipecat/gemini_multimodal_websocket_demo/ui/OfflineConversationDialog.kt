@@ -302,8 +302,8 @@ fun OfflineConversationDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Delete button (only when editing)
-                    if (isEditing && onDelete != null) {
+                    // Delete button (only when editing non-system conversations)
+                    if (isEditing && onDelete != null && conversation?.isSystemConversation != true) {
                         Button(
                             onClick = { showDeleteConfirm = true },
                             modifier = Modifier.weight(1f),

@@ -91,13 +91,15 @@ fun ConversationListScreen(
     val allConversations = remember(librechatThreads, offlineConversations) {
         val items = mutableListOf<ConversationItem>()
         
-        // Add offline conversations first (highlighted)
+        // Add offline conversations first (highlighted), but exclude system conversations
         offlineConversations.forEach { offline ->
-            items.add(ConversationItem.Offline(
-                id = offline.id,
-                title = offline.title,
-                systemPrompt = offline.systemPrompt
-            ))
+            if (!offline.isSystemConversation) {
+                items.add(ConversationItem.Offline(
+                    id = offline.id,
+                    title = offline.title,
+                    systemPrompt = offline.systemPrompt
+                ))
+            }
         }
         
         // Add LibreChat threads
@@ -122,7 +124,7 @@ fun ConversationListScreen(
                 .fillMaxSize()
                 .padding(20.dp)
         ) {
-            // Header with theme toggle and settings icon
+            // Header with theme toggle, help icon, and settings icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -146,14 +148,40 @@ fun ConversationListScreen(
                     )
                 }
                 
-                Icon(
-                    painter = painterResource(id = R.drawable.cog),
-                    contentDescription = "Settings",
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clickable { onSettingsClick() },
-                    tint = Color.Gray
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Help icon
+                    Icon(
+                        painter = painterResource(id = R.drawable.help_circle),
+                        contentDescription = "Help",
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clickable {
+                                // Start help conversation
+                                val helpConv = OfflineConversationManager.getHelpConversation()
+                                if (helpConv != null) {
+                                    onConversationSelected(ConversationItem.Offline(
+                                        id = helpConv.id,
+                                        title = helpConv.title,
+                                        systemPrompt = helpConv.systemPrompt
+                                    ))
+                                }
+                            },
+                        tint = Colors.buttonNormal
+                    )
+                    
+                    // Settings icon
+                    Icon(
+                        painter = painterResource(id = R.drawable.cog),
+                        contentDescription = "Settings",
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clickable { onSettingsClick() },
+                        tint = Color.Gray
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

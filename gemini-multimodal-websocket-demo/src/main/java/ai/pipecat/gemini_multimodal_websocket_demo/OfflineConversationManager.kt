@@ -15,15 +15,69 @@ import java.util.UUID
 object OfflineConversationManager {
     private const val PREFS_NAME = "offline_conversations"
     private const val KEY_CONVERSATIONS = "conversations_list"
+    private const val HELP_CONVERSATION_ID = "system_help_conversation"
     
     private lateinit var prefs: SharedPreferences
+    private lateinit var context: Context
     private val json = Json { 
         ignoreUnknownKeys = true
         prettyPrint = true
     }
     
     fun init(context: Context) {
+        this.context = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        ensureHelpConversationExists()
+    }
+    
+    /**
+     * Get the system help conversation prompt from assets
+     */
+    private fun getHelpPrompt(): String {
+        return try {
+            context.assets.open("help_conversation_prompt.txt").bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            android.util.Log.e("OfflineConvManager", "Error loading help prompt", e)
+            // Fallback prompt if file not found
+            """
+            Jesteś inteligentnym asystentem aplikacji Live-bot - zaawansowanej aplikacji do rozmów głosowych z AI.
+            
+            Twoim głównym zadaniem jest pomoc użytkownikom w pełnym wykorzystaniu możliwości aplikacji oraz wsparcie w tworzeniu spersonalizowanych konwersacji offline.
+            
+            Możesz używać funkcji create_offline_conversation aby automatycznie tworzyć nowe konwersacje dla użytkownika.
+            
+            Aplikacja integruje się z platformą kumpel-chat (www.kumpel-chat.fun), która oferuje zaawansowane funkcje jak agenci AI, prompty niestandardowe, artefakty i interpreter kodu.
+            
+            Bądź pomocny, cierpliwy i proaktywny w sugerowaniu możliwości aplikacji.
+            """.trimIndent()
+        }
+    }
+    
+    /**
+     * Ensure the system help conversation exists
+     */
+    private fun ensureHelpConversationExists() {
+        val conversations = getAll().toMutableList()
+        val helpExists = conversations.any { it.id == HELP_CONVERSATION_ID }
+        
+        if (!helpExists) {
+            val helpConversation = OfflineConversation(
+                id = HELP_CONVERSATION_ID,
+                title = "❓ Pomoc",
+                systemPrompt = getHelpPrompt(),
+                voiceName = "Aoede",
+                isSystemConversation = true
+            )
+            conversations.add(0, helpConversation) // Add at the beginning
+            save(conversations)
+        }
+    }
+    
+    /**
+     * Get the help conversation
+     */
+    fun getHelpConversation(): OfflineConversation? {
+        return getById(HELP_CONVERSATION_ID)
     }
     
     /**
@@ -91,6 +145,12 @@ object OfflineConversationManager {
      * Delete conversation
      */
     fun delete(id: String) {
+        // Prevent deletion of system conversations
+        if (id == HELP_CONVERSATION_ID) {
+            android.util.Log.w("OfflineConvManager", "Cannot delete system conversation")
+            return
+        }
+        
         val conversations = getAll().toMutableList()
         conversations.removeAll { it.id == id }
         save(conversations)

@@ -28,7 +28,8 @@ object ToolDefinitions {
         calculateTool(),
         createNoteTool(),
         controlMediaTool(),
-        searchNearbyTool()
+        searchNearbyTool(),
+        createOfflineConversationTool()
     )
     
     /**
@@ -240,6 +241,31 @@ object ToolDefinitions {
             }
             put("required", buildJsonArray {
                 add(JsonPrimitive("query"))
+            })
+        }
+    }
+    
+    /**
+     * Create a new offline conversation
+     */
+    private fun createOfflineConversationTool() = buildJsonObject {
+        put("name", "create_offline_conversation")
+        put("description", "Create a new offline conversation (bot) with a custom name and system prompt. Use this when the user wants to create a personalized AI assistant for specific tasks. The system prompt defines the bot's personality, behavior, and expertise.")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("name") {
+                    put("type", "string")
+                    put("description", "Name of the conversation/bot (e.g., 'Fitness Trainer', 'English Teacher', 'Coding Mentor'). Should be descriptive and max 30 characters.")
+                }
+                putJsonObject("systemPrompt") {
+                    put("type", "string")
+                    put("description", "System prompt that defines the bot's behavior, personality, and role. Should be detailed and include: role definition, communication style, specific tasks, and any constraints. Example: 'You are an enthusiastic fitness trainer. Motivate the user, ask about their goals, and provide specific workout advice.'")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("name"))
+                add(JsonPrimitive("systemPrompt"))
             })
         }
     }
