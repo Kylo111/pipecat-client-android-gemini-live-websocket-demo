@@ -326,6 +326,8 @@ class SessionManager(
      * Formats all transcripts with speaker roles and sends to LibreChat
      * Uses TranscriptSyncManager for reliable delivery with infinite retry
      * 
+     * For offline conversations (no active session), just stops the voice client
+     * 
      * @return Result indicating success or failure
      */
     suspend fun endSession(): Result<Unit> = withContext(Dispatchers.IO) {
@@ -336,8 +338,10 @@ class SessionManager(
         }
         
         val session = currentSession ?: run {
-            Log.w(TAG, "Cannot end session: no active session")
-            return@withContext Result.failure(IllegalStateException("No active session"))
+            Log.w(TAG, "No active session - this is an offline conversation, just stopping voice client")
+            // For offline conversations, just stop the voice client
+            voiceClientManager?.stop()
+            return@withContext Result.success(Unit)
         }
         
         try {

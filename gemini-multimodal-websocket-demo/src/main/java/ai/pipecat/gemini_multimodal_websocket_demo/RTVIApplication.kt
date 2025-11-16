@@ -9,5 +9,6 @@ class RTVIApplication : Application() {
         ThreadSettingsManager.init(this)
         PINManager.init(this)
         ThemeManager.init(this)
+        OfflineConversationManager.init(this)
     }
 }

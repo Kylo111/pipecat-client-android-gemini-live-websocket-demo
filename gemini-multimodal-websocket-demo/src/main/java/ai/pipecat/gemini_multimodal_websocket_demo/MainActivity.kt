@@ -9,7 +9,9 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThreadListScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.ConversationListScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationType
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
@@ -332,68 +334,103 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 
-                                ThreadListScreen(
+                                ConversationListScreen(
                                     libreChatService = libreChatService,
                                     authManager = authManager,
-                                    onThreadSelected = { conversationId ->
-                                        selectedConversationId = conversationId
+                                    onConversationSelected = { conversation ->
                                         lifecycleScope.launch {
-                                            // Block new conversations if transcript sync is in progress
-                                            if (sessionManager.isSyncInProgress()) {
-                                                voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
-                                                return@launch
-                                            }
-                                            
-                                            // Check token validity before starting session
-                                            if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
-                                                val autoLoginResult = authManager.autoLogin()
-                                                if (autoLoginResult.isFailure) {
-                                                    currentScreen = Screen.LOGIN
-                                                    autoLoginError = "Session expired. Please log in again."
-                                                    return@launch
-                                                }
-                                            }
-                                            
-                                            // Load thread-specific settings
-                                            val threadSettings = ThreadSettingsManager.getSettings(conversationId)
-                                            
-                                            // Start session and get context
-                                            val result = sessionManager.startSession(conversationId)
-                                            result.onSuccess { sessionContext ->
-                                                // Update system prompt in preferences
-                                                Preferences.systemPrompt.value = sessionContext.systemPrompt
-                                                // Start voice client with thread-specific settings
-                                                voiceClientManager.start(threadSettings)
-                                                currentScreen = Screen.IN_CALL
-                                            }.onFailure { error ->
-                                                // Check if error is due to authentication
-                                                if (error.message?.contains("401") == true || 
-                                                    error.message?.contains("authentication") == true ||
-                                                    error.message?.contains("unauthorized") == true) {
-                                                    // Try auto-login once more
-                                                    if (authManager.hasStoredCredentials()) {
+                                            when (conversation) {
+                                                is ConversationItem.LibreChatThread -> {
+                                                    // LibreChat conversation - fetch context and send transcript
+                                                    selectedConversationId = conversation.conversationId
+                                                    
+                                                    // Block new conversations if transcript sync is in progress
+                                                    if (sessionManager.isSyncInProgress()) {
+                                                        voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
+                                                        return@launch
+                                                    }
+                                                    
+                                                    // Check token validity before starting session
+                                                    if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
                                                         val autoLoginResult = authManager.autoLogin()
-                                                        if (autoLoginResult.isSuccess) {
-                                                            // Retry starting session
-                                                            val retryResult = sessionManager.startSession(conversationId)
-                                                            retryResult.onSuccess { sessionContext ->
-                                                                Preferences.systemPrompt.value = sessionContext.systemPrompt
-                                                                voiceClientManager.start(threadSettings)
-                                                                currentScreen = Screen.IN_CALL
-                                                            }.onFailure { retryError ->
-                                                                voiceClientManager.errors.add(Error("Failed to start session: ${retryError.message}"))
-                                                            }
-                                                        } else {
+                                                        if (autoLoginResult.isFailure) {
                                                             currentScreen = Screen.LOGIN
                                                             autoLoginError = "Session expired. Please log in again."
+                                                            return@launch
                                                         }
-                                                    } else {
-                                                        currentScreen = Screen.LOGIN
-                                                        autoLoginError = "Session expired. Please log in again."
                                                     }
-                                                } else {
-                                                    // Show error and stay on thread list
-                                                    voiceClientManager.errors.add(Error("Failed to start session: ${error.message}"))
+                                                    
+                                                    // Load thread-specific settings
+                                                    val threadSettings = ThreadSettingsManager.getSettings(conversation.conversationId)
+                                                    
+                                                    // Start session and get context
+                                                    val result = sessionManager.startSession(conversation.conversationId)
+                                                    result.onSuccess { sessionContext ->
+                                                        // Update system prompt in preferences
+                                                        Preferences.systemPrompt.value = sessionContext.systemPrompt
+                                                        // Start voice client with thread-specific settings
+                                                        voiceClientManager.start(threadSettings)
+                                                        currentScreen = Screen.IN_CALL
+                                                    }.onFailure { error ->
+                                                        // Check if error is due to authentication
+                                                        if (error.message?.contains("401") == true || 
+                                                            error.message?.contains("authentication") == true ||
+                                                            error.message?.contains("unauthorized") == true) {
+                                                            // Try auto-login once more
+                                                            if (authManager.hasStoredCredentials()) {
+                                                                val autoLoginResult = authManager.autoLogin()
+                                                                if (autoLoginResult.isSuccess) {
+                                                                    // Retry starting session
+                                                                    val retryResult = sessionManager.startSession(conversation.conversationId)
+                                                                    retryResult.onSuccess { sessionContext ->
+                                                                        Preferences.systemPrompt.value = sessionContext.systemPrompt
+                                                                        voiceClientManager.start(threadSettings)
+                                                                        currentScreen = Screen.IN_CALL
+                                                                    }.onFailure { retryError ->
+                                                                        voiceClientManager.errors.add(Error("Failed to start session: ${retryError.message}"))
+                                                                    }
+                                                                } else {
+                                                                    currentScreen = Screen.LOGIN
+                                                                    autoLoginError = "Session expired. Please log in again."
+                                                                }
+                                                            } else {
+                                                                currentScreen = Screen.LOGIN
+                                                                autoLoginError = "Session expired. Please log in again."
+                                                            }
+                                                        } else {
+                                                            // Show error and stay on thread list
+                                                            voiceClientManager.errors.add(Error("Failed to start session: ${error.message}"))
+                                                        }
+                                                    }
+                                                }
+                                                is ConversationItem.Offline -> {
+                                                    // Offline conversation - no LibreChat integration
+                                                    selectedConversationId = null // No LibreChat conversation ID
+                                                    
+                                                    // Get offline conversation details
+                                                    val offlineConv = OfflineConversationManager.getById(conversation.id)
+                                                    
+                                                    if (offlineConv != null) {
+                                                        // Set system prompt from offline conversation
+                                                        Preferences.systemPrompt.value = offlineConv.systemPrompt.ifBlank { 
+                                                            "You are a helpful assistant" 
+                                                        }
+                                                        
+                                                        // Create ThreadSettings from offline conversation settings
+                                                        val offlineSettings = ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings(
+                                                            conversationId = offlineConv.id,
+                                                            voiceName = offlineConv.voiceName,
+                                                            speechSpeed = offlineConv.speechSpeed,
+                                                            volumeBoost = offlineConv.volumeBoost,
+                                                            temperature = offlineConv.temperature
+                                                        )
+                                                        
+                                                        // Start voice client with offline settings (no LibreChat session)
+                                                        voiceClientManager.start(offlineSettings)
+                                                        currentScreen = Screen.IN_CALL
+                                                    } else {
+                                                        voiceClientManager.errors.add(Error("Nie znaleziono konwersacji offline"))
+                                                    }
                                                 }
                                             }
                                         }
