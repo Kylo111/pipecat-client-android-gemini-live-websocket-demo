@@ -182,12 +182,16 @@ fun OfflineConversationDialog(
                     DropdownMenu(
                         expanded = showVoiceDropdown,
                         onDismissRequest = { showVoiceDropdown = false },
-                        modifier = Modifier.fillMaxWidth(0.9f)
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .background(Color.White)
                     ) {
                         AVAILABLE_VOICES.forEach { voice ->
                             DropdownMenuItem(
                                 text = {
-                                    Column {
+                                    Column(
+                                        modifier = Modifier.background(Color.White)
+                                    ) {
                                         Text(
                                             text = voice.name,
                                             fontSize = 14.sp,
@@ -209,7 +213,8 @@ fun OfflineConversationDialog(
                                 onClick = {
                                     selectedVoice = voice.name
                                     showVoiceDropdown = false
-                                }
+                                },
+                                modifier = Modifier.background(Color.White)
                             )
                         }
                     }

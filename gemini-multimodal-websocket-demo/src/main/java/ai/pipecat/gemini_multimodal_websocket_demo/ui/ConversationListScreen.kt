@@ -158,33 +158,6 @@ fun ConversationListScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
             
-            // "Co dzis robimy?" styled frame
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = 2.dp,
-                        color = Colors.buttonNormal,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .background(
-                        color = Colors.buttonNormal.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Co dzis robimy?",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.W700,
-                    color = Colors.buttonNormal,
-                    style = TextStyles.base
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            
             // Add offline conversation button
             Box(
                 modifier = Modifier
