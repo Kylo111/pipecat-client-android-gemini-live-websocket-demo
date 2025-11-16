@@ -239,6 +239,10 @@ class VoiceClientManager(
     val camera = mutableStateOf(false)
     val isProcessingImage = mutableStateOf(false)
     
+    // Tool execution state
+    val isExecutingTool = mutableStateOf(false)
+    val currentToolName = mutableStateOf<String?>(null)
+    
     // Indicates if session is paused (disconnected but can be resumed)
     val isPaused = mutableStateOf(false)
     
@@ -858,6 +862,10 @@ class VoiceClientManager(
                     Log.i(TAG, "🔧 Executing tool: $name (id: $id)")
                     Log.i(TAG, "  Arguments: $args")
                     
+                    // Set tool execution state
+                    isExecutingTool.value = true
+                    currentToolName.value = name
+                    
                     // Execute the tool
                     val startTime = System.currentTimeMillis()
                     val result = try {
@@ -870,6 +878,10 @@ class VoiceClientManager(
                         val duration = System.currentTimeMillis() - startTime
                         Log.e(TAG, "❌ Tool execution failed after ${duration}ms: ${e.message}", e)
                         "Error: ${e.message}"
+                    } finally {
+                        // Clear tool execution state
+                        isExecutingTool.value = false
+                        currentToolName.value = null
                     }
                     
                     Log.i(TAG, "📤 Tool result (${result.length} chars): ${result.take(200)}${if (result.length > 200) "..." else ""}")
@@ -883,6 +895,9 @@ class VoiceClientManager(
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error handling tool call: ${e.message}", e)
                 e.printStackTrace()
+                // Clear tool execution state on error
+                isExecutingTool.value = false
+                currentToolName.value = null
             }
         }
     }

@@ -57,6 +57,13 @@ fun InCallLayout(
                     modifier = Modifier
                 )
                 
+                // Tool execution indicator
+                ToolExecutionIndicator(
+                    isExecuting = voiceClientManager.isExecutingTool.value,
+                    toolName = voiceClientManager.currentToolName.value,
+                    modifier = Modifier
+                )
+                
                 BotIndicator(
                     modifier = Modifier,
                     isReady = voiceClientManager.botReady.value,
