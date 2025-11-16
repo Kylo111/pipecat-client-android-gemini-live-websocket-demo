@@ -8,6 +8,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThreadListScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
@@ -84,7 +85,8 @@ enum class Screen {
     THREAD_LIST,
     CONNECT,
     IN_CALL,
-    SETTINGS
+    SETTINGS,
+    THEME_SELECTION
 }
 
 class MainActivity : ComponentActivity() {
@@ -433,6 +435,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onChangePIN = {
                                         showChangePINDialog = true
+                                    },
+                                    onThemeSelection = {
+                                        currentScreen = Screen.THEME_SELECTION
                                     }
                                 )
                                 
@@ -443,6 +448,13 @@ class MainActivity : ComponentActivity() {
                                 //         onDismiss = { showChangePINDialog = false }
                                 //     )
                                 // }
+                            }
+                            Screen.THEME_SELECTION -> {
+                                ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen(
+                                    onBack = {
+                                        currentScreen = Screen.SETTINGS
+                                    }
+                                )
                             }
                             Screen.IN_CALL -> {
                                 // Always show InCallLayout regardless of connection state

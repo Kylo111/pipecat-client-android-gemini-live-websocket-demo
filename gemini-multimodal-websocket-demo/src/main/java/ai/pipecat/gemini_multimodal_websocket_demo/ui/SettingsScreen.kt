@@ -58,7 +58,8 @@ import androidx.compose.ui.unit.sp
 fun SettingsScreen(
     onClose: () -> Unit,
     onLogout: () -> Unit,
-    onChangePIN: () -> Unit
+    onChangePIN: () -> Unit,
+    onThemeSelection: () -> Unit = {}
 ) {
     // Local state for settings
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
@@ -386,9 +387,68 @@ fun SettingsScreen(
 
                 // Visual Preferences Section
                 SettingsSection(title = "Preferencje wizualne") {
-                    // Skin Selection
+                    // Theme Selection Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .border(
+                                width = 2.dp,
+                                color = Colors.buttonAccent,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Colors.buttonSection)
+                            .clickable { 
+                                saveSettings()
+                                onThemeSelection() 
+                            }
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "🎨",
+                                    fontSize = 24.sp
+                                )
+                                Column {
+                                    Text(
+                                        text = "Wybierz motyw",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = Colors.textPrimary,
+                                        style = TextStyles.base
+                                    )
+                                    Text(
+                                        text = "Kolory, kształty i efekty",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.W400,
+                                        color = Colors.textSecondary,
+                                        style = TextStyles.base
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "→",
+                                fontSize = 20.sp,
+                                color = Colors.buttonAccent
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Skin Selection (legacy - kept for compatibility)
                     Text(
-                        text = "Wybór skórki",
+                        text = "Wybór skórki (stary system)",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,

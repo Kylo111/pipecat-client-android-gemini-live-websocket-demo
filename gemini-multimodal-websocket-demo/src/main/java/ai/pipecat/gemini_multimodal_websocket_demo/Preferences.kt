@@ -23,6 +23,7 @@ object Preferences {
     private const val PREF_USER_PIN = "user_pin"
     private const val PREF_DEFAULT_SERVER_URL = "default_server_url"
     private const val PREF_IS_DARK_THEME = "is_dark_theme"
+    private const val PREF_APP_THEME = "app_theme"
 
     private lateinit var prefs: SharedPreferences
 
@@ -32,7 +33,7 @@ object Preferences {
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme
         ).forEach { it.init() }
     }
 
@@ -174,4 +175,5 @@ object Preferences {
     val userPin = StringPref(PREF_USER_PIN, "2222")
     val defaultServerUrl = StringPref(PREF_DEFAULT_SERVER_URL, "www.kumpel-chat.fun")
     val isDarkTheme = BooleanPref(PREF_IS_DARK_THEME, false)
+    val appTheme = StringPref(PREF_APP_THEME, "CLASSIC")
 }

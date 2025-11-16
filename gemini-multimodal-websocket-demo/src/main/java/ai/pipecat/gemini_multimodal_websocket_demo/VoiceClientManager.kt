@@ -1,6 +1,8 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
+import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions
+import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolExecutor
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.Timestamp
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.WebSocketErrorClassifier
 import android.annotation.SuppressLint
@@ -37,9 +39,14 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -73,7 +80,13 @@ data class Setup(
     val system_instruction: SystemInstruction? = null,
     val output_audio_transcription: OutputAudioTranscription? = null,
     val input_audio_transcription: InputAudioTranscription? = null,
-    val session_resumption: SessionResumptionConfig? = null
+    val session_resumption: SessionResumptionConfig? = null,
+    val tools: List<Tool>? = null
+)
+
+@Serializable
+data class Tool(
+    val function_declarations: List<JsonElement>
 )
 
 @Serializable
@@ -166,6 +179,9 @@ class VoiceClientManager(
         encodeDefaults = false // Don't encode default (null) values
         explicitNulls = false // Don't include null fields in JSON
     }
+    
+    // Tool executor for function calling
+    private val toolExecutor = ToolExecutor(context)
 
     private var webSocket: WebSocket? = null
     private var audioRecord: AudioRecord? = null
@@ -333,13 +349,35 @@ class VoiceClientManager(
         
         // Get system prompt from current session context (from LibreChat) or fallback to preferences
         val currentSession = sessionManager?.getCurrentSession()
-        val systemPrompt = if (currentSession != null) {
+        val baseSystemPrompt = if (currentSession != null) {
             Log.i(TAG, "✅ Using system prompt from LibreChat session context")
             currentSession.systemPrompt
         } else {
             Log.w(TAG, "⚠️ No active session context, using default system prompt from preferences")
             Preferences.systemPrompt.value ?: "You are a helpful assistant"
         }
+        
+        // Enhance system prompt with tool information
+        val systemPrompt = """
+            $baseSystemPrompt
+            
+            IMPORTANT: You have access to the following tools that you can use to help the user:
+            
+            1. search_web(query) - Search the internet for current information, news, or facts. Use this when you need up-to-date information.
+            2. get_weather(location, units) - Get current weather and forecast for any location. Supports both celsius and fahrenheit.
+            3. get_current_time(timezone) - Get current date, time, and day of week.
+            4. get_location(include_address) - Get user's current GPS location with address.
+            5. calculate(expression) - Perform mathematical calculations.
+            6. create_note(title, content, app) - Create notes in Keep, Evernote, Notion, or default notes app.
+            7. control_media(action, query, app) - Control Spotify, YouTube Music, or other media apps (play, pause, next, search).
+            8. search_nearby(query, radius, max_results) - Find nearby places, restaurants, businesses, etc.
+            
+            Use these tools proactively when they can help answer the user's questions. For example:
+            - If asked about weather tomorrow, use get_weather to get the forecast
+            - If asked about current events, use search_web to find latest information
+            - If asked to remember something, use create_note
+            - If asked about nearby places, use search_nearby
+        """.trimIndent()
 
         Log.i(TAG, "Starting connection with:")
         Log.i(TAG, "  Model: $model")
@@ -408,6 +446,10 @@ class VoiceClientManager(
                     Log.i(TAG, "🆕 Starting new session")
                 }
                 
+                // Get all tool definitions
+                val toolDeclarations = ToolDefinitions.getAllTools()
+                Log.i(TAG, "📤 Configuring ${toolDeclarations.size} tools for function calling")
+                
                 val setupMsg = SetupMessage(
                     setup = Setup(
                         model = modelName,
@@ -442,7 +484,9 @@ class VoiceClientManager(
                             // Send empty config to enable session resumption feature
                             Log.i(TAG, "📤 Sending empty session_resumption {} to enable feature")
                             SessionResumptionConfig(handle = null)
-                        }
+                        },
+                        // Function calling tools
+                        tools = listOf(Tool(function_declarations = toolDeclarations))
                     )
                 )
                 
@@ -763,13 +807,93 @@ class VoiceClientManager(
                 }
             }
 
-            // Check for tool calls or other events
+            // Check for tool calls
             if (jsonObject.containsKey("toolCall")) {
-                Log.i(TAG, "Tool call received")
+                Log.i(TAG, "🔧 Tool call received")
+                handleToolCall(jsonObject)
             }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing message: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Handle tool call from Gemini
+     * Executes the requested function and sends result back
+     */
+    private fun handleToolCall(message: JsonObject) {
+        scope?.launch {
+            try {
+                val toolCall = message["toolCall"]?.jsonObject ?: return@launch
+                val functionCalls = toolCall["functionCalls"]?.jsonArray ?: return@launch
+                
+                Log.i(TAG, "Processing ${functionCalls.size} function call(s)")
+                
+                // Process each function call
+                for (functionCall in functionCalls) {
+                    val callObj = functionCall.jsonObject
+                    val id = callObj["id"]?.jsonPrimitive?.content ?: continue
+                    val name = callObj["name"]?.jsonPrimitive?.content ?: continue
+                    val args = callObj["args"]?.jsonObject ?: JsonObject(emptyMap())
+                    
+                    Log.i(TAG, "🔧 Executing tool: $name (id: $id)")
+                    if (DEBUG_LOGGING) {
+                        Log.d(TAG, "  Arguments: $args")
+                    }
+                    
+                    // Execute the tool
+                    val result = try {
+                        toolExecutor.executeTool(name, args)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Tool execution failed: ${e.message}", e)
+                        "Error: ${e.message}"
+                    }
+                    
+                    Log.i(TAG, "✅ Tool result: ${result.take(200)}${if (result.length > 200) "..." else ""}")
+                    
+                    // Send tool response back to Gemini
+                    sendToolResponse(id, result)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error handling tool call: ${e.message}", e)
+            }
+        }
+    }
+    
+    /**
+     * Send tool response back to Gemini
+     */
+    private fun sendToolResponse(callId: String, result: String) {
+        try {
+            val response = buildJsonObject {
+                putJsonObject("toolResponse") {
+                    putJsonArray("functionResponses") {
+                        addJsonObject {
+                            put("id", callId)
+                            putJsonObject("response") {
+                                put("output", result)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            val responseJson = json.encodeToString(response)
+            val sent = webSocket?.send(responseJson) ?: false
+            
+            if (sent) {
+                Log.i(TAG, "📤 Tool response sent for call ID: $callId")
+                if (DEBUG_LOGGING) {
+                    Log.d(TAG, "  Response JSON: $responseJson")
+                }
+            } else {
+                Log.e(TAG, "❌ Failed to send tool response")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending tool response: ${e.message}", e)
         }
     }
     
