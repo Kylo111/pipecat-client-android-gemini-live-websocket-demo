@@ -6,6 +6,10 @@ import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 /**
@@ -16,6 +20,7 @@ object OfflineConversationManager {
     private const val PREFS_NAME = "offline_conversations"
     private const val KEY_CONVERSATIONS = "conversations_list"
     private const val HELP_CONVERSATION_ID = "system_help_conversation"
+    private const val TAG = "OfflineConvManager"
     
     private lateinit var prefs: SharedPreferences
     private lateinit var context: Context
@@ -23,6 +28,9 @@ object OfflineConversationManager {
         ignoreUnknownKeys = true
         prettyPrint = true
     }
+    
+    // Coroutine scope for database operations
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     fun init(context: Context) {
         this.context = context.applicationContext
@@ -37,7 +45,7 @@ object OfflineConversationManager {
         return try {
             context.assets.open("help_conversation_prompt.txt").bufferedReader().use { it.readText() }
         } catch (e: Exception) {
-            android.util.Log.e("OfflineConvManager", "Error loading help prompt", e)
+            android.util.Log.e(TAG, "Error loading help prompt", e)
             // Fallback prompt if file not found
             """
             Jesteś inteligentnym asystentem aplikacji Live-bot - zaawansowanej aplikacji do rozmów głosowych z AI.
@@ -88,7 +96,7 @@ object OfflineConversationManager {
         return try {
             json.decodeFromString<List<OfflineConversation>>(jsonString)
         } catch (e: Exception) {
-            android.util.Log.e("OfflineConvManager", "Error loading conversations", e)
+            android.util.Log.e(TAG, "Error loading conversations", e)
             emptyList()
         }
     }
@@ -142,18 +150,48 @@ object OfflineConversationManager {
     }
     
     /**
-     * Delete conversation
+     * Delete conversation and all associated data from database
+     * Removes:
+     * - Conversation definition from SharedPreferences
+     * - Conversation record from Room database
+     * - All sessions (via CASCADE foreign key)
+     * - All transcripts (stored in sessions)
+     * - All summaries (stored in sessions)
      */
     fun delete(id: String) {
         // Prevent deletion of system conversations
         if (id == HELP_CONVERSATION_ID) {
-            android.util.Log.w("OfflineConvManager", "Cannot delete system conversation")
+            android.util.Log.w(TAG, "Cannot delete system conversation")
             return
         }
         
+        android.util.Log.d(TAG, "Deleting conversation: $id")
+        
+        // 1. Remove from SharedPreferences
         val conversations = getAll().toMutableList()
         conversations.removeAll { it.id == id }
         save(conversations)
+        android.util.Log.d(TAG, "Removed conversation from SharedPreferences: $id")
+        
+        // 2. Remove from Room Database (with CASCADE to sessions)
+        scope.launch {
+            try {
+                val app = context.applicationContext as RTVIApplication
+                val conversationRepository = app.conversationRepository
+                
+                // Check if conversation exists in database
+                val conversation = conversationRepository.getConversation(id)
+                if (conversation != null) {
+                    // Delete conversation (CASCADE will delete all sessions)
+                    conversationRepository.deleteConversation(id)
+                    android.util.Log.d(TAG, "✅ Deleted conversation and all sessions from database: $id")
+                } else {
+                    android.util.Log.d(TAG, "Conversation not found in database (may not have any sessions): $id")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ Failed to delete conversation from database: $id", e)
+            }
+        }
     }
     
     /**
