@@ -1447,13 +1447,6 @@ class VoiceClientManager(
         }
     }
 
-    fun toggleMic() {
-        enableMic(!mic.value)
-        updateActivity() // User interaction
-    }
-
-
-    
     fun stop() {
         if (state.value == ConnectionState.DISCONNECTED) {
             Log.i(TAG, "Stop called but already DISCONNECTED, ignoring")
@@ -1480,6 +1473,16 @@ class VoiceClientManager(
         
         webSocket?.close(1000, "User disconnected")
         handleDisconnect()
+    }
+    
+    /**
+     * Toggle microphone on/off (pause/resume session)
+     * Used by wake word detection and UI button
+     */
+    fun toggleMic() {
+        Log.i(TAG, "🎤 Toggle microphone - Current state: ${if (mic.value) "ON" else "OFF"}")
+        enableMic(!mic.value)
+        updateActivity() // User interaction
     }
 
     private fun handleDisconnect(preserveSessionHandle: Boolean = false) {

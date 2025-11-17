@@ -1,7 +1,9 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.LibreChatService
+import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AVAILABLE_VOICES
+import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
@@ -17,12 +19,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -37,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -255,6 +264,13 @@ fun ThreadConfigDialog(
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
+                // Wake word assignment section
+                WakeWordAssignmentSection(
+                    threadId = thread.id
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
                 // Validation error message
                 if (validationError != null) {
                     Text(
@@ -339,6 +355,218 @@ fun ThreadConfigDialog(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Section for assigning wake words to conversation threads.
+ * Shows available wake words (green status only) and allows assignment/unassignment.
+ * 
+ * @param threadId ID of the thread to assign wake word to
+ */
+@Composable
+fun WakeWordAssignmentSection(
+    threadId: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var currentWakeWord by remember { mutableStateOf(PicovoiceManager.getWakeWordForThread(threadId)) }
+    var availableWakeWords by remember { mutableStateOf(PicovoiceManager.getAvailableWakeWords()) }
+    var showWakeWordDropdown by remember { mutableStateOf(false) }
+    
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Section title
+        Text(
+            text = "Wake Word",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W600,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        if (currentWakeWord != null) {
+            // Show assigned wake word with unassign button
+            AssignedWakeWordCard(
+                wakeWord = currentWakeWord!!,
+                onUnassign = {
+                    PicovoiceManager.unassignWakeWordFromThread(threadId)
+                    currentWakeWord = null
+                    availableWakeWords = PicovoiceManager.getAvailableWakeWords()
+                }
+            )
+        } else {
+            // Show dropdown to select wake word
+            if (availableWakeWords.isEmpty()) {
+                // No wake words available message
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            width = 1.dp,
+                            color = Colors.textFieldBorder,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Colors.lightGrey.copy(alpha = 0.3f))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Brak dostępnych wake words. Dodaj nowy w ustawieniach Picovoice.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base
+                    )
+                }
+            } else {
+                // Wake word dropdown
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .border(
+                                width = 1.dp,
+                                color = Colors.textFieldBorder,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White)
+                            .clickable { showWakeWordDropdown = true }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Wybierz wake word...",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base
+                        )
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showWakeWordDropdown,
+                        onDismissRequest = { showWakeWordDropdown = false },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White)
+                    ) {
+                        availableWakeWords.forEach { wakeWord ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        // Green status indicator
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF4CAF50))
+                                        )
+                                        
+                                        Text(
+                                            text = wakeWord.name,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.W400,
+                                            color = Color.Black,
+                                            style = TextStyles.base
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    PicovoiceManager.assignWakeWordToThread(wakeWord.id, threadId)
+                                    currentWakeWord = wakeWord
+                                    availableWakeWords = PicovoiceManager.getAvailableWakeWords()
+                                    showWakeWordDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Card displaying an assigned wake word with unassign functionality.
+ * 
+ * @param wakeWord The assigned wake word
+ * @param onUnassign Callback when user clicks unassign button
+ */
+@Composable
+fun AssignedWakeWordCard(
+    wakeWord: CustomWakeWord,
+    onUnassign: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = Color(0xFF4CAF50),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF4CAF50).copy(alpha = 0.1f))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // Green status indicator
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF4CAF50))
+                )
+                
+                Column {
+                    Text(
+                        text = wakeWord.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                    
+                    Text(
+                        text = "Przypisany wake word",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base
+                    )
+                }
+            }
+            
+            // Unassign button
+            IconButton(
+                onClick = onUnassign,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Usuń przypisanie",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

@@ -10,5 +10,6 @@ class RTVIApplication : Application() {
         PINManager.init(this)
         ThemeManager.init(this)
         OfflineConversationManager.init(this)
+        PicovoiceManager.initialize(this)
     }
 }

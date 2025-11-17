@@ -16,6 +16,9 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        // Default Picovoice API key - users can override in settings
+        buildConfigField("String", "DEFAULT_PICOVOICE_KEY", "\"Y1kcLF8RTyhdlFUNX9nSBbrCpCMiRXdPiaUA78bBfWJxtvyrARPWbw==\"")
+
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -70,6 +73,12 @@ dependencies {
     implementation(libs.androidx.constraintlayout.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    
+    // Picovoice Porcupine for wake word detection
+    implementation("ai.picovoice:porcupine-android:3.0.0")
+    
+    // LocalBroadcastManager for in-app broadcasts
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     
     // Google Play Services for Location
     implementation("com.google.android.gms:play-services-location:21.0.1")

@@ -18,11 +18,15 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.NetworkMonitor
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -95,6 +99,10 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var voiceClientManager: VoiceClientManager
+    
+    // Broadcast receivers for wake word commands
+    private var toggleMicrophoneReceiver: BroadcastReceiver? = null
+    private var terminateAppReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,6 +124,9 @@ class MainActivity : ComponentActivity() {
         
         // Initialize network monitor
         networkMonitor = NetworkMonitor(this)
+        
+        // Register broadcast receivers for wake word commands
+        registerWakeWordBroadcastReceivers()
         
         // Set up connection state observer to manage VoiceService lifecycle
         lifecycleScope.launch {
@@ -719,15 +730,32 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Handle new intents (e.g., from notification when app is already running)
+        setIntent(intent) // Update the intent
+        // Handle new intents (e.g., from notification or wake word trigger)
         handleIntent(intent)
     }
     
     /**
-     * Handles intent actions from notifications or other sources
+     * Handles intent actions from notifications or wake word triggers
      */
     private fun handleIntent(intent: Intent?) {
-        val action = intent?.getStringExtra("action")
+        intent ?: return
+        
+        // Handle wake word trigger
+        if (intent.getBooleanExtra(WakeWordHandler.EXTRA_WAKE_WORD_TRIGGER, false)) {
+            val threadId = intent.getStringExtra(WakeWordHandler.EXTRA_THREAD_ID)
+            if (threadId != null) {
+                Log.d("MainActivity", "Wake word trigger received for thread: $threadId")
+                // Auto-launch thread
+                lifecycleScope.launch {
+                    launchThreadFromWakeWord(threadId)
+                }
+            }
+            return
+        }
+        
+        // Handle notification actions
+        val action = intent.getStringExtra("action")
         if (action == "end_conversation") {
             Log.d("MainActivity", "End conversation action received from notification")
             lifecycleScope.launch {
@@ -742,6 +770,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        
+        // Unregister broadcast receivers
+        unregisterWakeWordBroadcastReceivers()
+        
         // Only stop service if activity is finishing (not just configuration change)
         if (isFinishing) {
             // Check if conversation is still active
@@ -758,6 +790,129 @@ class MainActivity : ComponentActivity() {
             }
         }
         networkMonitor.unregister()
+    }
+    
+    /**
+     * Register broadcast receivers for wake word commands
+     */
+    private fun registerWakeWordBroadcastReceivers() {
+        val localBroadcastManager = LocalBroadcastManager.getInstance(this)
+        
+        // Toggle microphone receiver
+        toggleMicrophoneReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                Log.d("MainActivity", "Toggle microphone broadcast received")
+                voiceClientManager.toggleMic()
+            }
+        }
+        localBroadcastManager.registerReceiver(
+            toggleMicrophoneReceiver!!,
+            IntentFilter(WakeWordHandler.ACTION_TOGGLE_MICROPHONE)
+        )
+        
+        // Terminate app receiver
+        terminateAppReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                Log.d("MainActivity", "Terminate app broadcast received")
+                // Gracefully shutdown
+                lifecycleScope.launch {
+                    // End any active session
+                    voiceClientManager.sessionManager?.endSession()
+                    voiceClientManager.stop()
+                    // Close all activities and exit
+                    finishAffinity()
+                }
+            }
+        }
+        localBroadcastManager.registerReceiver(
+            terminateAppReceiver!!,
+            IntentFilter(WakeWordHandler.ACTION_TERMINATE_APP)
+        )
+        
+        Log.d("MainActivity", "Wake word broadcast receivers registered")
+    }
+    
+    /**
+     * Unregister broadcast receivers for wake word commands
+     */
+    private fun unregisterWakeWordBroadcastReceivers() {
+        val localBroadcastManager = LocalBroadcastManager.getInstance(this)
+        
+        toggleMicrophoneReceiver?.let {
+            try {
+                localBroadcastManager.unregisterReceiver(it)
+                Log.d("MainActivity", "Toggle microphone receiver unregistered")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error unregistering toggle microphone receiver", e)
+            }
+        }
+        
+        terminateAppReceiver?.let {
+            try {
+                localBroadcastManager.unregisterReceiver(it)
+                Log.d("MainActivity", "Terminate app receiver unregistered")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error unregistering terminate app receiver", e)
+            }
+        }
+        
+        toggleMicrophoneReceiver = null
+        terminateAppReceiver = null
+    }
+    
+    /**
+     * Launch a thread from wake word trigger
+     * This handles the auto-launch logic when a custom wake word is detected
+     */
+    private suspend fun launchThreadFromWakeWord(threadId: String) {
+        try {
+            Log.d("MainActivity", "Launching thread from wake word: $threadId")
+            
+            // Get auth manager and check authentication
+            val authManager = AuthManager(this)
+            
+            // Check if we need to login
+            if (!authManager.isTokenValid()) {
+                if (authManager.hasStoredCredentials()) {
+                    val result = authManager.autoLogin()
+                    if (result.isFailure) {
+                        Log.e("MainActivity", "Auto-login failed for wake word launch")
+                        voiceClientManager.errors.add(Error("Nie można uruchomić rozmowy - wymagane logowanie"))
+                        return
+                    }
+                } else {
+                    Log.e("MainActivity", "No stored credentials for wake word launch")
+                    voiceClientManager.errors.add(Error("Nie można uruchomić rozmowy - wymagane logowanie"))
+                    return
+                }
+            }
+            
+            // Block if transcript sync is in progress
+            if (voiceClientManager.sessionManager?.isSyncInProgress() == true) {
+                Log.w("MainActivity", "Transcript sync in progress, blocking wake word launch")
+                voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
+                return
+            }
+            
+            // Load thread-specific settings
+            val threadSettings = ThreadSettingsManager.getSettings(threadId)
+            
+            // Start session and get context
+            val result = voiceClientManager.sessionManager?.startSession(threadId)
+            result?.onSuccess { sessionContext ->
+                // Update system prompt
+                Preferences.systemPrompt.value = sessionContext.systemPrompt
+                // Start voice client with thread-specific settings
+                voiceClientManager.start(threadSettings)
+                Log.d("MainActivity", "Thread launched successfully from wake word")
+            }?.onFailure { error ->
+                Log.e("MainActivity", "Failed to start session from wake word", error)
+                voiceClientManager.errors.add(Error("Nie udało się uruchomić rozmowy: ${error.message}"))
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error launching thread from wake word", e)
+            voiceClientManager.errors.add(Error("Błąd uruchamiania rozmowy: ${e.message}"))
+        }
     }
 }
 

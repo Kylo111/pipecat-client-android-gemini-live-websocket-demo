@@ -1,8 +1,13 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
+import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,10 +21,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -31,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -61,6 +73,8 @@ fun SettingsScreen(
     onChangePIN: () -> Unit,
     onThemeSelection: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    
     // Local state for settings
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
     var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
@@ -75,6 +89,21 @@ fun SettingsScreen(
     var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
     var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
+    
+    // Picovoice settings
+    var picovoiceAccessKey by remember { mutableStateOf(PicovoiceManager.getAccessKey()) }
+    var picovoiceSensitivity by remember { mutableStateOf(PicovoiceManager.getSensitivity()) }
+    var picovoiceActivationSound by remember { mutableStateOf(PicovoiceManager.isActivationSoundEnabled()) }
+    var picovoiceSettingsChanged by remember { mutableStateOf(false) }
+    
+    // Restart Picovoice service when leaving settings if changes were made
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            if (picovoiceSettingsChanged && PicovoiceManager.isEnabled()) {
+                PicovoiceManager.restartService(context)
+            }
+        }
+    }
 
     // Save settings function
     val saveSettings = {
@@ -89,6 +118,11 @@ fun SettingsScreen(
         Preferences.useSummaryMode.value = useSummaryMode
         Preferences.summaryPrompt.value = summaryPrompt
         Preferences.parentalLockEnabled.value = parentalLockEnabled
+        
+        // Save Picovoice settings
+        PicovoiceManager.setAccessKey(picovoiceAccessKey)
+        PicovoiceManager.setSensitivity(picovoiceSensitivity)
+        PicovoiceManager.setActivationSoundEnabled(picovoiceActivationSound)
     }
 
     Box(
@@ -678,6 +712,17 @@ fun SettingsScreen(
 
 
 
+                // Picovoice Voice Commands Section
+                PicovoiceSettingsPanel(
+                    onSettingsChanged = { picovoiceSettingsChanged = true },
+                    accessKeyValue = picovoiceAccessKey,
+                    onAccessKeyChange = { picovoiceAccessKey = it },
+                    sensitivityValue = picovoiceSensitivity,
+                    onSensitivityChange = { picovoiceSensitivity = it },
+                    activationSoundValue = picovoiceActivationSound,
+                    onActivationSoundChange = { picovoiceActivationSound = it }
+                )
+
                 // Security Section
                 SettingsSection(title = "Bezpieczeństwo") {
                     // Parental Lock Toggle
@@ -876,4 +921,678 @@ private fun SettingsToggle(
             )
         )
     }
+}
+
+/**
+ * Picovoice settings panel for wake word management.
+ * Allows users to enable/disable Picovoice, configure access key and sensitivity,
+ * manage custom wake words, and import .ppn files.
+ */
+@Composable
+private fun PicovoiceSettingsPanel(
+    onSettingsChanged: () -> Unit = {},
+    accessKeyValue: String,
+    onAccessKeyChange: (String) -> Unit,
+    sensitivityValue: Float,
+    onSensitivityChange: (Float) -> Unit,
+    activationSoundValue: Boolean,
+    onActivationSoundChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    
+    // State
+    var isEnabled by remember { mutableStateOf(PicovoiceManager.isEnabled()) }
+    var customWakeWords by remember { mutableStateOf(PicovoiceManager.getCustomWakeWords()) }
+    
+    // Dialog states
+    var showInstructionsDialog by remember { mutableStateOf(false) }
+    var showAddWakeWordDialog by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    var successMessage by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    // Wake word to import
+    var wakeWordToImport by remember { mutableStateOf<CustomWakeWord?>(null) }
+    
+    // File picker launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            wakeWordToImport?.let { wakeWord ->
+                isLoading = true
+                val result = PicovoiceManager.importPpnFile(wakeWord.id, uri)
+                isLoading = false
+                
+                if (result.isSuccess) {
+                    successMessage = "Plik .ppn został zaimportowany pomyślnie!"
+                    showSuccessDialog = true
+                    customWakeWords = PicovoiceManager.getCustomWakeWords()
+                } else {
+                    errorMessage = result.exceptionOrNull()?.message ?: "Nie udało się zaimportować pliku"
+                    showErrorDialog = true
+                }
+            }
+        }
+        wakeWordToImport = null
+    }
+    
+    SettingsSection(title = "Komendy głosowe Picovoice") {
+        // Enable/Disable toggle
+        SettingsToggle(
+            label = "Włącz wykrywanie komend głosowych",
+            checked = isEnabled,
+            onCheckedChange = { enabled ->
+                if (enabled) {
+                    if (accessKeyValue.isBlank()) {
+                        errorMessage = "Najpierw wprowadź klucz dostępu Picovoice"
+                        showErrorDialog = true
+                    } else {
+                        PicovoiceManager.enablePicovoice(context)
+                        isEnabled = true
+                    }
+                } else {
+                    PicovoiceManager.disablePicovoice(context)
+                    isEnabled = false
+                }
+            }
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = if (isEnabled) {
+                "Usługa nasłuchuje komend głosowych w tle"
+            } else {
+                "Wykrywanie komend głosowych jest wyłączone"
+            },
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W400,
+            color = Color.Gray,
+            style = TextStyles.base,
+            lineHeight = 16.sp
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Access Key
+        SettingsTextField(
+            label = "Klucz dostępu Picovoice",
+            value = accessKeyValue,
+            onValueChange = { 
+                onAccessKeyChange(it)
+                onSettingsChanged()
+            },
+            isPassword = true
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = "Uzyskaj darmowy klucz na console.picovoice.ai",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.W400,
+            color = Color.Gray,
+            style = TextStyles.base
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Sensitivity slider
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Czułość wykrywania",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                Text(
+                    text = String.format("%.2f", sensitivityValue),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Gray,
+                    style = TextStyles.base
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Slider(
+                value = sensitivityValue,
+                onValueChange = { 
+                    onSensitivityChange(it)
+                    onSettingsChanged()
+                },
+                valueRange = 0.0f..1.0f,
+                steps = 19, // 0.05 increments
+                colors = SliderDefaults.colors(
+                    thumbColor = Colors.buttonNormal,
+                    activeTrackColor = Colors.buttonNormal,
+                    inactiveTrackColor = Colors.textFieldBorder
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Mniej czuły (0.0)",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Gray,
+                    style = TextStyles.base
+                )
+                Text(
+                    text = "Bardzo czuły (1.0)",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Gray,
+                    style = TextStyles.base
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Activation sound toggle
+        SettingsToggle(
+            label = "Dźwięk aktywacji",
+            checked = activationSoundValue,
+            onCheckedChange = { 
+                onActivationSoundChange(it)
+                onSettingsChanged()
+            }
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // System wake words section
+        Text(
+            text = "Systemowe komendy głosowe",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W700,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Wbudowana komenda głosowa:",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W400,
+            color = Color.Gray,
+            style = TextStyles.base
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // System wake word - ALEXA
+        SystemWakeWordItem(
+            name = "ALEXA",
+            description = "Pauzuje/wznawia sesję głosową (toggle)"
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Custom wake words section
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Własne komendy głosowe",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W700,
+                color = Color.Black,
+                style = TextStyles.base
+            )
+            
+            // Add wake word button
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Colors.buttonNormal)
+                    .clickable { showAddWakeWordDialog = true }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "+ Dodaj",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.White,
+                    style = TextStyles.base
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        if (customWakeWords.isEmpty()) {
+            Text(
+                text = "Brak własnych komend. Dodaj nową komendę aby uruchamiać konwersacje głosem.",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.Gray,
+                style = TextStyles.base,
+                lineHeight = 16.sp
+            )
+        } else {
+            customWakeWords.forEach { wakeWord ->
+                CustomWakeWordItem(
+                    wakeWord = wakeWord,
+                    onImportClick = {
+                        wakeWordToImport = wakeWord
+                        filePickerLauncher.launch("*/*")
+                    },
+                    onDeleteClick = {
+                        PicovoiceManager.deleteCustomWakeWord(wakeWord.id)
+                        customWakeWords = PicovoiceManager.getCustomWakeWords()
+                    },
+                    onShowInstructions = {
+                        showInstructionsDialog = true
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+    
+    // Add wake word dialog
+    if (showAddWakeWordDialog) {
+        AddWakeWordDialog(
+            onDismiss = { showAddWakeWordDialog = false },
+            onAdd = { name ->
+                val wakeWord = PicovoiceManager.addCustomWakeWord(name)
+                customWakeWords = PicovoiceManager.getCustomWakeWords()
+                showAddWakeWordDialog = false
+                showInstructionsDialog = true
+            }
+        )
+    }
+    
+    // Instructions dialog
+    if (showInstructionsDialog) {
+        WakeWordInstructionsDialog(
+            onDismiss = { showInstructionsDialog = false },
+            onImportClick = {
+                // User will select wake word to import from the list
+            }
+        )
+    }
+    
+    // Error dialog
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = {
+                Text(
+                    text = "Błąd",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            text = {
+                Text(
+                    text = errorMessage,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showErrorDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Colors.buttonWarning
+                    )
+                ) {
+                    Text("OK", style = TextStyles.base)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+    
+    // Success dialog
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            title = {
+                Text(
+                    text = "Sukces",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            text = {
+                Text(
+                    text = successMessage,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSuccessDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Colors.buttonNormal
+                    )
+                ) {
+                    Text("OK", style = TextStyles.base)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+    
+    // Loading indicator
+    if (isLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Colors.buttonNormal)
+        }
+    }
+}
+
+/**
+ * System wake word item display.
+ */
+@Composable
+private fun SystemWakeWordItem(
+    name: String,
+    description: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = Colors.textFieldBorder,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            // Green status indicator
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF4CAF50))
+            )
+            
+            Column {
+                Text(
+                    text = name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                Text(
+                    text = description,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Gray,
+                    style = TextStyles.base
+                )
+            }
+        }
+        
+        Text(
+            text = "Wbudowane",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.W600,
+            color = Colors.buttonNormal,
+            style = TextStyles.base,
+            modifier = Modifier
+                .background(Colors.buttonSection, RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 3.dp)
+        )
+    }
+}
+
+/**
+ * Custom wake word item with status indicator and actions.
+ */
+@Composable
+private fun CustomWakeWordItem(
+    wakeWord: CustomWakeWord,
+    onImportClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onShowInstructions: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = if (wakeWord.isReady) Color(0xFF4CAF50) else Colors.textFieldBorder,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // Status indicator
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (wakeWord.isReady) Color(0xFF4CAF50) else Color.Gray
+                        )
+                )
+                
+                Column {
+                    Text(
+                        text = wakeWord.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                    Text(
+                        text = if (wakeWord.isReady) "Gotowe do użycia" else "Wymaga importu pliku .ppn",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.W400,
+                        color = if (wakeWord.isReady) Color(0xFF4CAF50) else Color.Gray,
+                        style = TextStyles.base
+                    )
+                }
+            }
+            
+            // Delete button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Colors.buttonWarning)
+                    .clickable { onDeleteClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "✕",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.White,
+                    style = TextStyles.base
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Import button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Colors.buttonNormal)
+                    .clickable { onImportClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (wakeWord.isReady) "Reimportuj .ppn" else "Importuj .ppn",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.White,
+                    style = TextStyles.base
+                )
+            }
+            
+            // Instructions button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .border(
+                        width = 1.dp,
+                        color = Colors.buttonNormal,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White)
+                    .clickable { onShowInstructions() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Instrukcje",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Colors.buttonNormal,
+                    style = TextStyles.base
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog for adding a new wake word.
+ */
+@Composable
+private fun AddWakeWordDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String) -> Unit
+) {
+    var wakeWordName by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Dodaj komendę głosową",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.W700,
+                color = Color.Black,
+                style = TextStyles.base
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Wprowadź nazwę komendy głosowej (np. 'asystent', 'pomoc'):",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                TextField(
+                    value = wakeWordName,
+                    onValueChange = { wakeWordName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedIndicatorColor = Colors.buttonNormal,
+                        unfocusedIndicatorColor = Colors.textFieldBorder
+                    ),
+                    textStyle = TextStyles.base.copy(fontSize = 14.sp),
+                    placeholder = {
+                        Text("np. asystent", style = TextStyles.base, fontSize = 14.sp)
+                    },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (wakeWordName.isNotBlank()) {
+                        onAdd(wakeWordName.trim())
+                    }
+                },
+                enabled = wakeWordName.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Colors.buttonNormal
+                )
+            ) {
+                Text("Dodaj", style = TextStyles.base)
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.LightGray
+                )
+            ) {
+                Text("Anuluj", style = TextStyles.base, color = Color.Black)
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
 }
