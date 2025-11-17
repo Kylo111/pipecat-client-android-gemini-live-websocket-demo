@@ -15,6 +15,7 @@ object Preferences {
     private const val PREF_SELECTED_VOICE = "selected_voice"
     private const val PREF_MODEL_NAME = "model_name"
     private const val PREF_GEMINI_API_KEY = "gemini_api_key"
+    private const val PREF_GOOGLE_CLOUD_API_KEY = "google_cloud_api_key"
     private const val PREF_SESSION_TIMEOUT_MINUTES = "session_timeout_minutes"
     private const val PREF_AUTO_PAUSE_TIMEOUT_SECONDS = "auto_pause_timeout_seconds"
     private const val PREF_ACTIVITY_DETECTION_THRESHOLD = "activity_detection_threshold"
@@ -36,7 +37,7 @@ object Preferences {
 
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
-            geminiApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
+            geminiApiKey, googleCloudApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, parentalLockEnabled
         ).forEach { it.init() }
     }
@@ -170,6 +171,7 @@ object Preferences {
 
     // New preferences
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
+    val googleCloudApiKey = StringPref(PREF_GOOGLE_CLOUD_API_KEY) // For Google Cloud Speech-to-Text API (optional)
     val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Legacy - kept for compatibility
     val autoPauseTimeoutSeconds = IntPref(PREF_AUTO_PAUSE_TIMEOUT_SECONDS, 30) // Auto-pause after X seconds of user inactivity
     val botResponseTimeoutMinutes = IntPref("bot_response_timeout_minutes", 5) // Auto-pause after X minutes without bot response

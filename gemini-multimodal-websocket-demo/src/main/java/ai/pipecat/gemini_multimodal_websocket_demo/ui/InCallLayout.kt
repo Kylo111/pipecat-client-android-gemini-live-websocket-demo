@@ -42,6 +42,15 @@ fun InCallLayout(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
             ) {
+                // Live transcript display (debug)
+                TranscriptDisplay(
+                    userTranscript = voiceClientManager.lastUserTranscript.value,
+                    userTranscriptTime = voiceClientManager.lastUserTranscriptTime.value,
+                    botTranscript = voiceClientManager.lastBotTranscript.value,
+                    botTranscriptTime = voiceClientManager.lastBotTranscriptTime.value,
+                    modifier = Modifier
+                )
+                
                 // Connection status indicator
                 ConnectionStatusIndicator(
                     connectionState = voiceClientManager.state.value,

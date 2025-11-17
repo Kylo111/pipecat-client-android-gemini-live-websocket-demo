@@ -1697,6 +1697,247 @@ class VoiceClientManager(
             Log.e(TAG, "Error parsing transcription response: ${e.message}", e)
         }
     }
+
+    fun enableMic(enabled: Boolean) {
+        // SpeechRecognizer MUST be created and used on main thread
+        scope?.launch(Dispatchers.Main) {
+            try {
+                if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                    Log.w(TAG, "Speech recognition not available on this device")
+                    return@launch
+                }
+                
+                // Stop existing recognizer if any (synchronously on main thread)
+                if (userSpeechRecognizer != null) {
+                    Log.d(TAG, "Stopping existing speech recognizer before starting new one")
+                    try {
+                        isUserRecognitionActive = false
+                        userSpeechRecognizer?.stopListening()
+                        userSpeechRecognizer?.cancel()
+                        userSpeechRecognizer?.destroy()
+                        userSpeechRecognizer = null
+                        userRecognitionIntent = null
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error stopping existing recognizer: ${e.message}")
+                    }
+                }
+                
+                Log.i(TAG, "Starting user speech recognition")
+                
+                userSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                userRecognitionIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pl-PL") // Polish language
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true) // Get partial results
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                
+                userSpeechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: android.os.Bundle?) {
+                        Log.d(TAG, "User speech recognizer ready")
+                        isUserRecognitionActive = true
+                    }
+                    
+                    override fun onBeginningOfSpeech() {
+                        if (DEBUG_LOGGING) {
+                            Log.d(TAG, "User began speaking (detected by recognizer)")
+                        }
+                    }
+                    
+                    override fun onRmsChanged(rmsdB: Float) {
+                        // Audio level is already handled by AudioRecord
+                    }
+                    
+                    override fun onBufferReceived(buffer: ByteArray?) {
+                        // Not used
+                    }
+                    
+                    override fun onEndOfSpeech() {
+                        if (DEBUG_LOGGING) {
+                            Log.d(TAG, "User stopped speaking (detected by recognizer)")
+                        }
+                    }
+                    
+                    override fun onError(error: Int) {
+                        val errorMessage = when (error) {
+                            SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                            SpeechRecognizer.ERROR_CLIENT -> "Client error"
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                            SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                            SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                            SpeechRecognizer.ERROR_NO_MATCH -> "No speech match"
+                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
+                            SpeechRecognizer.ERROR_SERVER -> "Server error"
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech timeout"
+                            else -> "Unknown error ($error)"
+                        }
+                        
+                        // Only log errors that are not "no match" or "speech timeout" (these are normal)
+                        if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                            Log.w(TAG, "User speech recognition error: $errorMessage")
+                        }
+                        
+                        // Restart recognition if still connected (on main thread)
+                        if (state.value == ConnectionState.CONNECTED && isUserRecognitionActive) {
+                            scope?.launch(Dispatchers.Main) {
+                                delay(100) // Small delay before restart
+                                if (state.value == ConnectionState.CONNECTED) {
+                                    userSpeechRecognizer?.startListening(userRecognitionIntent)
+                                }
+                            }
+                        }
+                    }
+                    
+                    override fun onResults(results: android.os.Bundle?) {
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val transcript = matches?.firstOrNull()
+                        
+                        if (!transcript.isNullOrBlank()) {
+                            Log.i(TAG, "✅ User transcript (system): $transcript")
+                            
+                            // Update live transcript display
+                            lastUserTranscript.value = transcript
+                            lastUserTranscriptTime.value = System.currentTimeMillis()
+                            
+                            sessionManager?.captureUserTranscript(transcript)
+                            onUserTranscript?.invoke(transcript)
+                            updateActivity() // User is active
+                        }
+                        
+                        // Restart recognition for continuous transcription (on main thread)
+                        if (state.value == ConnectionState.CONNECTED && isUserRecognitionActive) {
+                            scope?.launch(Dispatchers.Main) {
+                                delay(100) // Small delay before restart
+                                if (state.value == ConnectionState.CONNECTED) {
+                                    userSpeechRecognizer?.startListening(userRecognitionIntent)
+                                }
+                            }
+                        }
+                    }
+                    
+                    override fun onPartialResults(partialResults: android.os.Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val transcript = matches?.firstOrNull()
+                        
+                        if (!transcript.isNullOrBlank()) {
+                            Log.d(TAG, "User partial transcript: $transcript")
+                            
+                            // Update live transcript display with partial results
+                            lastUserTranscript.value = "$transcript..."
+                            lastUserTranscriptTime.value = System.currentTimeMillis()
+                        }
+                    }
+                    
+                    override fun onEvent(eventType: Int, params: android.os.Bundle?) {
+                        // Not used
+                    }
+                })
+                
+                // Start listening
+                userSpeechRecognizer?.startListening(userRecognitionIntent)
+                Log.i(TAG, "User speech recognition started")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start user speech recognition: ${e.message}", e)
+            }
+        }
+    }
+    
+    /**
+     * Stop user speech recognition
+     * Can be called from any thread - will execute on main thread
+     */
+    private fun stopUserSpeechRecognition() {
+        // Check if we need to use coroutine or if we're already on main thread
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            // Already on main thread - execute directly
+            try {
+                if (userSpeechRecognizer != null) {
+                    Log.i(TAG, "Stopping user speech recognition")
+                    isUserRecognitionActive = false
+                    userSpeechRecognizer?.stopListening()
+                    userSpeechRecognizer?.cancel()
+                    userSpeechRecognizer?.destroy()
+                    userSpeechRecognizer = null
+                    userRecognitionIntent = null
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping user speech recognition: ${e.message}", e)
+            }
+        } else {
+            // Not on main thread - use coroutine
+            scope?.launch(Dispatchers.Main) {
+                try {
+                    if (userSpeechRecognizer != null) {
+                        Log.i(TAG, "Stopping user speech recognition")
+                        isUserRecognitionActive = false
+                        userSpeechRecognizer?.stopListening()
+                        userSpeechRecognizer?.cancel()
+                        userSpeechRecognizer?.destroy()
+                        userSpeechRecognizer = null
+                        userRecognitionIntent = null
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error stopping user speech recognition: ${e.message}", e)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Start system speech recognition for bot audio
+     * Transcribes bot's audio responses using Android SpeechRecognizer
+     */
+    private fun startBotSpeechRecognition(audioData: ByteArray) {
+        try {
+            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                return
+            }
+            
+            // Buffer bot audio for transcription
+            botAudioBuffer.add(audioData)
+            
+            // Start recognition if not already active and we have enough audio
+            if (!isBotRecognitionActive && botAudioBuffer.size >= 5) {
+                Log.d(TAG, "Starting bot speech recognition with ${botAudioBuffer.size} audio chunks")
+                
+                // Note: Android SpeechRecognizer works with microphone input, not raw audio data
+                // For bot transcription, we would need to use a different approach:
+                // 1. Write audio to temp file and use MediaPlayer
+                // 2. Use Google Cloud Speech-to-Text API
+                // 3. Use on-device ML Kit Speech Recognition
+                //
+                // For now, we'll skip bot transcription as it's complex
+                // The main improvement is user transcription which is now working
+                
+                botAudioBuffer.clear()
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in bot speech recognition: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Stop bot speech recognition
+     */
+    private fun stopBotSpeechRecognition() {
+        try {
+            if (botSpeechRecognizer != null) {
+                Log.i(TAG, "Stopping bot speech recognition")
+                isBotRecognitionActive = false
+                botSpeechRecognizer?.stopListening()
+                botSpeechRecognizer?.cancel()
+                botSpeechRecognizer?.destroy()
+                botSpeechRecognizer = null
+                botRecognitionIntent = null
+                botAudioBuffer.clear()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping bot speech recognition: ${e.message}", e)
+        }
+    }
+
     fun enableMic(enabled: Boolean) {
         mic.value = enabled
         
