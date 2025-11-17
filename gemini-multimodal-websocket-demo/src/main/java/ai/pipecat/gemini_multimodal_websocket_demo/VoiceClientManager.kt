@@ -9,6 +9,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.media.AudioFormat
+import android.os.Build
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
@@ -1378,8 +1379,9 @@ class VoiceClientManager(
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
         
-        // Stop auto-pause monitoring
-        stopAutoPauseMonitoring()
+        // CRITICAL FIX: Do NOT stop auto-pause monitoring during pause
+        // The monitoring will be stopped in handleDisconnect() anyway
+        // Keeping it here was redundant and could cause issues
         
         // Mark as paused and disable mic
         isPaused.value = true
@@ -1634,7 +1636,15 @@ class VoiceClientManager(
         scope = null
         Log.d(TAG, "Coroutine scope cancelled")
         
-        releaseWakeLock()
+        // CRITICAL FIX: Only release wake lock if NOT preserving session
+        // When pausing (preserveSessionHandle=true), keep wake lock active
+        // so screen stays on and user can easily resume
+        if (!preserveSessionHandle) {
+            releaseWakeLock()
+            Log.d(TAG, "Wake lock released (session ended)")
+        } else {
+            Log.d(TAG, "Wake lock KEPT (session paused, can be resumed)")
+        }
         
         // Reset thread settings only if not preserving session
         if (!preserveSessionHandle) {

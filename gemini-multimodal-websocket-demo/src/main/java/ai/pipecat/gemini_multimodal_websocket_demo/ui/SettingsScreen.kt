@@ -5,6 +5,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -980,7 +981,9 @@ private fun PicovoiceSettingsPanel(
     }
     
     SettingsSection(title = "Komendy głosowe Picovoice") {
-        // Enable/Disable toggle
+        // Enable/Disable toggle with warning
+        var showPicovoiceWarning by remember { mutableStateOf(false) }
+        
         SettingsToggle(
             label = "Włącz wykrywanie komend głosowych",
             checked = isEnabled,
@@ -990,8 +993,8 @@ private fun PicovoiceSettingsPanel(
                         errorMessage = "Najpierw wprowadź klucz dostępu Picovoice"
                         showErrorDialog = true
                     } else {
-                        PicovoiceManager.enablePicovoice(context)
-                        isEnabled = true
+                        // Show warning dialog before enabling
+                        showPicovoiceWarning = true
                     }
                 } else {
                     PicovoiceManager.disablePicovoice(context)
@@ -999,6 +1002,92 @@ private fun PicovoiceSettingsPanel(
                 }
             }
         )
+        
+        // Picovoice warning dialog
+        if (showPicovoiceWarning) {
+            AlertDialog(
+                onDismissRequest = { showPicovoiceWarning = false },
+                title = {
+                    Text(
+                        text = "⚠️ Ważne ostrzeżenie",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.W700,
+                        color = Colors.buttonWarning,
+                        style = TextStyles.base
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "UWAGA: Przy wyłączonym ekranie Picovoice i aplikacja nie działają prawidłowo (Android zabija proces).",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base,
+                            lineHeight = 20.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Jeżeli chcesz używać komend głosowych:",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "1. Włącz \"Utrzymuj ekran włączony\" w ustawieniach\n2. Trzymaj aplikację na wierzchu (OnScreen)\n3. Nie wyłączaj ekranu podczas rozmowy",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Black,
+                            style = TextStyles.base,
+                            lineHeight = 18.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Bez tych ustawień komendy głosowe mogą nie działać poprawnie.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 16.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            PicovoiceManager.enablePicovoice(context)
+                            isEnabled = true
+                            showPicovoiceWarning = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Colors.buttonNormal
+                        )
+                    ) {
+                        Text("Rozumiem, włącz", style = TextStyles.base)
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = { showPicovoiceWarning = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.LightGray
+                        )
+                    ) {
+                        Text("Anuluj", style = TextStyles.base, color = Color.Black)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
         
         Spacer(modifier = Modifier.height(8.dp))
         

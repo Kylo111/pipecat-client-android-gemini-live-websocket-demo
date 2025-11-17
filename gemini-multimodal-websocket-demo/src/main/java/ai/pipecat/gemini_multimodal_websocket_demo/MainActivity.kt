@@ -29,6 +29,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -140,6 +141,9 @@ class MainActivity : ComponentActivity() {
         
         // Set up lifecycle observers for automatic cleanup
         setupLifecycleObservers()
+        
+        // Setup screen keep awake based on preference
+        updateScreenKeepAwake()
         
         // Set up connection state observer to manage VoiceService lifecycle
         lifecycleScope.launch {
@@ -728,6 +732,21 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Update screen keep awake flag based on preference
+     * This keeps screen on when app is in foreground (not in background)
+     * Uses FLAG_KEEP_SCREEN_ON which is lighter than wake lock
+     */
+    private fun updateScreenKeepAwake() {
+        if (Preferences.keepScreenAwake.value == true) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            Log.d(TAG, "[updateScreenKeepAwake] Screen keep awake enabled (app in foreground)")
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            Log.d(TAG, "[updateScreenKeepAwake] Screen keep awake disabled")
+        }
+    }
+    
+    /**
      * Setup lifecycle observers for automatic resource management
      * This is the modern approach recommended by Android for lifecycle management
      */
@@ -772,6 +791,11 @@ class MainActivity : ComponentActivity() {
         if (!isChangingConfigurations) {
             Log.d(TAG, "[handlePause] App going to background")
             
+            // Clear screen keep awake flag when going to background
+            // This allows system to manage screen based on user settings
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            Log.d(TAG, "[handlePause] Screen keep awake flag cleared (app in background)")
+            
             val connectionState = voiceClientManager.state.value
             if (connectionState == ConnectionState.CONNECTED) {
                 Log.d(TAG, "[handlePause] Active connection - continuing in background via VoiceService")
@@ -793,6 +817,9 @@ class MainActivity : ComponentActivity() {
      */
     private fun handleResume() {
         Log.d(TAG, "[handleResume] App coming to foreground")
+        
+        // Update screen keep awake when returning to foreground
+        updateScreenKeepAwake()
         
         val connectionState = voiceClientManager.state.value
         if (connectionState == ConnectionState.CONNECTED) {
