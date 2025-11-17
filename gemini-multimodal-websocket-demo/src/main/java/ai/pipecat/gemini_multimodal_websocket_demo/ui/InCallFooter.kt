@@ -36,11 +36,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-private fun FooterButton(
+private fun FooterIconButton(
     modifier: Modifier,
     onClick: () -> Unit,
     @DrawableRes icon: Int,
-    text: String,
+    contentDescription: String,
     foreground: Color,
     background: Color,
     border: Color,
@@ -53,24 +53,15 @@ private fun FooterButton(
             .clip(shape)
             .background(background)
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 18.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         Icon(
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(28.dp),
             painter = painterResource(icon),
             tint = foreground,
-            contentDescription = null
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W600,
-            color = foreground
+            contentDescription = contentDescription
         )
     }
 }
@@ -92,38 +83,34 @@ fun ColumnScope.InCallFooter(
             .fillMaxWidth()
             .align(Alignment.CenterHorizontally)
             .padding(15.dp),
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FooterButton(
-            modifier = Modifier.weight(1f),
+        FooterIconButton(
+            modifier = Modifier,
             onClick = { showImageOptions = true },
-            icon = R.drawable.image,
-            text = "Image",
+            icon = R.drawable.image_gallery,
+            contentDescription = "Send image",
             foreground = Color.White,
             background = Colors.buttonNormal,
             border = Colors.buttonNormal
         )
         
-        Spacer(modifier = Modifier.width(12.dp))
-        
-        FooterButton(
-            modifier = Modifier.weight(1f),
+        FooterIconButton(
+            modifier = Modifier,
             onClick = onSpeakerClick,
-            icon = if (isSpeakerphoneOn) R.drawable.volume_high else R.drawable.volume_off,
-            text = "Speaker",
+            icon = R.drawable.sound,
+            contentDescription = "Toggle speaker",
             foreground = Color.White,
             background = if (isSpeakerphoneOn) Colors.buttonAccent else Colors.buttonNormal,
             border = if (isSpeakerphoneOn) Colors.buttonAccent else Colors.buttonNormal
         )
         
-        Spacer(modifier = Modifier.width(12.dp))
-        
-        FooterButton(
-            modifier = Modifier.weight(1f),
+        FooterIconButton(
+            modifier = Modifier,
             onClick = onClickEnd,
-            icon = R.drawable.phone_hangup,
-            text = "End",
+            icon = R.drawable.circle,
+            contentDescription = "End call",
             foreground = Color.White,
             background = Colors.endButton,
             border = Colors.endButton

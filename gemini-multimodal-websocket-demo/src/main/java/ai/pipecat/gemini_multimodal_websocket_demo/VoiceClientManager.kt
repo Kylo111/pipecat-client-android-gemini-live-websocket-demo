@@ -548,8 +548,16 @@ class VoiceClientManager(
                 
                 // Check if this is a user-initiated disconnect
                 if (state.value == ConnectionState.DISCONNECTING) {
-                    Log.i(TAG, "User-initiated disconnect, not attempting reconnection")
-                    handleDisconnect()
+                    // CRITICAL FIX: Check if this is a pause (isPaused=true) or stop (isPaused=false)
+                    // During pause, we want to preserve session handle and speakerphone
+                    val isUserPause = isPaused.value
+                    if (isUserPause) {
+                        Log.i(TAG, "User-initiated pause, preserving session")
+                        // Don't call handleDisconnect() here - it was already called by pause()
+                    } else {
+                        Log.i(TAG, "User-initiated stop, ending session")
+                        handleDisconnect(preserveSessionHandle = false)
+                    }
                     return
                 }
                 
@@ -1097,13 +1105,14 @@ class VoiceClientManager(
                     Log.i(TAG, "ℹ️ No Bluetooth SCO available, using built-in microphone")
                 }
                 
-                // Disable speakerphone to ensure proper routing
-                val wasSpeakerOn = am.isSpeakerphoneOn
-                am.isSpeakerphoneOn = false
-                if (wasSpeakerOn) {
-                    Log.i(TAG, "Speakerphone was ON, now disabled")
+                // CRITICAL FIX: Restore speakerphone state if it was enabled before pause
+                // This ensures user's audio settings are preserved during pause/resume
+                if (isSpeakerphoneOn.value) {
+                    am.isSpeakerphoneOn = true
+                    Log.i(TAG, "✅ Speakerphone restored (was enabled before pause)")
                 } else {
-                    Log.i(TAG, "Speakerphone already disabled")
+                    am.isSpeakerphoneOn = false
+                    Log.i(TAG, "Speakerphone disabled (was not enabled before)")
                 }
                 
                 // Log final audio routing state
@@ -1206,7 +1215,7 @@ class VoiceClientManager(
     /**
      * Cleanup AudioManager and stop Bluetooth SCO
      */
-    private fun cleanupAudioManager() {
+    private fun cleanupAudioManager(preserveSpeakerphone: Boolean = false) {
         try {
             unregisterBluetoothScoReceiver()
             
@@ -1219,20 +1228,28 @@ class VoiceClientManager(
                     Log.i(TAG, "Bluetooth SCO stopped")
                 }
                 
-                // Disable speakerphone
-                if (am.isSpeakerphoneOn) {
-                    am.isSpeakerphoneOn = false
-                    Log.i(TAG, "Speakerphone disabled")
+                // CRITICAL FIX: Only disable speakerphone if NOT preserving session
+                // When pausing (preserveSpeakerphone=true), keep speakerphone state
+                // so user can resume with same audio settings
+                if (!preserveSpeakerphone) {
+                    // Disable speakerphone
+                    if (am.isSpeakerphoneOn) {
+                        am.isSpeakerphoneOn = false
+                        Log.i(TAG, "Speakerphone disabled (session ended)")
+                    }
+                    
+                    // Reset speakerphone state
+                    isSpeakerphoneOn.value = false
+                    
+                    // Reset audio mode to normal
+                    val previousMode = am.mode
+                    am.mode = AudioManager.MODE_NORMAL
+                    Log.i(TAG, "AudioManager mode reset: $previousMode -> MODE_NORMAL")
+                } else {
+                    Log.i(TAG, "Speakerphone state preserved (session paused): ${isSpeakerphoneOn.value}")
+                    Log.i(TAG, "AudioManager mode preserved (session paused): ${am.mode}")
                 }
-                
-                // Reset audio mode to normal
-                val previousMode = am.mode
-                am.mode = AudioManager.MODE_NORMAL
-                Log.i(TAG, "AudioManager mode reset: $previousMode -> MODE_NORMAL")
             }
-            
-            // Reset speakerphone state
-            isSpeakerphoneOn.value = false
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error cleaning up AudioManager: ${e.message}", e)
         }
@@ -1701,8 +1718,25 @@ class VoiceClientManager(
         audioTrack = null
         Log.d(TAG, "AudioTrack released")
         
-        cleanupAudioManager()
-        Log.d(TAG, "AudioManager cleaned up")
+        // CRITICAL FIX: Only cleanup AudioManager if NOT preserving session
+        // When pausing, keep AudioManager state intact so speakerphone settings are preserved
+        if (!preserveSessionHandle) {
+            cleanupAudioManager(preserveSpeakerphone = false)
+            Log.d(TAG, "AudioManager cleaned up (session ended)")
+        } else {
+            // Just stop Bluetooth SCO but keep everything else
+            audioManager?.let { am ->
+                if (isBluetoothScoOn) {
+                    Log.i(TAG, "🔵 Stopping Bluetooth SCO (session paused)...")
+                    am.stopBluetoothSco()
+                    am.isBluetoothScoOn = false
+                    isBluetoothScoOn = false
+                    Log.i(TAG, "Bluetooth SCO stopped")
+                }
+            }
+            unregisterBluetoothScoReceiver()
+            Log.d(TAG, "AudioManager state preserved (session paused) - Speakerphone: ${isSpeakerphoneOn.value}")
+        }
         
         stopAutoPauseMonitoring()
         Log.d(TAG, "Auto-pause monitoring stopped")
