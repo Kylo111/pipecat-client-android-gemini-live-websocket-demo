@@ -41,6 +41,11 @@ adb -s EM95IBKZEYIFSO69 logcat -c
 adb -s EM95IBKZEYIFSO69 logcat | grep "ai.pipecat.gemini_multimodal_websocket_demo"
 ```
 
+**Filter for lifecycle events**:
+```bash
+adb -s EM95IBKZEYIFSO69 logcat | grep -E "MainActivity.*Lifecycle|MainActivity.*handle|VoiceService|PorcupineService"
+```
+
 ### Build Commands
 
 **Full clean build and install**:
@@ -67,3 +72,30 @@ adb -s EM95IBKZEYIFSO69 uninstall ai.pipecat.gemini_multimodal_websocket_demo
 5. Monitor logs during app usage
 6. Wait for user to test and provide feedback
 7. Only proceed to next task after user confirmation
+
+### Background Operation Testing
+
+**Test scenarios for background operation**:
+1. Start a conversation
+2. Press home button (app goes to background)
+3. Verify session continues (check logs)
+4. Speak to the device
+5. Verify audio is recorded and bot responds
+6. Turn off screen
+7. Verify session continues with screen off
+8. Return to app
+9. Verify session is still active
+
+**Session pause testing**:
+1. Start a conversation
+2. Press pause button (or use wake word)
+3. Verify session pauses (WebSocket closes, audio stops)
+4. Press resume (or use wake word)
+5. Verify session resumes with session resumption
+
+**Memory pressure testing**:
+1. Start a conversation
+2. Open many other apps to create memory pressure
+3. Verify app handles memory pressure gracefully
+4. Check logs for onTrimMemory events
+5. Verify forceStop() is called only in critical situations

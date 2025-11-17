@@ -36,6 +36,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import java.io.File
 import androidx.annotation.DrawableRes
@@ -101,6 +103,10 @@ enum class Screen {
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var voiceClientManager: VoiceClientManager
     
@@ -132,6 +138,9 @@ class MainActivity : ComponentActivity() {
         // Register broadcast receivers for wake word commands
         registerWakeWordBroadcastReceivers()
         
+        // Set up lifecycle observers for automatic cleanup
+        setupLifecycleObservers()
+        
         // Set up connection state observer to manage VoiceService lifecycle
         lifecycleScope.launch {
             snapshotFlow { voiceClientManager.state.value }.collectLatest { state ->
@@ -140,17 +149,17 @@ class MainActivity : ComponentActivity() {
                         // Start VoiceService when connection is established
                         startVoiceService()
                         updateVoiceServiceNotification("Połączono - rozmowa aktywna")
-                        Log.d("MainActivity", "Connection established - VoiceService started")
+                        Log.d(TAG, "Connection established - VoiceService started")
                     }
                     ConnectionState.RECONNECTING -> {
                         // Update notification during reconnection
                         updateVoiceServiceNotification("Ponowne łączenie...")
-                        Log.d("MainActivity", "Reconnecting - updating VoiceService notification")
+                        Log.d(TAG, "Reconnecting - updating VoiceService notification")
                     }
                     ConnectionState.DISCONNECTED -> {
                         // Stop VoiceService when connection is terminated
                         stopVoiceService()
-                        Log.d("MainActivity", "Disconnected - VoiceService stopped")
+                        Log.d(TAG, "Disconnected - VoiceService stopped")
                     }
                     else -> {
                         // Do nothing for CONNECTING state
@@ -180,7 +189,7 @@ class MainActivity : ComponentActivity() {
                     // Session timed out - end session and stop VoiceService
                     // This works both in foreground and background
                     lifecycleScope.launch {
-                        Log.d("MainActivity", "Session timeout callback triggered")
+                        Log.d(TAG, "Session timeout callback triggered")
                         
                         // Stop VoiceService (releases wake lock and stops notification)
                         stopVoiceService()
@@ -190,7 +199,7 @@ class MainActivity : ComponentActivity() {
                         
                         // Don't navigate automatically - let user see timeout message
                         // User will see disconnected state and can manually navigate back
-                        Log.d("MainActivity", "Session ended due to timeout - VoiceService stopped")
+                        Log.d(TAG, "Session ended due to timeout - VoiceService stopped")
                     }
                 }
                 
@@ -209,7 +218,7 @@ class MainActivity : ComponentActivity() {
                     lifecycleScope.launch {
                         val processed = sessionManager.processOfflineQueue()
                         if (processed > 0) {
-                            Log.d("MainActivity", "Processed $processed offline items on app start")
+                            Log.d(TAG, "Processed $processed offline items on app start")
                         }
                     }
                 } else if (authManager.hasStoredCredentials()) {
@@ -226,7 +235,7 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch {
                             val processed = sessionManager.processOfflineQueue()
                             if (processed > 0) {
-                                Log.d("MainActivity", "Processed $processed offline items after auto-login")
+                                Log.d(TAG, "Processed $processed offline items after auto-login")
                             }
                         }
                     }.onFailure { error ->
@@ -250,7 +259,7 @@ class MainActivity : ComponentActivity() {
                     lifecycleScope.launch {
                         val processed = sessionManager.processOfflineQueue()
                         if (processed > 0) {
-                            Log.d("MainActivity", "Processed $processed offline items after network reconnect")
+                            Log.d(TAG, "Processed $processed offline items after network reconnect")
                         }
                     }
                 }
@@ -352,7 +361,7 @@ class MainActivity : ComponentActivity() {
                                             lifecycleScope.launch {
                                                 val processed = sessionManager.processOfflineQueue()
                                                 if (processed > 0) {
-                                                    Log.d("MainActivity", "Processed $processed offline items after manual login")
+                                                    Log.d(TAG, "Processed $processed offline items after manual login")
                                                 }
                                             }
                                         }
@@ -684,9 +693,9 @@ class MainActivity : ComponentActivity() {
             } else {
                 startService(intent)
             }
-            Log.d("MainActivity", "VoiceService start requested")
+            Log.d(TAG, "VoiceService start requested")
         } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to start VoiceService", e)
+            Log.e(TAG, "Failed to start VoiceService", e)
             // Show error to user if service fails to start
             voiceClientManager.errors.add(Error("Nie udało się uruchomić usługi w tle: ${e.message}"))
         }
@@ -701,9 +710,9 @@ class MainActivity : ComponentActivity() {
                 action = VoiceService.ACTION_STOP
             }
             stopService(intent)
-            Log.d("MainActivity", "VoiceService stop requested")
+            Log.d(TAG, "VoiceService stop requested")
         } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to stop VoiceService", e)
+            Log.e(TAG, "Failed to stop VoiceService", e)
         }
     }
     
@@ -714,22 +723,106 @@ class MainActivity : ComponentActivity() {
         try {
             VoiceService.getInstance()?.updateNotification(status)
         } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to update VoiceService notification", e)
+            Log.e(TAG, "Failed to update VoiceService notification", e)
         }
+    }
+
+    /**
+     * Setup lifecycle observers for automatic resource management
+     * This is the modern approach recommended by Android for lifecycle management
+     */
+    private fun setupLifecycleObservers() {
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onPause(owner: LifecycleOwner) {
+                Log.d(TAG, "[Lifecycle] onPause - app going to background")
+                handlePause()
+            }
+            
+            override fun onResume(owner: LifecycleOwner) {
+                Log.d(TAG, "[Lifecycle] onResume - app coming to foreground")
+                handleResume()
+            }
+            
+            override fun onStop(owner: LifecycleOwner) {
+                Log.d(TAG, "[Lifecycle] onStop - app no longer visible")
+                handleStop()
+            }
+            
+            override fun onDestroy(owner: LifecycleOwner) {
+                Log.d(TAG, "[Lifecycle] onDestroy - activity being destroyed")
+                // Note: Actual cleanup is in onDestroy() override below
+            }
+        })
+        
+        Log.d(TAG, "Lifecycle observers registered")
+    }
+    
+    /**
+     * Handle pause - app going to background
+     * Session continues running via VoiceService (foreground service)
+     * Audio recording continues in background
+     * WebSocket connection remains active
+     * 
+     * Session is paused ONLY by:
+     * - User manually pausing (button/wake word)
+     * - Auto-pause timeout (user inactivity)
+     * - Bot response timeout (no Gemini response)
+     */
+    private fun handlePause() {
+        if (!isChangingConfigurations) {
+            Log.d(TAG, "[handlePause] App going to background")
+            
+            val connectionState = voiceClientManager.state.value
+            if (connectionState == ConnectionState.CONNECTED) {
+                Log.d(TAG, "[handlePause] Active connection - continuing in background via VoiceService")
+                // ✅ Do nothing - VoiceService maintains session active
+                // ✅ Audio recording continues
+                // ✅ WebSocket remains connected
+            } else {
+                Log.d(TAG, "[handlePause] No active connection (state=$connectionState)")
+            }
+        } else {
+            Log.d(TAG, "[handlePause] Configuration change - skipping")
+        }
+    }
+    
+    /**
+     * Handle resume - app returning to foreground
+     * Session is already running if it was active
+     * No action needed - everything continues normally
+     */
+    private fun handleResume() {
+        Log.d(TAG, "[handleResume] App coming to foreground")
+        
+        val connectionState = voiceClientManager.state.value
+        if (connectionState == ConnectionState.CONNECTED) {
+            Log.d(TAG, "[handleResume] Active connection - already running normally")
+            // ✅ Do nothing - session is already active
+        } else {
+            Log.d(TAG, "[handleResume] No active connection (state=$connectionState)")
+        }
+    }
+    
+    /**
+     * Handle stop - prepare for potential process death
+     * Save any critical state here
+     */
+    private fun handleStop() {
+        Log.d(TAG, "[handleStop] App stopped, saving state if needed")
+        // Currently no critical state to save
+        // VoiceService keeps session alive in background
     }
 
     override fun onPause() {
         super.onPause()
-        // VoiceService is already running if conversation is active
-        // No need to start it here - it's started when connection is established
-        Log.d("MainActivity", "App paused - VoiceService continues running if active")
+        // Handled by lifecycle observer
+        Log.d(TAG, "onPause() called - delegated to lifecycle observer")
     }
 
     override fun onResume() {
         super.onResume()
-        // Service continues running in background, just update UI
-        // No need to stop the service - it will continue until conversation ends
-        Log.d("MainActivity", "App resumed - VoiceService continues running if active")
+        // Handled by lifecycle observer
+        Log.d(TAG, "onResume() called - delegated to lifecycle observer")
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -871,6 +964,42 @@ class MainActivity : ComponentActivity() {
         Log.d("MainActivity", "[MainActivity] onDestroy: Completed - total_time=${totalTime}ms")
     }
     
+    /**
+     * Handle low memory callback (older API, called before onTrimMemory)
+     * This is a CRITICAL memory situation - emergency shutdown required
+     * Uses forceStop() for immediate cleanup without waiting
+     */
+    override fun onLowMemory() {
+        super.onLowMemory()
+        Log.e(TAG, "[onLowMemory] ⚠️ CRITICAL MEMORY SITUATION - Emergency shutdown")
+        
+        lifecycleScope.launch {
+            try {
+                val startTime = System.currentTimeMillis()
+                
+                // Emergency shutdown - forceStop for immediate cleanup
+                voiceClientManager.sessionManager?.endSession()
+                voiceClientManager.forceStop()
+                stopVoiceService()
+                
+                val totalTime = System.currentTimeMillis() - startTime
+                Log.d(TAG, "[onLowMemory] Emergency shutdown completed - duration=${totalTime}ms")
+            } catch (e: Exception) {
+                Log.e(TAG, "[onLowMemory] Error during emergency shutdown - ${e.message}", e)
+                try {
+                    voiceClientManager.forceStop()
+                    stopVoiceService()
+                } catch (e2: Exception) {
+                    Log.e(TAG, "[onLowMemory] Error during force stop - ${e2.message}", e2)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handle memory trim events - called when system needs to free memory
+     * This provides more granular control than onLowMemory()
+     */
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         
@@ -881,7 +1010,7 @@ class MainActivity : ComponentActivity() {
             else -> "LEVEL_$level"
         }
         
-        Log.w("MainActivity", "[MainActivity] onTrimMemory: Memory pressure detected - level=$level ($levelName)")
+        Log.w(TAG, "[onTrimMemory] ⚠️ Memory pressure detected - level=$level ($levelName)")
         
         when (level) {
             TRIM_MEMORY_RUNNING_LOW -> {

@@ -1419,6 +1419,89 @@ class VoiceClientManager(
         // Start connection (will use session resumption if handle available)
         start(currentThreadSettings)
     }
+    
+    /**
+     * Force stop for emergency cleanup
+     * Used ONLY in critical situations:
+     * - onLowMemory() - critical memory shortage
+     * - TRIM_MEMORY_COMPLETE - system forcing app termination
+     * - TRIM_MEMORY_RUNNING_CRITICAL - critical memory pressure
+     * 
+     * NOT used for normal pause/resume or background operation
+     */
+    fun forceStop() {
+        Log.w(TAG, "[forceStop] ⚠️ EMERGENCY FORCE STOP - critical memory situation")
+        
+        try {
+            // Cancel all jobs immediately
+            reconnectionManager.cancelReconnection()
+            imageProcessingJob?.cancel()
+            recordingJob?.cancel()
+            autoPauseJob?.cancel()
+            botResponseTimeoutJob?.cancel()
+            idleCheckJob?.cancel()
+            
+            Log.d(TAG, "[forceStop] All jobs cancelled")
+            
+            // Close WebSocket
+            try {
+                webSocket?.close(1000, "Force stop")
+                webSocket = null
+                Log.d(TAG, "[forceStop] WebSocket closed")
+            } catch (e: Exception) {
+                Log.e(TAG, "[forceStop] Error closing WebSocket", e)
+            }
+            
+            // Stop audio immediately
+            try {
+                audioRecord?.stop()
+                audioRecord?.release()
+                audioRecord = null
+                Log.d(TAG, "[forceStop] AudioRecord stopped and released")
+            } catch (e: Exception) {
+                Log.e(TAG, "[forceStop] Error stopping AudioRecord", e)
+            }
+            
+            try {
+                audioTrack?.stop()
+                audioTrack?.release()
+                audioTrack = null
+                Log.d(TAG, "[forceStop] AudioTrack stopped and released")
+            } catch (e: Exception) {
+                Log.e(TAG, "[forceStop] Error stopping AudioTrack", e)
+            }
+            
+            // Release wake lock
+            releaseWakeLock()
+            Log.d(TAG, "[forceStop] Wake lock released")
+            
+            // Cleanup audio manager
+            cleanupAudioManager()
+            Log.d(TAG, "[forceStop] AudioManager cleaned up")
+            
+            // Cancel scope
+            try {
+                scope?.cancel()
+                scope = null
+                Log.d(TAG, "[forceStop] Coroutine scope cancelled")
+            } catch (e: Exception) {
+                Log.e(TAG, "[forceStop] Error cancelling scope", e)
+            }
+            
+            // Update state
+            state.value = ConnectionState.DISCONNECTED
+            botReady.value = false
+            botIsTalking.value = false
+            userIsTalking.value = false
+            mic.value = false
+            camera.value = false
+            isPaused.value = false
+            
+            Log.i(TAG, "[forceStop] Force stop completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "[forceStop] Error during force stop", e)
+        }
+    }
 
     fun enableMic(enabled: Boolean) {
         mic.value = enabled
