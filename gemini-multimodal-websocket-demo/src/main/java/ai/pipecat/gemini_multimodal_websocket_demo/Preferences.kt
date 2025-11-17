@@ -204,14 +204,29 @@ Use these tools proactively when they can help answer the user's questions. For 
     // Summary mode preferences
     val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, false)
     val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, """
-Przeanalizuj poniższą transkrypcję rozmowy i stwórz zwięzłe podsumowanie zawierające:
+Przeanalizuj poniższą transkrypcję rozmowy głosowej i stwórz zwięzłe podsumowanie.
 
-1. Główne tematy rozmowy
+WAŻNE INFORMACJE O TRANSKRYPCJI:
+- To jest automatyczna transkrypcja rozmowy głosowej
+- Transkrypcja wypowiedzi UŻYTKOWNIKA może być BARDZO NIEDOKŁADNA i zawierać błędy rozpoznawania mowy
+- Transkrypcja odpowiedzi ASYSTENTA (modelu AI) jest dokładna
+- Język rozmowy jest taki sam jak język odpowiedzi asystenta
+- Użyj KONTEKSTU z odpowiedzi asystenta aby zrozumieć, co naprawdę mówił użytkownik
+- Zinterpretuj błędnie rozpoznane słowa użytkownika na podstawie logicznego kontekstu rozmowy
+
+ZADANIE:
+Stwórz podsumowanie zawierające:
+
+1. Główne tematy rozmowy (zinterpretowane poprawnie mimo błędów transkrypcji)
 2. Kluczowe informacje i wnioski
 3. Ewentualne pytania lub problemy wymagające dalszej uwagi
 4. Sugerowane następne kroki
 
-Podsumowanie powinno być konkretne, rzeczowe i pomocne dla kontynuacji rozmowy.
+Podsumowanie powinno być:
+- Konkretne i rzeczowe
+- Napisane w tym samym języku co odpowiedzi asystenta
+- Pomocne dla kontynuacji rozmowy
+- Uwzględniające prawdziwe intencje użytkownika (nie literalnie błędną transkrypcję)
     """.trimIndent())
     
     // Parental lock

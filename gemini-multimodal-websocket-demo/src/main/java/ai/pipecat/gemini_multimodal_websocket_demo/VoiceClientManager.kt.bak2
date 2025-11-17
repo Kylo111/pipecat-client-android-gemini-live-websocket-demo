@@ -1530,6 +1530,158 @@ class VoiceClientManager(
      * Start Google Cloud Speech-to-Text streaming transcription
      * Uses the same audio from AudioRecord (no microphone conflict)
      */
+    private fun startStreamingTranscription() {
+        // Cancel existing job
+        transcriptionJob?.cancel()
+        
+        Log.i(TAG, "Starting Google Cloud Speech-to-Text streaming transcription")
+        
+        transcriptionJob = scope?.launch(Dispatchers.IO) {
+            while (isActive && state.value == ConnectionState.CONNECTED) {
+                try {
+                    // Wait for interval
+                    delay(TRANSCRIPTION_INTERVAL_MS)
+                    
+                    // Get buffered audio
+                    val audioToTranscribe = transcriptionMutex.withLock {
+                        if (audioBufferForTranscription.isEmpty()) {
+                            null
+                        } else {
+                            // Combine all buffered audio
+                            val combined = ByteArrayOutputStream()
+                            audioBufferForTranscription.forEach { combined.write(it) }
+                            audioBufferForTranscription.clear()
+                            combined.toByteArray()
+                        }
+                    }
+                    
+                    // Send to Google Cloud Speech API if we have audio
+                    if (audioToTranscribe != null && audioToTranscribe.isNotEmpty()) {
+                        transcribeAudio(audioToTranscribe)
+                    }
+                    
+                } catch (e: Exception) {
+                    if (e !is kotlinx.coroutines.CancellationException) {
+                        Log.e(TAG, "Error in streaming transcription: ${e.message}", e)
+                    }
+                }
+            }
+            
+            Log.i(TAG, "Streaming transcription stopped")
+        }
+    }
+    
+    /**
+     * Stop streaming transcription
+     */
+    private fun stopStreamingTranscription() {
+        Log.i(TAG, "Stopping streaming transcription")
+        transcriptionJob?.cancel()
+        transcriptionJob = null
+        scope?.launch {
+            transcriptionMutex.withLock {
+                audioBufferForTranscription.clear()
+            }
+        }
+    }
+    
+    /**
+     * Transcribe audio using Google Cloud Speech-to-Text API
+     */
+    private suspend fun transcribeAudio(audioData: ByteArray) {
+        try {
+            // Get Google Cloud API key from preferences
+            val apiKey = Preferences.googleCloudApiKey.value
+            if (apiKey.isNullOrBlank()) {
+                // No API key - skip transcription silently
+                // User can add key in settings if they want transcription
+                return
+            }
+            
+            // Prepare request to Google Cloud Speech-to-Text API
+            val url = "https://speech.googleapis.com/v1/speech:recognize?key=$apiKey"
+            
+            // Encode audio to base64
+            val base64Audio = Base64.encodeToString(audioData, Base64.NO_WRAP)
+            
+            // Build JSON request
+            val requestJson = buildJsonObject {
+                putJsonObject("config") {
+                    put("encoding", "LINEAR16")
+                    put("sampleRateHertz", SAMPLE_RATE)
+                    put("languageCode", "pl-PL")
+                    put("enableAutomaticPunctuation", true)
+                    put("model", "latest_short") // Optimized for short utterances
+                }
+                putJsonObject("audio") {
+                    put("content", base64Audio)
+                }
+            }
+            
+            val requestBody = json.encodeToString(requestJson).toRequestBody("application/json".toMediaType())
+            
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+            
+            // Send request
+            withContext(Dispatchers.IO) {
+                val response = client.newCall(request).execute()
+                
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    if (responseBody != null) {
+                        parseTranscriptionResponse(responseBody)
+                    }
+                } else {
+                    if (DEBUG_LOGGING) {
+                        Log.w(TAG, "Transcription API error: ${response.code} - ${response.message}")
+                    }
+                }
+            }
+            
+        } catch (e: Exception) {
+            if (DEBUG_LOGGING) {
+                Log.e(TAG, "Error transcribing audio: ${e.message}", e)
+            }
+        }
+    }
+    
+    /**
+     * Parse transcription response from Google Cloud Speech API
+     */
+    private fun parseTranscriptionResponse(responseBody: String) {
+        try {
+            val jsonResponse = json.parseToJsonElement(responseBody).jsonObject
+            val results = jsonResponse["results"]?.jsonArray
+            
+            if (results != null && results.isNotEmpty()) {
+                val firstResult = results[0].jsonObject
+                val alternatives = firstResult["alternatives"]?.jsonArray
+                
+                if (alternatives != null && alternatives.isNotEmpty()) {
+                    val transcript = alternatives[0].jsonObject["transcript"]?.jsonPrimitive?.content
+                    
+                    if (!transcript.isNullOrBlank()) {
+                        Log.i(TAG, "✅ User transcript (Google Cloud): $transcript")
+                        
+                        // Update live transcript display
+                        lastUserTranscript.value = transcript
+                        lastUserTranscriptTime.value = System.currentTimeMillis()
+                        
+                        // Send to session manager
+                        sessionManager?.captureUserTranscript(transcript)
+                        onUserTranscript?.invoke(transcript)
+                        updateActivity() // User is active
+                    }
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing transcription response: ${e.message}", e)
+        }
+    }
     fun enableMic(enabled: Boolean) {
         mic.value = enabled
         
