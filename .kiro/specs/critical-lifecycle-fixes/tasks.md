@@ -1,0 +1,141 @@
+# Implementation Plan - Critical Lifecycle Fixes
+
+- [x] 1. MainActivity Lifecycle Cleanup
+- [x] 1.1 Enhance MainActivity.onDestroy() with proper cleanup
+  - Wrap all cleanup in try-catch with error logging
+  - When `isFinishing` is true AND connection is active:
+    - Call `SessionManager.endSession()` in lifecycleScope
+    - Call `VoiceClientManager.stop()` after session ends
+    - Ensure cleanup completes within 2 seconds
+  - Add comprehensive logging for all cleanup steps with timestamps
+  - Log connection state before cleanup decisions
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - _Note: Current implementation has basic cleanup but missing SessionManager.endSession() and VoiceClientManager.stop() calls_
+
+- [x] 1.2 Implement onTrimMemory() handler in MainActivity
+  - Override `onTrimMemory(level: Int)` method
+  - Handle `TRIM_MEMORY_RUNNING_CRITICAL` (level 15):
+    - Log memory pressure event
+    - Call `SessionManager.endSession()` in lifecycleScope
+    - Call `VoiceClientManager.stop()` immediately after
+    - Call `stopVoiceService()`
+  - Handle `TRIM_MEMORY_COMPLETE` (level 80):
+    - Log emergency shutdown event
+    - Force-stop all services without waiting for session end
+    - Call `VoiceClientManager.stop()`
+    - Call `stopVoiceService()`
+  - Handle `TRIM_MEMORY_RUNNING_LOW` (level 10):
+    - Log low memory warning
+    - Call `VoiceClientManager.pause()` to suspend session
+  - Add comprehensive logging with memory level values
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+  - _Note: Not currently implemented_
+
+- [x] 2. VoiceService Timeout Protection
+- [x] 2.1 Add service timeout mechanism to VoiceService
+  - Add `private var serviceTimeoutJob: Job?` property
+  - Add `private val MAX_SERVICE_DURATION = 2 * 60 * 60 * 1000L` constant (2 hours)
+  - Add `private lateinit var serviceScope: CoroutineScope` property
+  - Initialize `serviceScope = CoroutineScope(Dispatchers.Default + Job())` in `onCreate()`
+  - In `onStartCommand()` when ACTION_START:
+    - Cancel any existing `serviceTimeoutJob`
+    - Launch new coroutine: `serviceScope.launch { delay(MAX_SERVICE_DURATION); handleTimeout() }`
+    - Store job reference in `serviceTimeoutJob`
+  - Create `private fun handleTimeout()` method:
+    - Log warning: "Service timeout reached after 2 hours"
+    - Call `stopService()`
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+  - _Note: Not currently implemented_
+
+- [x] 2.2 Enhance VoiceService.onDestroy() cleanup
+  - At start of `onDestroy()`:
+    - Cancel `serviceTimeoutJob` first
+    - Cancel `serviceScope` to stop all coroutines
+    - Log: "VoiceService.onDestroy: Cancelling timeout job and scope"
+  - Wrap `batteryProfiler.stopProfiling()` in try-catch
+  - Wrap `releaseWakeLock()` in try-catch
+  - Use finally block to ensure `instance = null` always executes
+  - Add comprehensive logging for each cleanup step
+  - _Requirements: 2.3, 2.4_
+  - _Note: Current implementation has basic cleanup but missing timeout job cancellation_
+
+- [x] 3. Wake Lock Duration Tracking in VoiceService
+- [x] 3.1 Implement wake lock duration tracking in VoiceService
+  - Add `private var wakeLockAcquiredAt: Long = 0` property
+  - Add `private val MAX_WAKE_LOCK_DURATION = 4 * 60 * 60 * 1000L` constant (4 hours)
+  - Modify `acquireWakeLock()` method:
+    - Before acquiring, check if wake lock already held
+    - If held, calculate duration: `System.currentTimeMillis() - wakeLockAcquiredAt`
+    - If duration exceeds `MAX_WAKE_LOCK_DURATION`:
+      - Log warning: "Wake lock held for ${duration}ms, exceeds max ${MAX_WAKE_LOCK_DURATION}ms"
+      - Call `stopService()` to force cleanup
+      - Return without acquiring new wake lock
+    - Record timestamp: `wakeLockAcquiredAt = System.currentTimeMillis()`
+    - Acquire wake lock with timeout: `wakeLock.acquire(MAX_WAKE_LOCK_DURATION)`
+    - Log: "Wake lock acquired at $wakeLockAcquiredAt with ${MAX_WAKE_LOCK_DURATION}ms timeout"
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+  - _Note: Wake lock exists but no duration tracking implemented_
+
+- [x] 3.2 Implement wake lock release tracking in VoiceService
+  - Modify `releaseWakeLock()` method:
+    - Calculate held duration if `wakeLockAcquiredAt > 0`
+    - Log: "Wake lock released after ${duration}ms"
+    - Reset `wakeLockAcquiredAt = 0` after release
+    - Ensure release completes within 500ms
+  - In `stopService()`:
+    - Ensure `releaseWakeLock()` called before other cleanup
+    - Add timeout check: if release takes > 500ms, log error
+  - Add try-catch around all wake lock operations
+  - _Requirements: 3.4, 3.5_
+  - _Note: Wake lock release exists but no tracking implemented_
+
+- [x] 4. Integration and Verification
+- [x] 4.1 Add comprehensive logging for diagnostics
+  - MainActivity.onDestroy():
+    - Log entry with isFinishing flag and connection state
+    - Log each cleanup step with timestamp
+    - Log completion or errors
+  - VoiceService timeout handler:
+    - Log when timeout triggers with service uptime
+    - Log cleanup steps during timeout
+  - VoiceService wake lock operations:
+    - Log acquisition with timestamp and duration limit
+    - Log release with held duration
+    - Log any duration violations
+  - MainActivity.onTrimMemory():
+    - Log memory level received
+    - Log action taken for each level
+    - Log cleanup completion
+  - Use consistent format: "[Component] Action: details"
+  - Use appropriate log levels: DEBUG for normal, WARN for issues, ERROR for failures
+  - _Requirements: 1.4, 2.5, 3.2, 4.5_
+
+- [x] 4.2 Build and test critical fixes
+  - Build: `./gradlew clean build`
+  - Install: `./gradlew installDebug`
+  - Test scenarios:
+    1. MainActivity destruction during active session:
+       - Start conversation
+       - Press back button to finish activity
+       - Monitor logs for proper cleanup sequence
+       - Verify WebSocket closes within 2 seconds
+       - Check no zombie processes remain
+    2. Service timeout (use 2 minutes for testing):
+       - Temporarily change MAX_SERVICE_DURATION to 2 minutes
+       - Start conversation and wait
+       - Verify service stops automatically
+       - Check logs for timeout trigger
+    3. Wake lock duration tracking:
+       - Temporarily change MAX_WAKE_LOCK_DURATION to 5 minutes
+       - Start conversation and wait
+       - Verify service stops when limit reached
+       - Check logs for duration warnings
+    4. Memory pressure simulation:
+       - Start conversation
+       - Use `adb shell am send-trim-memory <package> RUNNING_LOW`
+       - Verify session pauses
+       - Use `adb shell am send-trim-memory <package> RUNNING_CRITICAL`
+       - Verify session stops immediately
+  - Monitor logs: `adb -s EM95IBKZEYIFSO69 logcat | grep -E "MainActivity|VoiceService|VoiceClientManager"`
+  - Verify no token consumption after cleanup
+  - _Requirements: All requirements_

@@ -14,6 +14,11 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Foreground service to maintain voice conversation in background.
@@ -45,6 +50,15 @@ class VoiceService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var notificationManager: NotificationManager
     private lateinit var batteryProfiler: BatteryProfiler
+    
+    // Service timeout mechanism
+    private var serviceTimeoutJob: Job? = null
+    private val MAX_SERVICE_DURATION = 2 * 60 * 60 * 1000L // 2 hours
+    private lateinit var serviceScope: CoroutineScope
+    
+    // Wake lock duration tracking
+    private var wakeLockAcquiredAt: Long = 0
+    private val MAX_WAKE_LOCK_DURATION = 4 * 60 * 60 * 1000L // 4 hours
 
     override fun onCreate() {
         super.onCreate()
@@ -52,6 +66,7 @@ class VoiceService : Service() {
         Log.d(TAG, "VoiceService created")
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         batteryProfiler = BatteryProfiler(this)
+        serviceScope = CoroutineScope(Dispatchers.Default + Job())
         createNotificationChannel()
     }
 
@@ -62,6 +77,14 @@ class VoiceService : Service() {
             ACTION_START -> {
                 startForegroundService()
                 acquireWakeLock()
+                
+                // Schedule service timeout
+                serviceTimeoutJob?.cancel()
+                serviceTimeoutJob = serviceScope.launch {
+                    delay(MAX_SERVICE_DURATION)
+                    handleTimeout()
+                }
+                Log.d(TAG, "Service timeout scheduled for ${MAX_SERVICE_DURATION}ms")
             }
             ACTION_END_CONVERSATION -> {
                 // User clicked "End" button in notification
@@ -94,10 +117,41 @@ class VoiceService : Service() {
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "VoiceService destroyed")
-        instance = null
-        releaseWakeLock()
-        super.onDestroy()
+        Log.d(TAG, "VoiceService.onDestroy: Starting cleanup")
+        
+        // Cancel timeout job and scope first
+        try {
+            serviceTimeoutJob?.cancel()
+            serviceScope.coroutineContext[Job]?.cancel()
+            Log.d(TAG, "VoiceService.onDestroy: Cancelling timeout job and scope")
+        } catch (e: Exception) {
+            Log.e(TAG, "VoiceService.onDestroy: Error cancelling timeout job/scope", e)
+        }
+        
+        // Stop battery profiling
+        try {
+            batteryProfiler.stopProfiling()
+            Log.d(TAG, "VoiceService.onDestroy: Battery profiler stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "VoiceService.onDestroy: Error stopping battery profiler", e)
+        }
+        
+        // Release wake lock
+        try {
+            releaseWakeLock()
+            Log.d(TAG, "VoiceService.onDestroy: Wake lock released")
+        } catch (e: Exception) {
+            Log.e(TAG, "VoiceService.onDestroy: Error releasing wake lock", e)
+        }
+        
+        // Ensure instance is always cleared
+        try {
+            instance = null
+            Log.d(TAG, "VoiceService.onDestroy: Instance cleared")
+        } finally {
+            super.onDestroy()
+            Log.d(TAG, "VoiceService.onDestroy: Cleanup complete")
+        }
     }
 
     /**
@@ -193,18 +247,35 @@ class VoiceService : Service() {
      */
     private fun acquireWakeLock() {
         try {
+            // Check if wake lock is already held
+            if (wakeLock != null && wakeLock?.isHeld == true) {
+                // Calculate duration
+                val duration = System.currentTimeMillis() - wakeLockAcquiredAt
+                
+                // Check if duration exceeds maximum
+                if (duration > MAX_WAKE_LOCK_DURATION) {
+                    Log.w(TAG, "[VoiceService] WakeLock: Duration violation - held for ${duration}ms, exceeds max ${MAX_WAKE_LOCK_DURATION}ms")
+                    Log.w(TAG, "[VoiceService] WakeLock: Forcing service stop due to duration violation")
+                    stopService()
+                    return
+                }
+            }
+            
             if (wakeLock == null) {
                 val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
                 wakeLock = powerManager.newWakeLock(
                     PowerManager.PARTIAL_WAKE_LOCK,
                     WAKE_LOCK_TAG
                 ).apply {
-                    acquire(WAKE_LOCK_TIMEOUT)
+                    acquire(MAX_WAKE_LOCK_DURATION)
                 }
-                Log.d(TAG, "Wake lock acquired with ${WAKE_LOCK_TIMEOUT}ms timeout")
+                
+                // Record acquisition timestamp
+                wakeLockAcquiredAt = System.currentTimeMillis()
+                Log.d(TAG, "[VoiceService] WakeLock: Acquired at timestamp=$wakeLockAcquiredAt with duration_limit=${MAX_WAKE_LOCK_DURATION}ms")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to acquire wake lock", e)
+            Log.e(TAG, "[VoiceService] WakeLock: Failed to acquire - ${e.message}", e)
         }
     }
 
@@ -215,29 +286,67 @@ class VoiceService : Service() {
         try {
             wakeLock?.let {
                 if (it.isHeld) {
+                    // Calculate held duration if timestamp was recorded
+                    if (wakeLockAcquiredAt > 0) {
+                        val duration = System.currentTimeMillis() - wakeLockAcquiredAt
+                        Log.d(TAG, "[VoiceService] WakeLock: Released after held_duration=${duration}ms")
+                        
+                        // Log warning if duration was excessive
+                        if (duration > MAX_WAKE_LOCK_DURATION) {
+                            Log.w(TAG, "[VoiceService] WakeLock: Duration exceeded limit - held=${duration}ms, limit=${MAX_WAKE_LOCK_DURATION}ms")
+                        }
+                    }
+                    
                     it.release()
-                    Log.d(TAG, "Wake lock released")
+                    Log.d(TAG, "[VoiceService] WakeLock: Successfully released")
                 }
             }
             wakeLock = null
+            
+            // Reset acquisition timestamp
+            wakeLockAcquiredAt = 0
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to release wake lock", e)
+            Log.e(TAG, "[VoiceService] WakeLock: Failed to release - ${e.message}", e)
+            // Ensure timestamp is reset even on error
+            wakeLockAcquiredAt = 0
         }
+    }
+
+    /**
+     * Handles service timeout after MAX_SERVICE_DURATION
+     */
+    private fun handleTimeout() {
+        val serviceUptime = System.currentTimeMillis() - wakeLockAcquiredAt
+        Log.w(TAG, "[VoiceService] Timeout: Service timeout reached after ${MAX_SERVICE_DURATION}ms (uptime: ${serviceUptime}ms)")
+        Log.d(TAG, "[VoiceService] Timeout: Initiating cleanup sequence")
+        stopService()
     }
 
     /**
      * Stops the service and cleans up resources
      */
     private fun stopService() {
-        Log.d(TAG, "Stopping service")
+        Log.d(TAG, "[VoiceService] Stop: Initiating service shutdown")
+        
+        // Release wake lock first with timeout check
+        val releaseStartTime = System.currentTimeMillis()
+        releaseWakeLock()
+        val releaseDuration = System.currentTimeMillis() - releaseStartTime
+        
+        if (releaseDuration > 500) {
+            Log.e(TAG, "[VoiceService] Stop: Wake lock release timeout - took ${releaseDuration}ms, exceeds 500ms threshold")
+        } else {
+            Log.d(TAG, "[VoiceService] Stop: Wake lock released in ${releaseDuration}ms")
+        }
         
         // Stop battery profiling and log results
         batteryProfiler.stopProfiling()
         batteryProfiler.logBatteryStatus("Service stopped")
         PerformanceLogger.logMemory("VoiceService.stop")
+        Log.d(TAG, "[VoiceService] Stop: Battery profiler stopped")
         
-        releaseWakeLock()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+        Log.d(TAG, "[VoiceService] Stop: Service shutdown complete")
     }
 }

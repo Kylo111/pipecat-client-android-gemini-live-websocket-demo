@@ -19,6 +19,9 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.NetworkMonitor
 import android.content.BroadcastReceiver
+import android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+import android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
+import android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -85,6 +88,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 enum class Screen {
     LOGIN,
@@ -771,25 +775,193 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         
-        // Unregister broadcast receivers
-        unregisterWakeWordBroadcastReceivers()
+        val startTime = System.currentTimeMillis()
+        Log.d("MainActivity", "[MainActivity] onDestroy: Entry - isFinishing=$isFinishing, timestamp=$startTime")
         
-        // Only stop service if activity is finishing (not just configuration change)
+        try {
+            // Unregister broadcast receivers
+            unregisterWakeWordBroadcastReceivers()
+            Log.d("MainActivity", "[MainActivity] onDestroy: Broadcast receivers unregistered")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "[MainActivity] onDestroy: Error unregistering broadcast receivers - ${e.message}", e)
+        }
+        
+        // Only perform cleanup if activity is finishing (not just configuration change)
         if (isFinishing) {
-            // Check if conversation is still active
-            val connectionState = voiceClientManager.state.value
-            if (connectionState == ConnectionState.CONNECTED || 
-                connectionState == ConnectionState.RECONNECTING) {
-                // Don't stop service - let it continue in background
-                // User can end conversation from notification
-                Log.d("MainActivity", "Activity finishing but conversation active - VoiceService continues")
-            } else {
-                // No active conversation, safe to stop service
-                stopVoiceService()
-                Log.d("MainActivity", "Activity finishing with no active conversation - stopping VoiceService")
+            try {
+                // Check if conversation is still active
+                val connectionState = voiceClientManager.state.value
+                Log.d("MainActivity", "[MainActivity] onDestroy: Connection state check - state=$connectionState")
+                
+                if (connectionState == ConnectionState.CONNECTED || 
+                    connectionState == ConnectionState.RECONNECTING) {
+                    
+                    Log.d("MainActivity", "[MainActivity] onDestroy: Active connection detected - initiating graceful shutdown")
+                    
+                    // Launch cleanup in lifecycleScope with timeout
+                    lifecycleScope.launch {
+                        try {
+                            withTimeout(2000L) { // 2 second timeout
+                                val cleanupStart = System.currentTimeMillis()
+                                Log.d("MainActivity", "[MainActivity] onDestroy: Starting session end - timestamp=$cleanupStart")
+                                
+                                // End session first (generates summary and syncs transcript)
+                                voiceClientManager.sessionManager?.endSession()
+                                val sessionEndDuration = System.currentTimeMillis() - cleanupStart
+                                Log.d("MainActivity", "[MainActivity] onDestroy: SessionManager.endSession() completed - duration=${sessionEndDuration}ms")
+                                
+                                // Stop voice client (closes WebSocket)
+                                val stopStart = System.currentTimeMillis()
+                                voiceClientManager.stop()
+                                val stopDuration = System.currentTimeMillis() - stopStart
+                                Log.d("MainActivity", "[MainActivity] onDestroy: VoiceClientManager.stop() completed - duration=${stopDuration}ms")
+                                
+                                // Stop VoiceService
+                                stopVoiceService()
+                                Log.d("MainActivity", "[MainActivity] onDestroy: VoiceService stopped")
+                                
+                                val totalCleanupTime = System.currentTimeMillis() - cleanupStart
+                                Log.d("MainActivity", "[MainActivity] onDestroy: Cleanup completed successfully - total_duration=${totalCleanupTime}ms")
+                            }
+                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                            Log.e("MainActivity", "[MainActivity] onDestroy: Cleanup timeout after 2 seconds - forcing stop")
+                            try {
+                                voiceClientManager.stop()
+                                stopVoiceService()
+                                Log.d("MainActivity", "[MainActivity] onDestroy: Forced stop completed")
+                            } catch (forceError: Exception) {
+                                Log.e("MainActivity", "[MainActivity] onDestroy: Error during forced stop - ${forceError.message}", forceError)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "[MainActivity] onDestroy: Error during cleanup - ${e.message}", e)
+                            try {
+                                // Attempt force stop on error
+                                voiceClientManager.stop()
+                                stopVoiceService()
+                                Log.d("MainActivity", "[MainActivity] onDestroy: Forced stop after error completed")
+                            } catch (forceError: Exception) {
+                                Log.e("MainActivity", "[MainActivity] onDestroy: Error during forced stop after cleanup failure - ${forceError.message}", forceError)
+                            }
+                        }
+                    }
+                } else {
+                    // No active conversation, safe to stop service
+                    try {
+                        stopVoiceService()
+                        Log.d("MainActivity", "[MainActivity] onDestroy: No active conversation - VoiceService stopped")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "[MainActivity] onDestroy: Error stopping VoiceService - ${e.message}", e)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "[MainActivity] onDestroy: Error during isFinishing cleanup - ${e.message}", e)
+            }
+        } else {
+            Log.d("MainActivity", "[MainActivity] onDestroy: Configuration change detected - skipping cleanup")
+        }
+        
+        try {
+            networkMonitor.unregister()
+            Log.d("MainActivity", "[MainActivity] onDestroy: NetworkMonitor unregistered")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "[MainActivity] onDestroy: Error unregistering NetworkMonitor - ${e.message}", e)
+        }
+        
+        val totalTime = System.currentTimeMillis() - startTime
+        Log.d("MainActivity", "[MainActivity] onDestroy: Completed - total_time=${totalTime}ms")
+    }
+    
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        
+        val levelName = when (level) {
+            TRIM_MEMORY_RUNNING_LOW -> "TRIM_MEMORY_RUNNING_LOW"
+            TRIM_MEMORY_RUNNING_CRITICAL -> "TRIM_MEMORY_RUNNING_CRITICAL"
+            TRIM_MEMORY_COMPLETE -> "TRIM_MEMORY_COMPLETE"
+            else -> "LEVEL_$level"
+        }
+        
+        Log.w("MainActivity", "[MainActivity] onTrimMemory: Memory pressure detected - level=$level ($levelName)")
+        
+        when (level) {
+            TRIM_MEMORY_RUNNING_LOW -> {
+                // Low memory - pause session to reduce memory usage
+                Log.w("MainActivity", "[MainActivity] onTrimMemory: RUNNING_LOW action - pausing session to reduce memory usage")
+                try {
+                    val connectionState = voiceClientManager.state.value
+                    if (connectionState == ConnectionState.CONNECTED ||
+                        connectionState == ConnectionState.RECONNECTING) {
+                        voiceClientManager.pause()
+                        Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_LOW - session paused successfully")
+                    } else {
+                        Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_LOW - no active session to pause (state=$connectionState)")
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "[MainActivity] onTrimMemory: RUNNING_LOW - error pausing session - ${e.message}", e)
+                }
+            }
+            
+            TRIM_MEMORY_RUNNING_CRITICAL -> {
+                // Critical memory - stop session immediately
+                Log.e("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL action - stopping session immediately")
+                lifecycleScope.launch {
+                    try {
+                        val startTime = System.currentTimeMillis()
+                        
+                        // End session first
+                        voiceClientManager.sessionManager?.endSession()
+                        val sessionEndDuration = System.currentTimeMillis() - startTime
+                        Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL - SessionManager.endSession() completed - duration=${sessionEndDuration}ms")
+                        
+                        // Stop voice client
+                        voiceClientManager.stop()
+                        Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL - VoiceClientManager.stop() completed")
+                        
+                        // Stop VoiceService
+                        stopVoiceService()
+                        Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL - VoiceService stopped")
+                        
+                        val totalTime = System.currentTimeMillis() - startTime
+                        Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL cleanup completed - total_duration=${totalTime}ms")
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL - error during cleanup - ${e.message}", e)
+                        // Force stop on error
+                        try {
+                            voiceClientManager.stop()
+                            stopVoiceService()
+                            Log.d("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL - forced stop completed")
+                        } catch (forceError: Exception) {
+                            Log.e("MainActivity", "[MainActivity] onTrimMemory: RUNNING_CRITICAL - error during forced stop - ${forceError.message}", forceError)
+                        }
+                    }
+                }
+            }
+            
+            TRIM_MEMORY_COMPLETE -> {
+                // Emergency shutdown - force stop everything without waiting
+                Log.e("MainActivity", "[MainActivity] onTrimMemory: COMPLETE action - emergency shutdown, force-stopping all services")
+                try {
+                    val startTime = System.currentTimeMillis()
+                    
+                    // Force stop without waiting for session end
+                    voiceClientManager.stop()
+                    Log.d("MainActivity", "[MainActivity] onTrimMemory: COMPLETE - VoiceClientManager force-stopped")
+                    
+                    // Stop VoiceService
+                    stopVoiceService()
+                    Log.d("MainActivity", "[MainActivity] onTrimMemory: COMPLETE - VoiceService force-stopped")
+                    
+                    val totalTime = System.currentTimeMillis() - startTime
+                    Log.d("MainActivity", "[MainActivity] onTrimMemory: COMPLETE emergency shutdown completed - total_duration=${totalTime}ms")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "[MainActivity] onTrimMemory: COMPLETE - error during emergency shutdown - ${e.message}", e)
+                }
+            }
+            
+            else -> {
+                Log.d("MainActivity", "[MainActivity] onTrimMemory: Unhandled memory level - level=$level ($levelName), no action taken")
             }
         }
-        networkMonitor.unregister()
     }
     
     /**
