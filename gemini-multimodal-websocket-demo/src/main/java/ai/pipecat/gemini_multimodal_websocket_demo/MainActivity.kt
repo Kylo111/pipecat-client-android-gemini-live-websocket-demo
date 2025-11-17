@@ -465,23 +465,56 @@ class MainActivity : ComponentActivity() {
                                                     val offlineConv = OfflineConversationManager.getById(conversation.id)
                                                     
                                                     if (offlineConv != null) {
-                                                        // Set system prompt from offline conversation
-                                                        Preferences.systemPrompt.value = offlineConv.systemPrompt.ifBlank { 
-                                                            "You are a helpful assistant" 
+                                                        // Start offline session in database
+                                                        lifecycleScope.launch {
+                                                            val sessionResult = sessionManager.startOfflineSession(offlineConv.id)
+                                                            sessionResult.onSuccess { conversationContext ->
+                                                                Log.d(TAG, "Started offline session with context: ${conversationContext.length} chars")
+                                                                
+                                                                // Build system prompt with conversation context
+                                                                val basePrompt = offlineConv.systemPrompt.ifBlank { 
+                                                                    "You are a helpful assistant" 
+                                                                }
+                                                                
+                                                                val fullPrompt = if (conversationContext.isNotBlank()) {
+                                                                    """
+                                                                    $basePrompt
+                                                                    
+                                                                    === CONVERSATION HISTORY ===
+                                                                    $conversationContext
+                                                                    
+                                                                    === INSTRUCTIONS ===
+                                                                    - Use the conversation history above to provide context-aware responses
+                                                                    - Reference previous discussions when relevant
+                                                                    - Maintain continuity with past conversations
+                                                                    - If user refers to something from history, acknowledge it
+                                                                    """.trimIndent()
+                                                                } else {
+                                                                    basePrompt
+                                                                }
+                                                                
+                                                                // Set system prompt with context
+                                                                Preferences.systemPrompt.value = fullPrompt
+                                                                
+                                                                Log.d(TAG, "System prompt with context: ${fullPrompt.length} chars")
+                                                                
+                                                                // Create ThreadSettings from offline conversation settings
+                                                                val offlineSettings = ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings(
+                                                                    conversationId = offlineConv.id,
+                                                                    voiceName = offlineConv.voiceName,
+                                                                    speechSpeed = offlineConv.speechSpeed,
+                                                                    volumeBoost = offlineConv.volumeBoost,
+                                                                    temperature = offlineConv.temperature
+                                                                )
+                                                                
+                                                                // Start voice client with offline settings (no LibreChat session)
+                                                                voiceClientManager.start(offlineSettings)
+                                                                currentScreen = Screen.IN_CALL
+                                                            }.onFailure { error ->
+                                                                Log.e(TAG, "Failed to start offline session", error)
+                                                                voiceClientManager.errors.add(Error("Failed to start offline session: ${error.message}"))
+                                                            }
                                                         }
-                                                        
-                                                        // Create ThreadSettings from offline conversation settings
-                                                        val offlineSettings = ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings(
-                                                            conversationId = offlineConv.id,
-                                                            voiceName = offlineConv.voiceName,
-                                                            speechSpeed = offlineConv.speechSpeed,
-                                                            volumeBoost = offlineConv.volumeBoost,
-                                                            temperature = offlineConv.temperature
-                                                        )
-                                                        
-                                                        // Start voice client with offline settings (no LibreChat session)
-                                                        voiceClientManager.start(offlineSettings)
-                                                        currentScreen = Screen.IN_CALL
                                                     } else {
                                                         voiceClientManager.errors.add(Error("Nie znaleziono konwersacji offline"))
                                                     }

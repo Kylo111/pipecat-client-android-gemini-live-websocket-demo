@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
+import ai.pipecat.gemini_multimodal_websocket_demo.GeminiSummaryService
 import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
@@ -58,6 +59,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 /**
  * Settings screen component with PIN protection
@@ -75,6 +78,8 @@ fun SettingsScreen(
     onThemeSelection: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val geminiSummaryService = remember { GeminiSummaryService(context) }
     
     // Local state for settings
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
@@ -88,8 +93,17 @@ fun SettingsScreen(
     var showSkinDropdown by remember { mutableStateOf(false) }
     var showChangePINDialog by remember { mutableStateOf(false) }
     var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
+    var summaryModel by remember { 
+        val saved = Preferences.summaryModel.value
+        mutableStateOf(if (saved.isNullOrBlank()) "gemini-2.5-flash" else saved)
+    }
     var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
+    
+    // Validation state
+    var isValidatingModel by remember { mutableStateOf(false) }
+    var modelValidationError by remember { mutableStateOf<String?>(null) }
+    var showModelErrorDialog by remember { mutableStateOf(false) }
     
     // Picovoice settings
     var picovoiceAccessKey by remember { mutableStateOf(PicovoiceManager.getAccessKey()) }
@@ -106,8 +120,8 @@ fun SettingsScreen(
         }
     }
 
-    // Save settings function
-    val saveSettings = {
+    // Internal save function (called after validation)
+    val saveSettingsInternal: () -> Unit = {
         Preferences.geminiApiKey.value = geminiApiKey
         Preferences.modelName.value = modelName
         Preferences.toolsInstruction.value = toolsInstruction
@@ -117,6 +131,7 @@ fun SettingsScreen(
         Preferences.activityDetectionThreshold.value = activityThreshold
         Preferences.selectedSkin.value = selectedSkin
         Preferences.useSummaryMode.value = useSummaryMode
+        Preferences.summaryModel.value = summaryModel
         Preferences.summaryPrompt.value = summaryPrompt
         Preferences.parentalLockEnabled.value = parentalLockEnabled
         
@@ -124,6 +139,53 @@ fun SettingsScreen(
         PicovoiceManager.setAccessKey(picovoiceAccessKey)
         PicovoiceManager.setSensitivity(picovoiceSensitivity)
         PicovoiceManager.setActivationSoundEnabled(picovoiceActivationSound)
+    }
+    
+    // Validate and save settings function with callback
+    val validateAndSaveSettings: (onSuccess: () -> Unit) -> Unit = { onSuccess ->
+        // If summary mode is enabled, validate model first
+        if (useSummaryMode) {
+            // Check if we have required fields
+            when {
+                geminiApiKey.isBlank() -> {
+                    modelValidationError = "Brak klucza API Gemini. Wpisz klucz API w ustawieniach."
+                    showModelErrorDialog = true
+                }
+                summaryModel.isBlank() -> {
+                    modelValidationError = "Brak nazwy modelu. Wpisz nazwę modelu (np. gemini-2.5-flash)."
+                    showModelErrorDialog = true
+                }
+                else -> {
+                    // Validate model
+                    isValidatingModel = true
+                    modelValidationError = null
+                    
+                    coroutineScope.launch {
+                        val result = geminiSummaryService.validateModel(summaryModel, geminiApiKey)
+                        isValidatingModel = false
+                        
+                        if (result.isSuccess) {
+                            // Model is valid, save settings
+                            saveSettingsInternal()
+                            onSuccess()
+                        } else {
+                            // Model is invalid, show error
+                            modelValidationError = result.exceptionOrNull()?.message ?: "Unknown error"
+                            showModelErrorDialog = true
+                        }
+                    }
+                }
+            }
+        } else {
+            // No validation needed, save directly
+            saveSettingsInternal()
+            onSuccess()
+        }
+    }
+    
+    // Legacy saveSettings for compatibility (without callback)
+    val saveSettings: () -> Unit = {
+        validateAndSaveSettings {}
     }
 
     Box(
@@ -157,8 +219,13 @@ fun SettingsScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(Colors.buttonNormal)
                         .clickable {
-                            saveSettings()
-                            onClose()
+                            // Don't close if validation is in progress
+                            if (!isValidatingModel) {
+                                validateAndSaveSettings {
+                                    // Only close if validation succeeded
+                                    onClose()
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -276,10 +343,60 @@ fun SettingsScreen(
                         lineHeight = 16.sp
                     )
                     
-                    // Show summary prompt field only when summary mode is enabled
+                    // Show summary settings only when summary mode is enabled
                     if (useSummaryMode) {
                         Spacer(modifier = Modifier.height(16.dp))
                         
+                        // Summary Model field
+                        Column {
+                            Text(
+                                text = "Model do podsumowań",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            TextField(
+                                value = summaryModel,
+                                onValueChange = { summaryModel = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White,
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
+                                    focusedIndicatorColor = Colors.buttonNormal,
+                                    unfocusedIndicatorColor = Color.LightGray
+                                ),
+                                textStyle = TextStyles.base.copy(fontSize = 14.sp),
+                                placeholder = {
+                                    Text(
+                                        "gemini-2.5-flash",
+                                        style = TextStyles.base,
+                                        fontSize = 14.sp
+                                    )
+                                },
+                                singleLine = true
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Domyślnie: gemini-2.5-flash. Możesz użyć: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp, itp.",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Summary Prompt field
                         Column {
                             Text(
                                 text = "Prompt do generowania podsumowania",
@@ -783,8 +900,11 @@ fun SettingsScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(Colors.buttonWarning)
                         .clickable {
-                            saveSettings()
-                            onLogout()
+                            if (!isValidatingModel) {
+                                validateAndSaveSettings {
+                                    onLogout()
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -811,6 +931,74 @@ fun SettingsScreen(
                     showChangePINDialog = false
                 }
             )
+        }
+        
+        // Model validation error dialog
+        if (showModelErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { showModelErrorDialog = false },
+                title = {
+                    Text(
+                        text = "❌ Nieprawidłowy model",
+                        style = TextStyles.base,
+                        fontWeight = FontWeight.W600
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "Model '${summaryModel}' nie istnieje lub nie jest dostępny.",
+                            style = TextStyles.base
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Błąd: ${modelValidationError}",
+                            style = TextStyles.base,
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Sprawdź nazwę modelu. Przykłady:\n• gemini-2.5-flash\n• gemini-1.5-flash\n• gemini-1.5-pro\n• gemini-2.0-flash-exp",
+                            style = TextStyles.base,
+                            fontSize = 12.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showModelErrorDialog = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Colors.buttonNormal
+                        )
+                    ) {
+                        Text("OK", style = TextStyles.base)
+                    }
+                }
+            )
+        }
+        
+        // Loading indicator during validation
+        if (isValidatingModel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(color = Colors.buttonNormal)
+                    Text(
+                        text = "Sprawdzanie modelu...",
+                        style = TextStyles.base,
+                        color = Color.White,
+                        fontWeight = FontWeight.W600
+                    )
+                }
+            }
         }
     }
 }

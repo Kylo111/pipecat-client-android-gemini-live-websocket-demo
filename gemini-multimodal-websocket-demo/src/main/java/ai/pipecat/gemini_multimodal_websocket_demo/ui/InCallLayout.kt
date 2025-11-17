@@ -97,7 +97,9 @@ fun InCallLayout(
         InCallFooter(
             onClickEnd = onEndSession,
             onCameraClick = onCameraClick,
-            onGalleryClick = onGalleryClick
+            onGalleryClick = onGalleryClick,
+            onSpeakerClick = voiceClientManager::toggleSpeakerphone,
+            isSpeakerphoneOn = voiceClientManager.isSpeakerphoneOn.value
         )
     }
 }

@@ -38,6 +38,26 @@ class SessionManager(
     // Transcript sync manager for reliable transcript synchronization
     private val transcriptSyncManager = TranscriptSyncManager()
     
+    // Room database repositories
+    private val sessionRepository by lazy {
+        (context.applicationContext as RTVIApplication).sessionRepository
+    }
+    private val conversationRepository by lazy {
+        (context.applicationContext as RTVIApplication).conversationRepository
+    }
+    private val contextBuilder by lazy {
+        (context.applicationContext as RTVIApplication).contextBuilder
+    }
+    
+    // Current database session ID
+    private var currentDbSessionId: String? = null
+    
+    // Current conversation context from database
+    private var currentConversationContext: String? = null
+    
+    // Current conversation ID for cleanup
+    private var currentConversationId: String? = null
+    
     companion object {
         private const val TAG = "SessionManager"
         private const val MAX_TRANSCRIPTS = 10000
@@ -118,6 +138,77 @@ class SessionManager(
      * Get the current active session
      */
     fun getCurrentSession(): SessionContext? = currentSession
+    
+    /**
+     * Start an offline session (no LibreChat integration)
+     * Creates database session and builds context from previous sessions
+     * 
+     * @param conversationId The offline conversation ID
+     * @return Result with conversation context string
+     */
+    suspend fun startOfflineSession(conversationId: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Starting offline session for conversation: $conversationId")
+            
+            // Ensure conversation exists in database with SAME ID
+            var conversation = conversationRepository.getConversation(conversationId)
+            if (conversation == null) {
+                // Create conversation in database with the SAME conversationId
+                val offlineConv = OfflineConversationManager.getById(conversationId)
+                
+                conversationRepository.createConversationWithId(
+                    id = conversationId, // Use the SAME ID!
+                    title = offlineConv?.title ?: "Offline Conversation",
+                    source = "offline"
+                )
+                Log.d(TAG, "Created conversation in database: $conversationId")
+            }
+            
+            // Build context from previous sessions
+            currentConversationContext = contextBuilder.buildContext(conversationId)
+            
+            if (currentConversationContext.isNullOrBlank()) {
+                Log.d(TAG, "No previous context found - this is a new conversation")
+            } else {
+                Log.d(TAG, "Built context: ${currentConversationContext!!.length} characters")
+                Log.d(TAG, "Context preview: ${currentConversationContext!!.take(200)}...")
+            }
+            
+            // Get context stats for debugging
+            val stats = contextBuilder.getContextStats(conversationId)
+            Log.d(TAG, "Context stats: $stats")
+            
+            // Create session in Room database
+            currentDbSessionId = sessionRepository.createSession(conversationId)
+            currentConversationId = conversationId
+            Log.d(TAG, "Created offline database session: $currentDbSessionId")
+            
+            // Cleanup old sessions in background
+            scope.launch {
+                try {
+                    val deleted = contextBuilder.cleanupOldSessions(conversationId)
+                    if (deleted > 0) {
+                        Log.d(TAG, "Cleaned up $deleted old sessions")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error during cleanup", e)
+                }
+            }
+            
+            // No LibreChat session context for offline conversations
+            currentSession = null
+            
+            Result.success(currentConversationContext ?: "")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting offline session", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get current conversation context (for offline sessions)
+     */
+    fun getCurrentConversationContext(): String? = currentConversationContext
 
     /**
      * Start a new learning session for the given conversation
@@ -163,6 +254,15 @@ class SessionManager(
             currentSession = sessionContext
             lastContextUpdateTime = 0 // Reset throttle
             
+            // Create session in Room database
+            try {
+                currentDbSessionId = sessionRepository.createSession(conversationId)
+                Log.d(TAG, "Created database session: $currentDbSessionId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create database session", e)
+                // Continue anyway - database is optional
+            }
+            
             Log.d(TAG, "Session started successfully: $sessionId")
             Result.success(sessionContext)
             
@@ -196,56 +296,82 @@ class SessionManager(
 
     /**
      * Capture a user transcript entry
+     * Works for both LibreChat and offline sessions
      * 
      * @param text The transcribed text from the user
      */
     fun captureUserTranscript(text: String) {
-        val session = currentSession ?: run {
-            Log.w(TAG, "Cannot capture user transcript: no active session")
-            return
-        }
-        
         if (text.isBlank()) {
             Log.d(TAG, "Skipping empty user transcript")
             return
         }
         
-        val entry = TranscriptEntry(
-            timestamp = System.currentTimeMillis(),
-            speaker = Speaker.USER,
-            text = text.trim()
-        )
+        // For LibreChat sessions, add to in-memory transcript
+        currentSession?.let { session ->
+            val entry = TranscriptEntry(
+                timestamp = System.currentTimeMillis(),
+                speaker = Speaker.USER,
+                text = text.trim()
+            )
+            
+            session.transcripts.add(entry)
+            enforceTranscriptLimit(session)
+        }
         
-        session.transcripts.add(entry)
-        enforceTranscriptLimit(session)
+        // For ALL sessions (LibreChat and offline), save to database
+        currentDbSessionId?.let { dbSessionId ->
+            scope.launch {
+                try {
+                    sessionRepository.appendTranscript(dbSessionId, "user", text)
+                    Log.d(TAG, "Saved user transcript to database")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save user transcript to database", e)
+                }
+            }
+        } ?: run {
+            Log.w(TAG, "No active database session - transcript not saved")
+        }
         
         Log.d(TAG, "Captured user transcript: ${text.take(50)}...")
     }
     
     /**
      * Capture a bot transcript entry
+     * Works for both LibreChat and offline sessions
      * 
      * @param text The transcribed text from the bot
      */
     fun captureBotTranscript(text: String) {
-        val session = currentSession ?: run {
-            Log.w(TAG, "Cannot capture bot transcript: no active session")
-            return
-        }
-        
         if (text.isBlank()) {
             Log.d(TAG, "Skipping empty bot transcript")
             return
         }
         
-        val entry = TranscriptEntry(
-            timestamp = System.currentTimeMillis(),
-            speaker = Speaker.BOT,
-            text = text.trim()
-        )
+        // For LibreChat sessions, add to in-memory transcript
+        currentSession?.let { session ->
+            val entry = TranscriptEntry(
+                timestamp = System.currentTimeMillis(),
+                speaker = Speaker.BOT,
+                text = text.trim()
+            )
+            
+            session.transcripts.add(entry)
+            enforceTranscriptLimit(session)
+        }
         
-        session.transcripts.add(entry)
-        enforceTranscriptLimit(session)
+        // For ALL sessions (LibreChat and offline), save to database
+        currentDbSessionId?.let { dbSessionId ->
+            scope.launch {
+                try {
+                    sessionRepository.appendTranscript(dbSessionId, "assistant", text)
+                    Log.d(TAG, "Saved bot transcript to database")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save bot transcript to database", e)
+                }
+            }
+        } ?: run {
+            Log.w(TAG, "No active database session - transcript not saved")
+        }
         
         Log.d(TAG, "Captured bot transcript: ${text.take(50)}...")
     }
@@ -341,8 +467,67 @@ class SessionManager(
         }
         
         val session = currentSession ?: run {
-            Log.w(TAG, "No active session - this is an offline conversation, just stopping voice client")
-            // For offline conversations, just stop the voice client
+            Log.w(TAG, "No active LibreChat session")
+            
+            // For offline conversations, still end the database session if exists
+            currentDbSessionId?.let { dbSessionId ->
+                try {
+                    val dbSession = sessionRepository.endSession(dbSessionId)
+                    Log.d(TAG, "Ended offline database session: $dbSessionId")
+                    
+                    // Generate summary for offline session if it has transcripts
+                    dbSession?.let { sess ->
+                        if (sess.transcript.isNotBlank() && sess.durationSeconds != null && sess.durationSeconds > 120) {
+                            Log.d(TAG, "📝 Session qualifies for summary (${sess.durationSeconds}s, ${sess.transcript.length} chars)")
+                            
+                            // Generate summary in background with infinite retry
+                            scope.launch {
+                                try {
+                                    val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
+                                    val summaryPrompt = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryPrompt.value
+                                    val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
+                                    
+                                    if (apiKey.isNullOrBlank()) {
+                                        Log.w(TAG, "⚠️ No Gemini API key, skipping summary generation")
+                                        return@launch
+                                    }
+                                    
+                                    if (summaryPrompt.isNullOrBlank()) {
+                                        Log.w(TAG, "⚠️ No summary prompt configured, skipping summary generation")
+                                        return@launch
+                                    }
+                                    
+                                    Log.d(TAG, "🤖 Generating summary with $summaryModel (infinite retry)...")
+                                    val summaryResult = geminiSummaryService.generateSummaryWithRetry(
+                                        transcript = sess.transcript,
+                                        summaryPrompt = summaryPrompt,
+                                        modelName = summaryModel,
+                                        apiKey = apiKey
+                                    )
+                                    
+                                    summaryResult.onSuccess { summary ->
+                                        sessionRepository.updateSummary(dbSessionId, summary)
+                                        Log.d(TAG, "✅ Summary saved: ${summary.take(100)}...")
+                                    }.onFailure { error ->
+                                        Log.e(TAG, "❌ Failed to generate summary", error)
+                                    }
+                                    
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "❌ Error generating summary", e)
+                                }
+                            }
+                        } else {
+                            Log.d(TAG, "⏭️ Session too short for summary (${sess.durationSeconds}s)")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to end offline database session", e)
+                }
+                currentDbSessionId = null
+                currentConversationId = null
+            }
+            
+            // Stop the voice client
             voiceClientManager?.stop()
             return@withContext Result.success(Unit)
         }
@@ -361,6 +546,16 @@ class SessionManager(
             
             // Stop the voice client connection
             voiceClientManager?.stop()
+            
+            // End database session
+            currentDbSessionId?.let { dbSessionId ->
+                try {
+                    sessionRepository.endSession(dbSessionId)
+                    Log.d(TAG, "Database session ended: $dbSessionId")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to end database session", e)
+                }
+            }
             
             // Format transcripts as conversation
             val transcriptText = formatTranscriptsForLibreChat(session.transcripts, duration)
@@ -387,10 +582,13 @@ class SessionManager(
                     Log.w(TAG, "⚠️ Gemini API key is empty, falling back to transcript")
                     contentToSend = transcriptText
                 } else {
-                    // Generate summary using Gemini
-                    val summaryResult = geminiSummaryService.generateSummary(
+                    // Generate summary using Gemini (infinite retry)
+                    val summaryModel = Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
+                    
+                    val summaryResult = geminiSummaryService.generateSummaryWithRetry(
                         transcript = transcriptText,
                         summaryPrompt = summaryPrompt,
+                        modelName = summaryModel,
                         apiKey = apiKey
                     )
                     
@@ -424,8 +622,39 @@ class SessionManager(
             
             if (syncResult.isSuccess) {
                 Log.d(TAG, "✅ Session transcript synchronized successfully")
+                
+                // Save summary to database if we have one
+                if (useSummaryMode && contentToSend.startsWith("## PODSUMOWANIE ##")) {
+                    currentDbSessionId?.let { dbSessionId ->
+                        try {
+                            val summary = contentToSend.removePrefix("## PODSUMOWANIE ##\n\n")
+                            sessionRepository.updateSummary(dbSessionId, summary)
+                            Log.d(TAG, "Saved summary to database")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to save summary to database", e)
+                        }
+                    }
+                }
+                
+                // Update conversation stats
+                try {
+                    conversationRepository.onSessionCompleted(
+                        session.conversationId,
+                        (duration / 1000).toInt()
+                    )
+                    
+                    // Check if meta-summary needed
+                    if (conversationRepository.needsMetaSummary(session.conversationId)) {
+                        Log.d(TAG, "Meta-summary needed for conversation ${session.conversationId}")
+                        // TODO: Generate meta-summary in Phase 5
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to update conversation stats", e)
+                }
+                
                 // Clear session context on successful submission
                 currentSession = null
+                currentDbSessionId = null
                 lastContextUpdateTime = 0
                 transcriptSyncManager.reset()
                 isEndingSession = false

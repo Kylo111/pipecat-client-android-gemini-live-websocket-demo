@@ -28,6 +28,7 @@ object Preferences {
     private const val PREF_TOOLS_INSTRUCTION = "tools_instruction"
     private const val PREF_USE_SUMMARY_MODE = "use_summary_mode"
     private const val PREF_SUMMARY_PROMPT = "summary_prompt"
+    private const val PREF_SUMMARY_MODEL = "summary_model"
     private const val PREF_PARENTAL_LOCK_ENABLED = "parental_lock_enabled"
 
     private lateinit var prefs: SharedPreferences
@@ -38,7 +39,7 @@ object Preferences {
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, googleCloudApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, parentalLockEnabled
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled
         ).forEach { it.init() }
     }
 
@@ -203,6 +204,7 @@ Use these tools proactively when they can help answer the user's questions. For 
     
     // Summary mode preferences
     val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, false)
+    val summaryModel = StringPref(PREF_SUMMARY_MODEL, "gemini-2.5-flash")
     val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, """
 Przeanalizuj poniższą transkrypcję rozmowy głosowej i stwórz zwięzłe podsumowanie.
 

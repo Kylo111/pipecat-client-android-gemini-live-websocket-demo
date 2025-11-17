@@ -81,6 +81,8 @@ fun ColumnScope.InCallFooter(
     onClickEnd: () -> Unit,
     onCameraClick: () -> Unit = {},
     onGalleryClick: () -> Unit = {},
+    onSpeakerClick: () -> Unit = {},
+    isSpeakerphoneOn: Boolean = false,
 ) {
     var showImageOptions by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -101,6 +103,18 @@ fun ColumnScope.InCallFooter(
             foreground = Color.White,
             background = Colors.buttonNormal,
             border = Colors.buttonNormal
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        FooterButton(
+            modifier = Modifier.weight(1f),
+            onClick = onSpeakerClick,
+            icon = if (isSpeakerphoneOn) R.drawable.volume_high else R.drawable.volume_off,
+            text = "Speaker",
+            foreground = Color.White,
+            background = if (isSpeakerphoneOn) Colors.buttonAccent else Colors.buttonNormal,
+            border = if (isSpeakerphoneOn) Colors.buttonAccent else Colors.buttonNormal
         )
         
         Spacer(modifier = Modifier.width(12.dp))

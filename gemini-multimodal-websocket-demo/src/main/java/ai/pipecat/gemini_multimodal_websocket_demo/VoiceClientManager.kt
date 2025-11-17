@@ -249,6 +249,7 @@ class VoiceClientManager(
     val mic = mutableStateOf(false)
     val camera = mutableStateOf(false)
     val isProcessingImage = mutableStateOf(false)
+    val isSpeakerphoneOn = mutableStateOf(false)
     
     // Tool execution state
     val isExecutingTool = mutableStateOf(false)
@@ -1218,11 +1219,20 @@ class VoiceClientManager(
                     Log.i(TAG, "Bluetooth SCO stopped")
                 }
                 
+                // Disable speakerphone
+                if (am.isSpeakerphoneOn) {
+                    am.isSpeakerphoneOn = false
+                    Log.i(TAG, "Speakerphone disabled")
+                }
+                
                 // Reset audio mode to normal
                 val previousMode = am.mode
                 am.mode = AudioManager.MODE_NORMAL
                 Log.i(TAG, "AudioManager mode reset: $previousMode -> MODE_NORMAL")
             }
+            
+            // Reset speakerphone state
+            isSpeakerphoneOn.value = false
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error cleaning up AudioManager: ${e.message}", e)
         }
@@ -1593,6 +1603,49 @@ class VoiceClientManager(
         Log.i(TAG, "🎤 Toggle microphone - Current state: ${if (mic.value) "ON" else "OFF"}")
         enableMic(!mic.value)
         updateActivity() // User interaction
+    }
+    
+    /**
+     * Toggle speakerphone on/off
+     * Used by UI button during active session
+     */
+    fun toggleSpeakerphone() {
+        val newState = !isSpeakerphoneOn.value
+        Log.i(TAG, "🔊 Toggle speakerphone - New state: ${if (newState) "ON" else "OFF"}")
+        
+        audioManager?.let { am ->
+            try {
+                // When enabling speakerphone, disable Bluetooth SCO
+                if (newState) {
+                    if (isBluetoothScoOn) {
+                        Log.i(TAG, "Disabling Bluetooth SCO for speakerphone")
+                        am.stopBluetoothSco()
+                        am.isBluetoothScoOn = false
+                        isBluetoothScoOn = false
+                    }
+                    am.isSpeakerphoneOn = true
+                    Log.i(TAG, "✅ Speakerphone enabled")
+                } else {
+                    am.isSpeakerphoneOn = false
+                    Log.i(TAG, "✅ Speakerphone disabled")
+                    
+                    // Re-enable Bluetooth SCO if available
+                    if (am.isBluetoothScoAvailableOffCall) {
+                        Log.i(TAG, "Re-enabling Bluetooth SCO")
+                        am.isBluetoothScoOn = true
+                        am.startBluetoothSco()
+                        isBluetoothScoOn = true
+                    }
+                }
+                
+                isSpeakerphoneOn.value = newState
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error toggling speakerphone: ${e.message}", e)
+                errors.add(Error("Failed to toggle speakerphone: ${e.message}"))
+            }
+        } ?: run {
+            Log.w(TAG, "⚠️ AudioManager not initialized, cannot toggle speakerphone")
+        }
     }
 
     private fun handleDisconnect(preserveSessionHandle: Boolean = false) {
