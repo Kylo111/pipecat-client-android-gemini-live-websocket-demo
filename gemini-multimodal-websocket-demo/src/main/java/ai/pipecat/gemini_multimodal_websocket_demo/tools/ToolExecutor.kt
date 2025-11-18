@@ -80,12 +80,167 @@ class ToolExecutor(private val context: Context) {
                 "control_media" -> controlMedia(parameters)
                 "search_nearby" -> searchNearby(parameters)
                 "create_offline_conversation" -> createOfflineConversation(parameters)
-                else -> "Error: Unknown tool '$toolName'"
+                else -> {
+                    // Check if it's a custom tool
+                    val customTools = CustomToolsManager.loadCustomTools(context)
+                    val customTool = customTools.find { it.name == toolName }
+                    
+                    if (customTool != null) {
+                        executeCustomTool(customTool, parameters)
+                    } else {
+                        "Error: Unknown tool '$toolName'"
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error executing tool $toolName: ${e.message}", e)
             "Error executing $toolName: ${e.message}"
         }
+    }
+    
+    /**
+     * Execute a custom user-defined tool
+     */
+    private suspend fun executeCustomTool(tool: CustomToolsManager.CustomTool, parameters: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Executing custom tool: ${tool.name}")
+        
+        when (tool.action.type) {
+            "http" -> executeHttpAction(tool, parameters)
+            "intent" -> executeIntentAction(tool, parameters)
+            else -> "Error: Unsupported action type: ${tool.action.type}"
+        }
+    }
+    
+    /**
+     * Execute HTTP action for custom tool
+     */
+    private suspend fun executeHttpAction(tool: CustomToolsManager.CustomTool, parameters: JsonObject): String = withContext(Dispatchers.IO) {
+        try {
+            var url = tool.action.url ?: return@withContext "Error: Missing URL"
+            var body = tool.action.body
+            
+            // Replace parameters in URL and body
+            parameters.forEach { (key, value) ->
+                val paramValue = value.jsonPrimitive.content
+                url = url.replace("{$key}", paramValue)
+                body = body?.replace("{$key}", paramValue)
+            }
+            
+            val requestBuilder = Request.Builder().url(url)
+            
+            // Add headers
+            tool.action.headers?.forEach { (key, value) ->
+                requestBuilder.addHeader(key, value)
+            }
+            
+            // Add method and body
+            when (tool.action.method?.uppercase()) {
+                "GET" -> requestBuilder.get()
+                "POST" -> {
+                    val requestBody = okhttp3.RequestBody.create(
+                        "application/json".toMediaType(),
+                        body ?: "{}"
+                    )
+                    requestBuilder.post(requestBody)
+                }
+                "PUT" -> {
+                    val requestBody = okhttp3.RequestBody.create(
+                        "application/json".toMediaType(),
+                        body ?: "{}"
+                    )
+                    requestBuilder.put(requestBody)
+                }
+                "DELETE" -> requestBuilder.delete()
+                else -> return@withContext "Error: Unsupported HTTP method: ${tool.action.method}"
+            }
+            
+            val response = httpClient.newCall(requestBuilder.build()).execute()
+            val responseBody = response.body?.string() ?: return@withContext "Error: Empty response"
+            
+            if (!response.isSuccessful) {
+                return@withContext "Error: HTTP ${response.code} - $responseBody"
+            }
+            
+            // Extract value from response using JSON path if specified
+            if (tool.action.response_path != null) {
+                try {
+                    val json = JSONObject(responseBody)
+                    val value = extractJsonPath(json, tool.action.response_path)
+                    return@withContext value ?: responseBody
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not extract JSON path: ${e.message}")
+                    return@withContext responseBody
+                }
+            }
+            
+            responseBody
+            
+        } catch (e: IOException) {
+            "Error: Network error - ${e.message}"
+        } catch (e: Exception) {
+            "Error: ${e.message}"
+        }
+    }
+    
+    /**
+     * Execute Android Intent action for custom tool
+     */
+    private suspend fun executeIntentAction(tool: CustomToolsManager.CustomTool, parameters: JsonObject): String = withContext(Dispatchers.IO) {
+        try {
+            val intent = Intent(tool.action.intent_action ?: return@withContext "Error: Missing intent action")
+            
+            // Set data
+            var data = tool.action.intent_data
+            parameters.forEach { (key, value) ->
+                val paramValue = value.jsonPrimitive.content
+                data = data?.replace("{$key}", paramValue)
+            }
+            if (data != null) {
+                intent.data = Uri.parse(data)
+            }
+            
+            // Set package
+            tool.action.intent_package?.let { intent.setPackage(it) }
+            
+            // Add extras
+            tool.action.intent_extras?.forEach { (key, value) ->
+                var extraValue = value
+                parameters.forEach { (paramKey, paramValue) ->
+                    extraValue = extraValue.replace("{$paramKey}", paramValue.jsonPrimitive.content)
+                }
+                intent.putExtra(key, extraValue)
+            }
+            
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            
+            // Check if intent can be handled
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
+                "Action executed successfully"
+            } else {
+                "Error: No app found to handle this action"
+            }
+            
+        } catch (e: Exception) {
+            "Error: ${e.message}"
+        }
+    }
+    
+    /**
+     * Extract value from JSON using simple path notation (e.g., "data.amount")
+     */
+    private fun extractJsonPath(json: JSONObject, path: String): String? {
+        val parts = path.split(".")
+        var current: Any = json
+        
+        for (part in parts) {
+            current = when (current) {
+                is JSONObject -> current.opt(part) ?: return null
+                else -> return null
+            }
+        }
+        
+        return current.toString()
     }
     
     /**

@@ -19,18 +19,26 @@ object ToolDefinitions {
     
     /**
      * Get all tool declarations for Gemini Live API
+     * Includes both built-in tools and user-defined custom tools
      */
-    fun getAllTools(): List<JsonObject> = listOf(
-        searchWebTool(),
-        getWeatherTool(),
-        getCurrentTimeTool(),
-        getLocationTool(),
-        calculateTool(),
-        createNoteTool(),
-        controlMediaTool(),
-        searchNearbyTool(),
-        createOfflineConversationTool()
-    )
+    fun getAllTools(context: android.content.Context): List<JsonObject> {
+        val builtInTools = listOf(
+            searchWebTool(),
+            getWeatherTool(),
+            getCurrentTimeTool(),
+            getLocationTool(),
+            calculateTool(),
+            createNoteTool(),
+            controlMediaTool(),
+            searchNearbyTool(),
+            createOfflineConversationTool()
+        )
+        
+        // Add custom tools from user configuration
+        val customTools = CustomToolsManager.getCustomToolDeclarations(context)
+        
+        return builtInTools + customTools
+    }
     
     /**
      * Search the internet for information

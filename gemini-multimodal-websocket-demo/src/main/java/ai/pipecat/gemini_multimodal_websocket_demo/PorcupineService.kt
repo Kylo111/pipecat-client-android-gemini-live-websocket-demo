@@ -30,12 +30,113 @@ class PorcupineService : Service() {
     private val loadedWakeWords = mutableListOf<WakeWordConfig>()
     private var isInitializing = false
     private var isInitialized = false
+    private var isPorcupinePaused = false
+    private var controlReceiver: android.content.BroadcastReceiver? = null
     
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "PorcupineService onCreate")
         wakeWordHandler = WakeWordHandler(this)
         createNotificationChannel()
+        registerControlReceiver()
+    }
+    
+    /**
+     * Register broadcast receiver for pause/resume control
+     */
+    private fun registerControlReceiver() {
+        controlReceiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    "ai.pipecat.gemini_multimodal_websocket_demo.PAUSE_PORCUPINE" -> {
+                        pausePorcupine()
+                    }
+                    "ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE" -> {
+                        resumePorcupine()
+                    }
+                }
+            }
+        }
+        
+        val filter = android.content.IntentFilter().apply {
+            addAction("ai.pipecat.gemini_multimodal_websocket_demo.PAUSE_PORCUPINE")
+            addAction("ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE")
+        }
+        registerReceiver(controlReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        Log.d(TAG, "Control receiver registered")
+    }
+    
+    /**
+     * Pause Porcupine wake word detection
+     * CRITICAL: Must call stop() before delete() to stop internal processing thread
+     */
+    private fun pausePorcupine() {
+        if (isPorcupinePaused) {
+            Log.d(TAG, "Porcupine already paused")
+            return
+        }
+        
+        try {
+            // CRITICAL: Stop processing thread first
+            porcupineManager?.stop()
+            
+            // CRITICAL: Wait for internal thread to fully stop
+            // PorcupineManager has background thread that needs time to exit
+            Log.d(TAG, "Waiting 300ms for Porcupine thread to stop...")
+            Thread.sleep(300)
+            
+            // Then delete to release AudioRecord
+            porcupineManager?.delete()
+            porcupineManager = null
+            isPorcupinePaused = true
+            Log.i(TAG, "🔵 Porcupine PAUSED (PorcupineManager stopped and deleted, AudioRecord released)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error pausing Porcupine", e)
+        }
+    }
+    
+    /**
+     * Resume Porcupine wake word detection
+     * CRITICAL: Wait longer to ensure VoiceClientManager has FULLY released AudioRecord
+     * CRITICAL: Only works when screen is ON (Android 14+ restriction)
+     */
+    private fun resumePorcupine() {
+        if (!isPorcupinePaused) {
+            Log.d(TAG, "Porcupine already running")
+            return
+        }
+        
+        if (!isInitialized) {
+            Log.w(TAG, "Cannot resume - Porcupine not initialized yet")
+            return
+        }
+        
+        // Check if screen is ON
+        val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        val isScreenOn = powerManager.isInteractive
+        
+        if (!isScreenOn) {
+            Log.w(TAG, "⚠️ Screen is OFF - cannot resume Porcupine (Android 14+ restriction)")
+            Log.w(TAG, "   Wake word detection disabled until screen is turned ON")
+            return
+        }
+        
+        // Recreate PorcupineManager in background thread
+        Thread {
+            try {
+                // CRITICAL: Longer delay (500ms) to ensure VoiceClientManager has FULLY released AudioRecord
+                // This prevents AudioRecord conflict (Error -38)
+                Log.d(TAG, "Waiting 500ms before resuming Porcupine...")
+                Thread.sleep(500)
+                
+                // Reinitialize Porcupine (creates new PorcupineManager and AudioRecord)
+                initializePorcupine()
+                isPorcupinePaused = false
+                Log.i(TAG, "🔵 Porcupine RESUMED (PorcupineManager recreated, AudioRecord active)")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error resuming Porcupine", e)
+            }
+        }.start()
     }
     
     override fun onBind(intent: Intent?): IBinder? {
@@ -59,11 +160,23 @@ class PorcupineService : Service() {
         
         isInitializing = true
         
+        // Start in PAUSED state - will be resumed via broadcast when needed
+        isPorcupinePaused = true
+        
         // Initialize Porcupine asynchronously to avoid blocking
+        // NOTE: This creates PorcupineManager but we immediately delete it
+        // It will be recreated when RESUME broadcast is received
         Thread {
             try {
                 initializePorcupine()
                 isInitialized = true
+                
+                // Immediately pause (stop and delete) after initialization
+                // This ensures we start in PAUSED state
+                porcupineManager?.stop()
+                porcupineManager?.delete()
+                porcupineManager = null
+                Log.d(TAG, "Porcupine initialized and immediately paused (waiting for RESUME)")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize Porcupine", e)
                 handleInitializationError(e)
@@ -79,6 +192,16 @@ class PorcupineService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "PorcupineService onDestroy")
+        
+        try {
+            controlReceiver?.let {
+                unregisterReceiver(it)
+                controlReceiver = null
+                Log.d(TAG, "Control receiver unregistered")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering control receiver", e)
+        }
         
         try {
             porcupineManager?.stop()
@@ -138,10 +261,10 @@ class PorcupineService : Service() {
             
             porcupineManager = builder.build(this, callback)
             
-            // Start listening
+            // Start listening immediately after creation
             porcupineManager?.start()
             
-            Log.d(TAG, "Porcupine initialized and started successfully")
+            Log.d(TAG, "Porcupine initialized and started")
             
             // Update notification with wake word count
             val notification = createNotification(wakeWords.size)

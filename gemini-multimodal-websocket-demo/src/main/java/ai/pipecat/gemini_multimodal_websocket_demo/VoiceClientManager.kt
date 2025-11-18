@@ -220,6 +220,17 @@ class VoiceClientManager(
     private var botResponseTimeoutJob: Job? = null
     val minutesUntilBotTimeout = mutableStateOf(-1) // -1 = disabled, 0+ = minutes remaining
     
+    // Bot silence detection (to stop animation when audio ends)
+    private var lastBotAudioTime: Long = 0L
+    private var botSilenceDetectionJob: Job? = null
+    private val BOT_SILENCE_THRESHOLD_MS = 1500L // 1.5 seconds of silence = bot stopped talking
+    
+    // WebSocket health monitoring
+    private var lastWebSocketMessageTime: Long = 0L
+    private var webSocketHealthJob: Job? = null
+    private val WEBSOCKET_HEALTH_CHECK_INTERVAL_MS = 5000L // Check every 5 seconds
+    private val WEBSOCKET_TIMEOUT_MS = 30000L // 30 seconds without any message = connection issue (aggressive timeout for quick recovery)
+    
     // Image processing
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
     private var pendingImage: Uri? = null
@@ -232,10 +243,11 @@ class VoiceClientManager(
     private val SESSION_RESUMPTION_TIMEOUT = 2 * 60 * 60 * 1000L // 2 hours in milliseconds
     
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .pingInterval(15, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)  // Increased from 10s to 30s
+        .readTimeout(0, TimeUnit.SECONDS)      // Disabled - no timeout for streaming
+        .writeTimeout(30, TimeUnit.SECONDS)    // Increased from 10s to 30s
+        .pingInterval(30, TimeUnit.SECONDS)    // Increased from 15s to 30s - less aggressive
+        .retryOnConnectionFailure(true)        // Enable automatic retry
         .build()
 
     val state = mutableStateOf(ConnectionState.DISCONNECTED)
@@ -329,6 +341,76 @@ class VoiceClientManager(
     }
     
     /**
+     * Stop AudioRecord to free microphone for Picovoice
+     * Called when bot starts speaking
+     */
+    private fun stopAudioRecording() {
+        try {
+            audioRecord?.stop()
+            Log.i(TAG, "🎤 AudioRecord stopped (bot speaking, freeing mic for Picovoice)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error stopping AudioRecord: ${e.message}")
+        }
+    }
+    
+    /**
+     * Resume AudioRecord after bot stops speaking
+     * CRITICAL: Wait to ensure Picovoice has FULLY released AudioRecord
+     */
+    private fun resumeAudioRecording() {
+        // Use Thread instead of coroutine to ensure delay works
+        Thread {
+            try {
+                // CRITICAL: Wait 500ms to ensure Picovoice has FULLY stopped and deleted
+                Log.d(TAG, "Waiting 500ms before resuming AudioRecord...")
+                Thread.sleep(500)
+                
+                audioRecord?.startRecording()
+                Log.i(TAG, "🎤 AudioRecord resumed (bot finished, reclaiming mic)")
+            } catch (e: Exception) {
+                Log.w(TAG, "Error resuming AudioRecord: ${e.message}")
+            }
+        }.start()
+    }
+    
+    /**
+     * Update Picovoice service state based on session state
+     * Send broadcast to PorcupineService to pause/resume wake word detection
+     * 
+     * Strategy:
+     * - PorcupineService runs continuously as foreground service
+     * - When bot talks or session paused → RESUME Porcupine (can use mic)
+     * - When user talks → PAUSE Porcupine (VoiceClientManager uses mic)
+     * 
+     * This avoids the Android 14+ crash when starting foreground service with microphone type
+     */
+    private fun updatePicovoiceState() {
+        try {
+            val shouldPorcupineBeActive = isPaused.value || botIsTalking.value
+            
+            val action = if (shouldPorcupineBeActive) {
+                "ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE"
+            } else {
+                "ai.pipecat.gemini_multimodal_websocket_demo.PAUSE_PORCUPINE"
+            }
+            
+            val intent = Intent(action)
+            intent.setPackage(context.packageName)
+            context.sendBroadcast(intent)
+            
+            val reason = when {
+                isPaused.value -> "session paused"
+                botIsTalking.value -> "bot talking"
+                else -> "user can talk"
+            }
+            
+            Log.i(TAG, "🔵 Picovoice ${if (shouldPorcupineBeActive) "RESUME" else "PAUSE"} ($reason)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating Picovoice state: ${e.message}", e)
+        }
+    }
+    
+    /**
      * Update last bot response time (called when bot responds with audio or text)
      */
     private fun updateBotResponseTime() {
@@ -336,6 +418,105 @@ class VoiceClientManager(
         val timeout = Preferences.botResponseTimeoutMinutes.value
         minutesUntilBotTimeout.value = timeout
         Log.d(TAG, "Bot response detected - timer reset to ${timeout}min")
+    }
+    
+    /**
+     * Start monitoring bot audio silence to detect when bot stops speaking
+     * This is a fallback mechanism in case turnComplete message is not received
+     */
+    private fun startBotSilenceDetection() {
+        // Cancel existing job if any
+        botSilenceDetectionJob?.cancel()
+        
+        botSilenceDetectionJob = scope?.launch {
+            while (isActive) {
+                delay(500) // Check every 500ms
+                
+                // Only check if bot is marked as talking
+                if (botIsTalking.value) {
+                    val silenceDuration = System.currentTimeMillis() - lastBotAudioTime
+                    
+                    // If we haven't received audio for BOT_SILENCE_THRESHOLD_MS, bot stopped talking
+                    if (silenceDuration > BOT_SILENCE_THRESHOLD_MS) {
+                        Log.i(TAG, "🔇 Bot stopped speaking (silence detected: ${silenceDuration}ms)")
+                        botIsTalking.value = false
+                        botAudioLevel.floatValue = 0f
+                    }
+                }
+            }
+        }
+        
+        Log.d(TAG, "Bot silence detection started (threshold: ${BOT_SILENCE_THRESHOLD_MS}ms)")
+    }
+    
+    /**
+     * Stop monitoring bot audio silence
+     */
+    private fun stopBotSilenceDetection() {
+        botSilenceDetectionJob?.cancel()
+        botSilenceDetectionJob = null
+        Log.d(TAG, "Bot silence detection stopped")
+    }
+    
+    /**
+     * Start monitoring WebSocket connection health
+     * Detects if connection is stalled (no messages received)
+     */
+    private fun startWebSocketHealthMonitoring() {
+        // Cancel existing job if any
+        webSocketHealthJob?.cancel()
+        
+        // Initialize last message time
+        lastWebSocketMessageTime = System.currentTimeMillis()
+        
+        webSocketHealthJob = scope?.launch {
+            while (isActive) {
+                delay(WEBSOCKET_HEALTH_CHECK_INTERVAL_MS)
+                
+                // Only check if connected (not during reconnection)
+                if (state.value == ConnectionState.CONNECTED) {
+                    val timeSinceLastMessage = System.currentTimeMillis() - lastWebSocketMessageTime
+                    
+                    if (timeSinceLastMessage > WEBSOCKET_TIMEOUT_MS) {
+                        Log.e(TAG, "⚠️ WebSocket connection appears stalled!")
+                        Log.e(TAG, "   No messages received for ${timeSinceLastMessage / 1000}s")
+                        Log.e(TAG, "   Attempting reconnection...")
+                        
+                        // Trigger reconnection
+                        state.value = ConnectionState.RECONNECTING
+                        updateServiceNotification()
+                        scope?.launch {
+                            reconnectionManager.startReconnection()
+                        }
+                    } else if (DEBUG_LOGGING) {
+                        Log.d(TAG, "✅ WebSocket healthy - last message ${timeSinceLastMessage / 1000}s ago")
+                    }
+                } else if (state.value == ConnectionState.RECONNECTING) {
+                    // During reconnection, don't check health - ReconnectionManager handles it
+                    if (DEBUG_LOGGING) {
+                        Log.d(TAG, "⏸️ Skipping health check - reconnection in progress")
+                    }
+                }
+            }
+        }
+        
+        Log.i(TAG, "WebSocket health monitoring started (timeout: ${WEBSOCKET_TIMEOUT_MS / 1000}s)")
+    }
+    
+    /**
+     * Stop monitoring WebSocket connection health
+     */
+    private fun stopWebSocketHealthMonitoring() {
+        webSocketHealthJob?.cancel()
+        webSocketHealthJob = null
+        Log.d(TAG, "WebSocket health monitoring stopped")
+    }
+    
+    /**
+     * Update last WebSocket message time (called on every message)
+     */
+    private fun updateWebSocketMessageTime() {
+        lastWebSocketMessageTime = System.currentTimeMillis()
     }
     
 
@@ -458,9 +639,9 @@ class VoiceClientManager(
                     Log.i(TAG, "🆕 Starting new session")
                 }
                 
-                // Get all tool definitions
-                val toolDeclarations = ToolDefinitions.getAllTools()
-                Log.i(TAG, "📤 Configuring ${toolDeclarations.size} tools for function calling")
+                // Get all tool definitions (built-in + custom)
+                val toolDeclarations = ToolDefinitions.getAllTools(context)
+                Log.i(TAG, "📤 Configuring ${toolDeclarations.size} tools for function calling (including custom tools)")
                 
                 val setupMsg = SetupMessage(
                     setup = Setup(
@@ -525,14 +706,15 @@ class VoiceClientManager(
                 try {
                     val text = bytes.utf8()
                     if (DEBUG_LOGGING) {
-                        Log.d(TAG, "Received binary message as text: $text")
+                        Log.d(TAG, "📨 Received binary message as text: $text")
                     } else {
-                        Log.d(TAG, "Received binary message as text (${text.length} chars)")
+                        Log.d(TAG, "📨 Received binary message as text (${text.length} chars)")
                     }
                     handleTextMessage(text)
                 } catch (e: Exception) {
+                    // This is audio data
                     if (DEBUG_LOGGING) {
-                        Log.d(TAG, "Received binary audio message: ${bytes.size} bytes")
+                        Log.d(TAG, "🎵 Received binary audio message: ${bytes.size} bytes")
                     }
                     handleAudioMessage(bytes.toByteArray())
                 }
@@ -663,6 +845,9 @@ class VoiceClientManager(
     }
 
     private fun handleTextMessage(text: String) {
+        // Update WebSocket health timestamp
+        updateWebSocketMessageTime()
+        
         try {
             val jsonElement = json.parseToJsonElement(text)
             val jsonObject = jsonElement.jsonObject
@@ -722,6 +907,11 @@ class VoiceClientManager(
                 // Reset reconnection manager on successful connection
                 reconnectionManager.reset()
                 
+                // Reset audio stats
+                audioChunksReceived = 0
+                totalAudioBytesReceived = 0L
+                lastAudioLogTime = System.currentTimeMillis()
+                
                 // Only start audio if not already started (for reconnection case)
                 if (audioRecord == null) {
                     registerBluetoothScoReceiver()
@@ -745,6 +935,16 @@ class VoiceClientManager(
                 // Start bot response timeout monitoring
                 if (botResponseTimeoutJob == null || !botResponseTimeoutJob!!.isActive) {
                     startBotResponseTimeoutMonitoring()
+                }
+                
+                // Start bot silence detection
+                if (botSilenceDetectionJob == null || !botSilenceDetectionJob!!.isActive) {
+                    startBotSilenceDetection()
+                }
+                
+                // Start WebSocket health monitoring
+                if (webSocketHealthJob == null || !webSocketHealthJob!!.isActive) {
+                    startWebSocketHealthMonitoring()
                 }
                 
                 // Retry pending image if any (after reconnection)
@@ -814,6 +1014,8 @@ class VoiceClientManager(
                                         if (!botIsTalking.value) {
                                             Log.i(TAG, "Bot started speaking")
                                             botIsTalking.value = true
+                                            stopAudioRecording()      // Stop AudioRecord to free mic
+                                            updatePicovoiceState()    // Resume Picovoice (can use mic now)
                                         }
                                         updateBotResponseTime() // Bot responded with audio
                                     }
@@ -829,6 +1031,8 @@ class VoiceClientManager(
                 if (serverContent?.containsKey("turnComplete") == true) {
                     Log.i(TAG, "🔇 Bot stopped speaking (turnComplete in serverContent)")
                     botIsTalking.value = false
+                    resumeAudioRecording()    // Resume AudioRecord
+                    updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
                 }
             }
             
@@ -836,6 +1040,8 @@ class VoiceClientManager(
             if (jsonObject.containsKey("turnComplete")) {
                 Log.i(TAG, "🔇 Bot stopped speaking (turnComplete at root)")
                 botIsTalking.value = false
+                resumeAudioRecording()    // Resume AudioRecord
+                updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
             }
 
             // Check for tool calls
@@ -974,10 +1180,30 @@ class VoiceClientManager(
         return ""
     }
 
+    private var audioChunksReceived = 0
+    private var totalAudioBytesReceived = 0L
+    private var lastAudioLogTime = 0L
+    
     private fun handleAudioMessage(audioData: ByteArray) {
-        if (DEBUG_LOGGING) {
-            Log.d(TAG, "Handling audio message: ${audioData.size} bytes")
+        // Update WebSocket health timestamp
+        updateWebSocketMessageTime()
+        
+        audioChunksReceived++
+        totalAudioBytesReceived += audioData.size
+        
+        // Log audio stats every 5 seconds
+        val now = System.currentTimeMillis()
+        if (now - lastAudioLogTime > 5000) {
+            Log.i(TAG, "📊 Audio stats: $audioChunksReceived chunks, ${totalAudioBytesReceived / 1024}KB total")
+            lastAudioLogTime = now
         }
+        
+        if (DEBUG_LOGGING) {
+            Log.d(TAG, "📥 Received audio chunk #$audioChunksReceived: ${audioData.size} bytes")
+        }
+        
+        // Update last bot audio time for silence detection
+        lastBotAudioTime = System.currentTimeMillis()
         
         // Apply volume boost if configured
         val boostedAudio = if (currentVolumeBoost != 1.0f) {
@@ -993,13 +1219,38 @@ class VoiceClientManager(
         scope?.launch {
             try {
                 audioTrackMutex.withLock {
-                    val written = audioTrack?.write(boostedAudio, 0, boostedAudio.size) ?: 0
-                    if (DEBUG_LOGGING && written != boostedAudio.size) {
-                        Log.w(TAG, "AudioTrack write incomplete: wrote $written of ${boostedAudio.size} bytes")
+                    val audioTrackInstance = audioTrack
+                    if (audioTrackInstance == null) {
+                        Log.w(TAG, "⚠️ AudioTrack is null, cannot play audio")
+                        return@withLock
+                    }
+                    
+                    // Check AudioTrack state before writing
+                    val state = audioTrackInstance.state
+                    val playState = audioTrackInstance.playState
+                    
+                    if (state != AudioTrack.STATE_INITIALIZED) {
+                        Log.e(TAG, "❌ AudioTrack not initialized (state: $state)")
+                        return@withLock
+                    }
+                    
+                    if (playState != AudioTrack.PLAYSTATE_PLAYING) {
+                        Log.w(TAG, "⚠️ AudioTrack not playing (playState: $playState), restarting...")
+                        audioTrackInstance.play()
+                    }
+                    
+                    val written = audioTrackInstance.write(boostedAudio, 0, boostedAudio.size)
+                    
+                    if (written < 0) {
+                        Log.e(TAG, "❌ AudioTrack write error: $written")
+                    } else if (written != boostedAudio.size) {
+                        Log.w(TAG, "⚠️ AudioTrack write incomplete: wrote $written of ${boostedAudio.size} bytes")
+                    } else if (DEBUG_LOGGING) {
+                        Log.d(TAG, "✅ AudioTrack write successful: $written bytes")
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error writing to AudioTrack: ${e.message}", e)
+                Log.e(TAG, "❌ Error writing to AudioTrack: ${e.message}", e)
             }
         }
         
@@ -1008,7 +1259,7 @@ class VoiceClientManager(
         botAudioLevel.floatValue = level
         
         if (DEBUG_LOGGING && level > 0.1f) {
-            Log.d(TAG, "Bot audio level: $level")
+            Log.d(TAG, "🔊 Bot audio level: $level")
         }
     }
     
@@ -1309,12 +1560,27 @@ class VoiceClientManager(
                 Log.i(TAG, "Audio recording loop started - Adjusted delay: ${adjustedDelay}ms (speed: $currentSpeechSpeed)")
                 
                 while (isActive && (state.value == ConnectionState.CONNECTED || state.value == ConnectionState.RECONNECTING)) {
+                    // Skip reading if bot is talking (AudioRecord is stopped)
+                    if (botIsTalking.value) {
+                        delay(100)  // Wait while bot talks
+                        continue
+                    }
+                    
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                     
                     if (read > 0) {
                         // Calculate audio level
                         val level = calculateAudioLevel(buffer.copyOf(read))
                         userAudioLevel.floatValue = level
+                        
+                        // CRITICAL FIX: Don't send audio while bot is talking
+                        // This prevents echo/feedback and bot interruption
+                        if (botIsTalking.value) {
+                            if (DEBUG_LOGGING) {
+                                Log.d(TAG, "⏸️ Skipping audio send - bot is talking")
+                            }
+                            continue // Skip sending this audio chunk
+                        }
                         
                         // Detect if user is talking using configurable threshold
                         // This threshold affects ONLY activity detection for auto-pause,
@@ -1381,13 +1647,21 @@ class VoiceClientManager(
 
     private fun startAudioPlayback() {
         try {
-            val bufferSize = AudioTrack.getMinBufferSize(
+            val minBufferSize = AudioTrack.getMinBufferSize(
                 OUTPUT_SAMPLE_RATE,
                 OUTPUT_CHANNEL_CONFIG,
                 AUDIO_FORMAT
             )
+            
+            // Use 4x minimum buffer size for better streaming stability
+            // This prevents audio dropouts during network fluctuations
+            val bufferSize = minBufferSize * 4
 
-            Log.i(TAG, "Starting audio playback - Buffer size: $bufferSize bytes, Sample rate: $OUTPUT_SAMPLE_RATE Hz")
+            Log.i(TAG, "Starting audio playback:")
+            Log.i(TAG, "  Min buffer size: $minBufferSize bytes")
+            Log.i(TAG, "  Using buffer size: $bufferSize bytes (4x min)")
+            Log.i(TAG, "  Sample rate: $OUTPUT_SAMPLE_RATE Hz")
+            Log.i(TAG, "  Buffer duration: ~${(bufferSize * 1000) / (OUTPUT_SAMPLE_RATE * 2)}ms")
 
             audioTrack = AudioTrack(
                 AudioManager.STREAM_VOICE_CALL,
@@ -1399,9 +1673,11 @@ class VoiceClientManager(
             )
 
             audioTrack?.play()
-            Log.i(TAG, "Audio playback started successfully")
+            Log.i(TAG, "✅ Audio playback started successfully")
+            Log.i(TAG, "  AudioTrack state: ${audioTrack?.state}")
+            Log.i(TAG, "  AudioTrack playback state: ${audioTrack?.playState}")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start audio playback: ${e.message}", e)
+            Log.e(TAG, "❌ Failed to start audio playback: ${e.message}", e)
             if (DEBUG_LOGGING) {
                 Log.e(TAG, "Audio playback error details:", e)
             }
@@ -1435,6 +1711,12 @@ class VoiceClientManager(
         isPaused.value = true
         mic.value = false // Update mic state to reflect paused session
         
+        // Stop AudioRecord if still running
+        audioRecord?.stop()
+        
+        // Update Picovoice state (start it since session is paused)
+        updatePicovoiceState()
+        
         // Close WebSocket but DO NOT clear session handle
         // This allows resumption when user re-enables mic
         Log.i(TAG, "🔄 Pausing session - session handle preserved for resumption")
@@ -1457,6 +1739,9 @@ class VoiceClientManager(
         // Clear paused flag
         isPaused.value = false
         
+        // Update Picovoice state (stop it since session is resuming)
+        updatePicovoiceState()
+        
         // Start auto-pause monitoring
         startAutoPauseMonitoring()
         
@@ -1467,6 +1752,7 @@ class VoiceClientManager(
         }
         
         // Start connection (will use session resumption if handle available)
+        // AudioRecord will start automatically after connection is established
         start(currentThreadSettings)
     }
     
@@ -1571,10 +1857,18 @@ class VoiceClientManager(
                 updateActivity() // User interaction
             }
         } else {
+            // CRITICAL FIX: Do NOT pause if already RECONNECTING!
+            // Picovoice może fałszywie wykryć wake word podczas reconnection
+            // Wywołanie pause() anuluje reconnection i powoduje utknięcie
+            if (state.value == ConnectionState.RECONNECTING) {
+                Log.w(TAG, "⚠️ Mic disabled during RECONNECTING - ignoring to allow reconnection to complete")
+                Log.w(TAG, "   This is likely a false wake word detection during reconnection")
+                return
+            }
+            
             // If connected, pause the session
             if (state.value == ConnectionState.CONNECTED || 
-                state.value == ConnectionState.CONNECTING ||
-                state.value == ConnectionState.RECONNECTING) {
+                state.value == ConnectionState.CONNECTING) {
                 Log.i(TAG, "Mic disabled - pausing session")
                 pause()
             } else {
@@ -1740,6 +2034,9 @@ class VoiceClientManager(
         
         stopAutoPauseMonitoring()
         Log.d(TAG, "Auto-pause monitoring stopped")
+        
+        stopBotSilenceDetection()
+        stopWebSocketHealthMonitoring()
         
         webSocket = null
         Log.d(TAG, "WebSocket reference cleared")
@@ -1983,7 +2280,9 @@ class VoiceClientManager(
             }
 
             val maxVolume = audioManager!!.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-            val targetVolume = (maxVolume * 0.9).toInt()
+            // Reduced to 50% to minimize acoustic echo when Picovoice is listening
+            // This helps Picovoice detect wake word even when bot is speaking
+            val targetVolume = (maxVolume * 0.5).toInt()
             
             audioManager!!.setStreamVolume(
                 AudioManager.STREAM_VOICE_CALL,
@@ -1991,7 +2290,7 @@ class VoiceClientManager(
                 0
             )
             
-            Log.i(TAG, "Audio volume set to $targetVolume (90% of max $maxVolume)")
+            Log.i(TAG, "Audio volume set to $targetVolume (50% of max $maxVolume) - reduced for better wake word detection")
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to increase audio volume", e)
@@ -2041,26 +2340,61 @@ class VoiceClientManager(
     private inner class ReconnectionManager {
         private var attemptCount = 0
         private var reconnectJob: Job? = null
-        private val maxAttempts = 5
-        private val baseDelay = 1000L // 1 second
+        private val maxAttempts = 3 // Reduced from 5 to 3 for faster recovery
+        private val baseDelay = 500L // 500ms (reduced from 1s for faster attempts)
+        private val TOTAL_RECONNECTION_TIMEOUT = 10000L // 10 seconds max (reduced from 30s for quicker user feedback)
+        private val AUTO_RESTART_TIMEOUT = 5000L // 5 seconds - if reconnecting takes longer, do automatic restart
         
         /**
          * Start reconnection attempts with exponential backoff
+         * If reconnecting takes longer than 5 seconds, automatically restart (like pause/resume)
          */
         suspend fun startReconnection() {
             // Cancel any existing reconnection job
             reconnectJob?.cancel()
             
-            Log.i(TAG, "Starting reconnection process")
+            Log.i(TAG, "🔄 Starting reconnection process (max ${maxAttempts} attempts, ${TOTAL_RECONNECTION_TIMEOUT / 1000}s timeout)")
+            Log.i(TAG, "   Auto-restart after ${AUTO_RESTART_TIMEOUT / 1000}s if still reconnecting")
+            val startTime = System.currentTimeMillis()
             
             reconnectJob = scope?.launch {
+                // Start auto-restart monitor in parallel
+                Log.i(TAG, "🔍 DEBUG: Launching auto-restart monitor job")
+                val autoRestartJob = launch {
+                    Log.i(TAG, "🔍 DEBUG: Auto-restart job started, waiting ${AUTO_RESTART_TIMEOUT / 1000}s...")
+                    delay(AUTO_RESTART_TIMEOUT)
+                    
+                    Log.i(TAG, "🔍 DEBUG: ${AUTO_RESTART_TIMEOUT / 1000}s passed, checking state...")
+                    Log.i(TAG, "   Current state: ${state.value}")
+                    Log.i(TAG, "   Is RECONNECTING: ${state.value == ConnectionState.RECONNECTING}")
+                    
+                    // If still reconnecting after 5 seconds, do automatic restart
+                    if (state.value == ConnectionState.RECONNECTING) {
+                        Log.w(TAG, "⚠️ Still reconnecting after ${AUTO_RESTART_TIMEOUT / 1000}s - triggering automatic restart")
+                        doAutomaticRestart()
+                    } else {
+                        Log.i(TAG, "✅ State changed to ${state.value}, no auto-restart needed")
+                    }
+                }
+                Log.i(TAG, "🔍 DEBUG: Auto-restart job launched successfully")
+                
                 while (isActive && attemptCount < maxAttempts) {
+                    // Check global timeout
+                    val elapsed = System.currentTimeMillis() - startTime
+                    if (elapsed > TOTAL_RECONNECTION_TIMEOUT) {
+                        Log.w(TAG, "⏱️ Reconnection timeout after ${elapsed / 1000}s (max: ${TOTAL_RECONNECTION_TIMEOUT / 1000}s)")
+                        Log.w(TAG, "   Completed $attemptCount attempts before timeout")
+                        autoRestartJob.cancel()
+                        showMaxAttemptsDialog()
+                        return@launch
+                    }
+                    
                     attemptCount++
                     reconnectionAttempt.value = attemptCount // Update UI state
                     updateServiceNotification() // Update notification with attempt count
                     val delay = calculateBackoff(attemptCount)
                     
-                    Log.i(TAG, "Reconnection attempt $attemptCount of $maxAttempts (delay: ${delay}ms)")
+                    Log.i(TAG, "🔄 Reconnection attempt $attemptCount of $maxAttempts (delay: ${delay}ms, elapsed: ${elapsed / 1000}s)")
                     
                     // Wait before attempting reconnection
                     delay(delay)
@@ -2069,20 +2403,79 @@ class VoiceClientManager(
                     attemptReconnect()
                     
                     // Check if we successfully connected
-                    if (state.value == ConnectionState.CONNECTED) {
-                        Log.i(TAG, "Reconnection successful on attempt $attemptCount")
+                    if (state.value == ConnectionState.CONNECTED && botReady.value) {
+                        Log.i(TAG, "✅ Reconnection successful on attempt $attemptCount (total time: ${(System.currentTimeMillis() - startTime) / 1000}s)")
+                        autoRestartJob.cancel()
                         reset()
                         return@launch
                     }
                     
                     // If we've reached max attempts, show dialog
                     if (attemptCount >= maxAttempts) {
-                        Log.w(TAG, "Max reconnection attempts reached")
+                        Log.w(TAG, "❌ Max reconnection attempts reached ($maxAttempts)")
+                        autoRestartJob.cancel()
                         showMaxAttemptsDialog()
                         return@launch
                     }
                 }
             }
+        }
+        
+        /**
+         * Automatic restart - mimics pause/resume behavior
+         * This is what user does manually when reconnection is stuck
+         */
+        private suspend fun doAutomaticRestart() {
+            Log.e(TAG, "🚨🚨🚨 AUTOMATIC RESTART TRIGGERED! 🚨🚨🚨")
+            Log.i(TAG, "🔄 AUTOMATIC RESTART - Doing what pause/resume does:")
+            Log.i(TAG, "   1. Cancel all reconnection attempts")
+            Log.i(TAG, "   2. Close WebSocket cleanly")
+            Log.i(TAG, "   3. Wait 500ms")
+            Log.i(TAG, "   4. Start fresh connection")
+            
+            // Cancel ongoing reconnection
+            reconnectJob?.cancel()
+            reconnectJob = null
+            
+            // Close old WebSocket
+            webSocket?.close(1000, "Automatic restart")
+            webSocket = null
+            
+            // Wait for clean closure
+            delay(500)
+            
+            // Reset attempt count for fresh start
+            attemptCount = 0
+            reconnectionAttempt.value = 0
+            
+            // Start fresh connection
+            Log.i(TAG, "🆕 Starting fresh connection after automatic restart")
+            start(currentThreadSettings)
+            
+            // Wait for connection (5 seconds)
+            var waited = 0L
+            val maxWait = 5000L
+            
+            while (waited < maxWait) {
+                delay(500)
+                waited += 500
+                
+                if (state.value == ConnectionState.CONNECTED && botReady.value) {
+                    Log.i(TAG, "✅ Automatic restart successful after ${waited}ms")
+                    return
+                }
+                
+                if (state.value == ConnectionState.DISCONNECTED) {
+                    Log.w(TAG, "❌ Automatic restart failed - disconnected after ${waited}ms")
+                    // Try normal reconnection again
+                    startReconnection()
+                    return
+                }
+            }
+            
+            Log.w(TAG, "⏱️ Automatic restart timeout after ${waited}ms")
+            // Try normal reconnection again
+            startReconnection()
         }
         
         /**
@@ -2096,42 +2489,68 @@ class VoiceClientManager(
         
         /**
          * Attempt to reconnect by calling start()
+         * This mimics what pause/resume does: clean close + fresh start
          */
         private suspend fun attemptReconnect() {
             try {
-                Log.i(TAG, "Attempting reconnection (attempt $attemptCount of $maxAttempts)...")
-                Log.i(TAG, "Current thread settings: ${currentThreadSettings?.conversationId ?: "none"}")
+                Log.i(TAG, "🔄 Attempting reconnection (attempt $attemptCount of $maxAttempts)...")
+                Log.i(TAG, "   Thread settings: ${currentThreadSettings?.conversationId ?: "none"}")
+                Log.i(TAG, "   Current state: ${state.value}")
                 
-                // Clean up old WebSocket connection before attempting new one
+                // Clean up old WebSocket connection COMPLETELY
                 webSocket?.close(1000, "Reconnecting")
                 webSocket = null
+                
+                // CRITICAL: Wait 500ms to ensure old WebSocket is fully closed
+                // This is what makes pause/resume work - clean slate
+                Log.d(TAG, "   Waiting 500ms for clean WebSocket closure...")
+                delay(500)
                 
                 // Ensure we're in RECONNECTING state
                 if (state.value != ConnectionState.RECONNECTING) {
                     state.value = ConnectionState.RECONNECTING
                 }
                 
-                // Call start() to initiate connection
+                // Call start() to initiate NEW connection
                 // start() will handle the WebSocket connection setup
                 start(currentThreadSettings)
                 
-                // Wait longer for connection to establish (up to 5 seconds)
+                // Wait for connection to establish (5 seconds is enough for fresh connection)
                 // Check state every 500ms
                 var waited = 0L
-                val maxWait = 5000L
-                while (waited < maxWait && state.value == ConnectionState.RECONNECTING) {
+                val maxWait = 5000L // Reduced from 10s - fresh connections are fast
+                
+                Log.i(TAG, "⏳ Waiting for connection (max ${maxWait / 1000}s)...")
+                
+                while (waited < maxWait) {
                     delay(500)
                     waited += 500
+                    
+                    // Log state every 2 seconds for debugging
+                    if (waited % 2000L == 0L) {
+                        Log.d(TAG, "   ${waited / 1000}s: state=${state.value}, botReady=${botReady.value}, webSocket=${if (webSocket != null) "exists" else "null"}")
+                    }
+                    
+                    // Success: Connected AND received setupComplete
+                    if (state.value == ConnectionState.CONNECTED && botReady.value) {
+                        Log.i(TAG, "✅ Reconnection successful after ${waited}ms")
+                        Log.i(TAG, "   State: CONNECTED, botReady: true")
+                        return
+                    }
+                    
+                    // Failure: Disconnected (connection failed)
+                    if (state.value == ConnectionState.DISCONNECTED) {
+                        Log.w(TAG, "❌ Reconnection failed - disconnected after ${waited}ms")
+                        return
+                    }
                 }
                 
-                if (state.value == ConnectionState.CONNECTED) {
-                    Log.i(TAG, "Reconnection successful!")
-                } else {
-                    Log.w(TAG, "Reconnection attempt did not result in CONNECTED state after ${waited}ms (current: ${state.value})")
-                }
+                // Timeout
+                Log.w(TAG, "⏱️ Reconnection timeout after ${waited}ms")
+                Log.w(TAG, "   Final state: ${state.value}, botReady: ${botReady.value}")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Reconnection attempt failed: ${e.message}", e)
+                Log.e(TAG, "❌ Reconnection attempt failed: ${e.message}", e)
                 if (DEBUG_LOGGING) {
                     Log.e(TAG, "Reconnection error details:", e)
                 }

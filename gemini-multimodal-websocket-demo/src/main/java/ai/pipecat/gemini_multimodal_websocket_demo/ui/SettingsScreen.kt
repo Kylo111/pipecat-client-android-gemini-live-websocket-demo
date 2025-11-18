@@ -892,6 +892,299 @@ fun SettingsScreen(
                     }
                 }
 
+                // Custom Tools Section
+                SettingsSection(title = "Własne narzędzia (Custom Tools)") {
+                    var customToolsJson by remember { mutableStateOf("") }
+                    var showImportDialog by remember { mutableStateOf(false) }
+                    var importResult by remember { mutableStateOf<String?>(null) }
+                    var showExampleDialog by remember { mutableStateOf(false) }
+                    val customToolsManager = remember { ai.pipecat.gemini_multimodal_websocket_demo.tools.CustomToolsManager }
+                    val customTools = remember { mutableStateOf(customToolsManager.loadCustomTools(context)) }
+                    
+                    Text(
+                        text = "Dodaj własne narzędzia dla Gemini poprzez import JSON. Narzędzia mogą wykonywać HTTP requesty lub uruchamiać Android Intenty.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Buttons row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Import button
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Colors.buttonNormal)
+                                .clickable { showImportDialog = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Importuj JSON",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.White,
+                                style = TextStyles.base
+                            )
+                        }
+                        
+                        // Example button
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = Colors.buttonNormal,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White)
+                                .clickable { showExampleDialog = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Przykład",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Colors.buttonNormal,
+                                style = TextStyles.base
+                            )
+                        }
+                    }
+                    
+                    // Show current custom tools
+                    if (customTools.value.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = "Zainstalowane narzędzia (${customTools.value.size}):",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        customTools.value.forEach { tool ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = tool.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = Color.Black,
+                                        style = TextStyles.base
+                                    )
+                                    Text(
+                                        text = tool.description,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.W400,
+                                        color = Color.Gray,
+                                        style = TextStyles.base,
+                                        maxLines = 2
+                                    )
+                                }
+                                
+                                // Delete button
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Colors.buttonWarning)
+                                        .clickable {
+                                            customToolsManager.deleteTool(context, tool.name)
+                                            customTools.value = customToolsManager.loadCustomTools(context)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✕",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = Color.White,
+                                        style = TextStyles.base
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Import dialog
+                    if (showImportDialog) {
+                        AlertDialog(
+                            onDismissRequest = { 
+                                showImportDialog = false
+                                importResult = null
+                            },
+                            title = {
+                                Text(
+                                    text = "Importuj Custom Tool",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.W700,
+                                    color = Color.Black,
+                                    style = TextStyles.base
+                                )
+                            },
+                            text = {
+                                Column {
+                                    Text(
+                                        text = "Wklej JSON z definicją narzędzia:",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.W400,
+                                        color = Color.Black,
+                                        style = TextStyles.base
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    TextField(
+                                        value = customToolsJson,
+                                        onValueChange = { customToolsJson = it },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(250.dp),
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color.White,
+                                            unfocusedContainerColor = Color.White,
+                                            focusedTextColor = Color.Black,
+                                            unfocusedTextColor = Color.Black,
+                                            focusedIndicatorColor = Colors.buttonNormal,
+                                            unfocusedIndicatorColor = Color.LightGray
+                                        ),
+                                        textStyle = TextStyles.base.copy(fontSize = 11.sp),
+                                        placeholder = {
+                                            Text(
+                                                "Wklej JSON...",
+                                                style = TextStyles.base,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    )
+                                    
+                                    if (importResult != null) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = importResult!!,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.W400,
+                                            color = if (importResult!!.startsWith("✅")) Color(0xFF4CAF50) else Color(0xFFF44336),
+                                            style = TextStyles.base
+                                        )
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        val result = customToolsManager.importToolsFromJson(context, customToolsJson)
+                                        if (result.isSuccess) {
+                                            importResult = "✅ Zaimportowano ${result.getOrNull()} narzędzi"
+                                            customTools.value = customToolsManager.loadCustomTools(context)
+                                            customToolsJson = ""
+                                        } else {
+                                            importResult = "❌ ${result.exceptionOrNull()?.message}"
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Colors.buttonNormal
+                                    )
+                                ) {
+                                    Text("Importuj", style = TextStyles.base)
+                                }
+                            },
+                            dismissButton = {
+                                Button(
+                                    onClick = { 
+                                        showImportDialog = false
+                                        importResult = null
+                                        customToolsJson = ""
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Gray
+                                    )
+                                ) {
+                                    Text("Anuluj", style = TextStyles.base)
+                                }
+                            }
+                        )
+                    }
+                    
+                    // Example dialog
+                    if (showExampleDialog) {
+                        val exampleJson = customToolsManager.getExampleToolJson()
+                        
+                        AlertDialog(
+                            onDismissRequest = { showExampleDialog = false },
+                            title = {
+                                Text(
+                                    text = "Przykład Custom Tool",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.W700,
+                                    color = Color.Black,
+                                    style = TextStyles.base
+                                )
+                            },
+                            text = {
+                                Column {
+                                    Text(
+                                        text = "Przykładowa definicja narzędzia:",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.W400,
+                                        color = Color.Black,
+                                        style = TextStyles.base
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    TextField(
+                                        value = exampleJson,
+                                        onValueChange = {},
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(300.dp),
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color(0xFFF5F5F5),
+                                            unfocusedContainerColor = Color(0xFFF5F5F5),
+                                            focusedTextColor = Color.Black,
+                                            unfocusedTextColor = Color.Black,
+                                            focusedIndicatorColor = Colors.buttonNormal,
+                                            unfocusedIndicatorColor = Color.LightGray
+                                        ),
+                                        textStyle = TextStyles.base.copy(fontSize = 10.sp),
+                                        readOnly = true
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = { showExampleDialog = false },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Colors.buttonNormal
+                                    )
+                                ) {
+                                    Text("OK", style = TextStyles.base)
+                                }
+                            }
+                        )
+                    }
+                }
+
                 // Logout Button
                 Box(
                     modifier = Modifier

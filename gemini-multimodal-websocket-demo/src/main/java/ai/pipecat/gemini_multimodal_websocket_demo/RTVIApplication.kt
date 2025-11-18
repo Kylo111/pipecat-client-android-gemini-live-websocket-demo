@@ -35,6 +35,43 @@ class RTVIApplication : Application() {
         ThemeManager.init(this)
         OfflineConversationManager.init(this)
         PicovoiceManager.initialize(this)
+        
+        // Start PorcupineService as foreground service
+        // It will be paused/resumed dynamically via broadcasts
+        startPorcupineService()
+    }
+    
+    private fun startPorcupineService() {
+        try {
+            val intent = android.content.Intent(this, PorcupineService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            android.util.Log.i("RTVIApplication", "PorcupineService started")
+            
+            // Give service time to initialize, then resume Picovoice
+            // (no active session at app start, so Picovoice should be listening)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                resumePicovoiceOnAppStart()
+            }, 2000) // 2 seconds delay for initialization
+            
+        } catch (e: Exception) {
+            android.util.Log.e("RTVIApplication", "Failed to start PorcupineService", e)
+        }
+    }
+    
+    private fun resumePicovoiceOnAppStart() {
+        try {
+            // Resume Picovoice since no session is active at app start
+            val intent = android.content.Intent("ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE")
+            intent.setPackage(packageName)
+            sendBroadcast(intent)
+            android.util.Log.i("RTVIApplication", "Picovoice resumed on app start")
+        } catch (e: Exception) {
+            android.util.Log.e("RTVIApplication", "Failed to resume Picovoice", e)
+        }
     }
     
     companion object {
