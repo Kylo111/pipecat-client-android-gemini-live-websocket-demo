@@ -62,6 +62,11 @@ class SessionManager(
         private const val TAG = "SessionManager"
         private const val MAX_TRANSCRIPTS = 10000
         private const val CONTEXT_UPDATE_THROTTLE_MS = 30000L // 30 seconds
+        
+        // Minimum thresholds for generating summaries/transcripts
+        private const val MIN_SESSION_DURATION_SECONDS = 30 // 30 seconds minimum
+        private const val MIN_TRANSCRIPT_ENTRIES = 2 // At least one user-bot exchange
+        private const val MIN_TRANSCRIPT_LENGTH = 50 // At least 50 characters of content
     }
     
     /**
@@ -475,10 +480,17 @@ class SessionManager(
                     val dbSession = sessionRepository.endSession(dbSessionId)
                     Log.d(TAG, "Ended offline database session: $dbSessionId")
                     
-                    // Generate summary for offline session if it has transcripts
+                    // Generate summary for offline session if it meets minimum thresholds
                     dbSession?.let { sess ->
-                        if (sess.transcript.isNotBlank() && sess.durationSeconds != null && sess.durationSeconds > 120) {
-                            Log.d(TAG, "📝 Session qualifies for summary (${sess.durationSeconds}s, ${sess.transcript.length} chars)")
+                        val durationSecs = sess.durationSeconds ?: 0
+                        val transcriptLength = sess.transcript.length
+                        
+                        // Check if session meets minimum thresholds
+                        if (sess.transcript.isNotBlank() && 
+                            durationSecs >= MIN_SESSION_DURATION_SECONDS && 
+                            transcriptLength >= MIN_TRANSCRIPT_LENGTH) {
+                            
+                            Log.d(TAG, "📝 Session qualifies for summary (${durationSecs}s, ${transcriptLength} chars)")
                             
                             // Generate summary in background with infinite retry
                             scope.launch {
@@ -517,7 +529,7 @@ class SessionManager(
                                 }
                             }
                         } else {
-                            Log.d(TAG, "⏭️ Session too short for summary (${sess.durationSeconds}s)")
+                            Log.d(TAG, "⏭️ Session too short for summary (${durationSecs}s, ${transcriptLength} chars) - skipping")
                         }
                     }
                 } catch (e: Exception) {
@@ -537,9 +549,10 @@ class SessionManager(
             Log.d(TAG, "Ending session: ${session.sessionId}")
             
             val duration = System.currentTimeMillis() - session.startTime
+            val durationSeconds = (duration / 1000).toInt()
             
             Log.d(TAG, "📊 Session statistics:")
-            Log.d(TAG, "  Duration: ${duration / 60000} minutes")
+            Log.d(TAG, "  Duration: ${duration / 60000} minutes (${durationSeconds}s)")
             Log.d(TAG, "  Transcripts: ${session.transcripts.size} entries")
             Log.d(TAG, "  User transcripts: ${session.transcripts.count { it.speaker == Speaker.USER }}")
             Log.d(TAG, "  Bot transcripts: ${session.transcripts.count { it.speaker == Speaker.BOT }}")
@@ -557,12 +570,43 @@ class SessionManager(
                 }
             }
             
+            // Check if session meets minimum thresholds for generating transcript/summary
+            val meetsMinimumThresholds = durationSeconds >= MIN_SESSION_DURATION_SECONDS &&
+                                        session.transcripts.size >= MIN_TRANSCRIPT_ENTRIES
+            
+            if (!meetsMinimumThresholds) {
+                Log.d(TAG, "⏭️ Session too short for transcript/summary:")
+                Log.d(TAG, "  Duration: ${durationSeconds}s (min: ${MIN_SESSION_DURATION_SECONDS}s)")
+                Log.d(TAG, "  Entries: ${session.transcripts.size} (min: ${MIN_TRANSCRIPT_ENTRIES})")
+                Log.d(TAG, "  Skipping transcript/summary generation")
+                
+                // Clear session and return success
+                currentSession = null
+                currentDbSessionId = null
+                lastContextUpdateTime = 0
+                isEndingSession = false
+                return@withContext Result.success(Unit)
+            }
+            
             // Format transcripts as conversation
             val transcriptText = formatTranscriptsForLibreChat(session.transcripts, duration)
             
             Log.d(TAG, "📝 Formatted transcript:")
             Log.d(TAG, "  Length: ${transcriptText.length} chars")
             Log.d(TAG, "  Preview: ${transcriptText.take(300)}...")
+            
+            // Additional check: verify transcript has minimum content length
+            if (transcriptText.length < MIN_TRANSCRIPT_LENGTH) {
+                Log.d(TAG, "⏭️ Transcript too short (${transcriptText.length} chars, min: ${MIN_TRANSCRIPT_LENGTH})")
+                Log.d(TAG, "  Skipping transcript/summary generation")
+                
+                // Clear session and return success
+                currentSession = null
+                currentDbSessionId = null
+                lastContextUpdateTime = 0
+                isEndingSession = false
+                return@withContext Result.success(Unit)
+            }
             
             // Check if summary mode is enabled
             val useSummaryMode = Preferences.useSummaryMode.value

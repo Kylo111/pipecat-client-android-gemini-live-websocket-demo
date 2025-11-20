@@ -72,6 +72,7 @@ class ToolExecutor(private val context: Context) {
         return try {
             when (toolName) {
                 "search_web" -> searchWeb(parameters)
+                "search_perplexity" -> searchPerplexity(parameters)
                 "get_weather" -> getWeather(parameters)
                 "get_current_time" -> getCurrentTime(parameters)
                 "get_location" -> getLocation(parameters)
@@ -80,6 +81,7 @@ class ToolExecutor(private val context: Context) {
                 "control_media" -> controlMedia(parameters)
                 "search_nearby" -> searchNearby(parameters)
                 "create_offline_conversation" -> createOfflineConversation(parameters)
+                "start_navigation" -> startNavigation(parameters)
                 else -> {
                     // Check if it's a custom tool
                     val customTools = CustomToolsManager.loadCustomTools(context)
@@ -241,6 +243,115 @@ class ToolExecutor(private val context: Context) {
         }
         
         return current.toString()
+    }
+    
+    /**
+     * Search using Perplexity Sonar API
+     */
+    private suspend fun searchPerplexity(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val query = params["query"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing query parameter"
+        val recencyFilter = params["recency_filter"]?.jsonPrimitive?.content
+        val maxResults = params["max_results"]?.jsonPrimitive?.content?.toIntOrNull() ?: 5
+        
+        Log.i(TAG, "Searching Perplexity for: $query (recency: ${recencyFilter ?: "all"}, max_results: $maxResults)")
+        
+        val perplexityApiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.perplexityApiKey.value
+        if (perplexityApiKey.isNullOrBlank()) {
+            return@withContext "Perplexity search is not configured. Please add your Perplexity API key in Settings."
+        }
+        
+        try {
+            // Build request body with optional parameters
+            val requestBodyBuilder = StringBuilder()
+            requestBodyBuilder.append("""
+                {
+                    "model": "sonar-pro",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "$query"
+                        }
+                    ]
+            """.trimIndent())
+            
+            // Add search_recency_filter if specified
+            if (recencyFilter != null) {
+                requestBodyBuilder.append(""",
+                    "search_recency_filter": "$recencyFilter"
+                """.trimIndent())
+            }
+            
+            // Add max_results (clamped to 1-20)
+            val clampedMaxResults = maxResults.coerceIn(1, 20)
+            requestBodyBuilder.append(""",
+                    "max_results": $clampedMaxResults
+            """.trimIndent())
+            
+            requestBodyBuilder.append("\n}")
+            
+            val requestBody = requestBodyBuilder.toString()
+            
+            Log.d(TAG, "Perplexity request body: $requestBody")
+            
+            val request = Request.Builder()
+                .url("https://api.perplexity.ai/chat/completions")
+                .post(
+                    okhttp3.RequestBody.create(
+                        "application/json".toMediaType(),
+                        requestBody
+                    )
+                )
+                .addHeader("Authorization", "Bearer $perplexityApiKey")
+                .addHeader("Content-Type", "application/json")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            val body = response.body?.string() ?: return@withContext "Error: Empty response"
+            
+            if (!response.isSuccessful) {
+                Log.e(TAG, "Perplexity API error: ${response.code} - $body")
+                return@withContext "Error: Perplexity API returned code ${response.code}. Check your API key."
+            }
+            
+            val json = JSONObject(body)
+            
+            // Extract the response content
+            val choices = json.getJSONArray("choices")
+            if (choices.length() == 0) {
+                return@withContext "No results from Perplexity"
+            }
+            
+            val message = choices.getJSONObject(0).getJSONObject("message")
+            val content = message.getString("content")
+            
+            // Extract citations if available
+            val result = StringBuilder()
+            result.append("Perplexity Search Results")
+            if (recencyFilter != null) {
+                result.append(" (last $recencyFilter)")
+            }
+            result.append(":\n\n")
+            result.append(content)
+            
+            // Add citations if available
+            if (json.has("citations")) {
+                val citations = json.getJSONArray("citations")
+                if (citations.length() > 0) {
+                    result.append("\n\nSources:\n")
+                    for (i in 0 until citations.length()) {
+                        result.append("${i + 1}. ${citations.getString(i)}\n")
+                    }
+                }
+            }
+            
+            result.toString()
+            
+        } catch (e: IOException) {
+            "Error: Network error - ${e.message}"
+        } catch (e: Exception) {
+            Log.e(TAG, "Perplexity error: ${e.message}", e)
+            "Error: ${e.message}"
+        }
     }
     
     /**
@@ -938,6 +1049,59 @@ class ToolExecutor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error creating offline conversation: ${e.message}", e)
             "Error: Could not create conversation - ${e.message}"
+        }
+    }
+    
+    /**
+     * Start Google Maps navigation to a destination
+     */
+    private suspend fun startNavigation(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val destination = params["destination"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing destination parameter"
+        val mode = params["mode"]?.jsonPrimitive?.content ?: "driving"
+        
+        Log.i(TAG, "Starting navigation to: $destination (mode: $mode)")
+        
+        try {
+            // Build Google Maps navigation URI
+            val modeParam = when (mode) {
+                "walking" -> "w"
+                "bicycling" -> "b"
+                "transit" -> "r"
+                else -> "d" // driving
+            }
+            
+            // Encode destination for URI
+            val encodedDestination = Uri.encode(destination)
+            val uri = Uri.parse("google.navigation:q=$encodedDestination&mode=$modeParam")
+            
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage("com.google.android.apps.maps")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            
+            // Check if Google Maps is installed
+            if (intent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(intent)
+                val modeText = when (mode) {
+                    "walking" -> "walking"
+                    "bicycling" -> "bicycling"
+                    "transit" -> "public transport"
+                    else -> "driving"
+                }
+                "Navigation started to '$destination' using $modeText mode in Google Maps"
+            } else {
+                // Fallback to browser-based Google Maps
+                val browserUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$encodedDestination&travelmode=$mode")
+                val browserIntent = Intent(Intent.ACTION_VIEW, browserUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(browserIntent)
+                "Google Maps app not installed. Opening navigation in browser to '$destination'"
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting navigation: ${e.message}", e)
+            "Error: Could not start navigation - ${e.message}"
         }
     }
 }

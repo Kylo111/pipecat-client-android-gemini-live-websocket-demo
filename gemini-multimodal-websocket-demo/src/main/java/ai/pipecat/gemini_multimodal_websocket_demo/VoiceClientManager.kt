@@ -473,6 +473,14 @@ class VoiceClientManager(
             while (isActive) {
                 delay(WEBSOCKET_HEALTH_CHECK_INTERVAL_MS)
                 
+                // CRITICAL FIX: Don't trigger reconnection if session is paused
+                if (isPaused.value) {
+                    if (DEBUG_LOGGING) {
+                        Log.d(TAG, "⏸️ Skipping health check - session is paused")
+                    }
+                    continue
+                }
+                
                 // Only check if connected (not during reconnection)
                 if (state.value == ConnectionState.CONNECTED) {
                     val timeSinceLastMessage = System.currentTimeMillis() - lastWebSocketMessageTime
@@ -727,19 +735,28 @@ class VoiceClientManager(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.i(TAG, "WebSocket closed: $code - $reason")
+                Log.i(TAG, "Current state: ${state.value}, isPaused: ${isPaused.value}")
                 
-                // Check if this is a user-initiated disconnect
+                // CRITICAL FIX: Check isPaused flag FIRST before checking state
+                // This handles race condition where state might already be DISCONNECTED
+                // when this callback is invoked asynchronously
+                if (isPaused.value) {
+                    Log.i(TAG, "✅ User-initiated pause detected (isPaused=true), NOT reconnecting")
+                    Log.i(TAG, "   Session handle preserved for resumption")
+                    // Don't call handleDisconnect() here - it was already called by pause()
+                    return
+                }
+                
+                // Check if this is a user-initiated disconnect (stop, not pause)
                 if (state.value == ConnectionState.DISCONNECTING) {
-                    // CRITICAL FIX: Check if this is a pause (isPaused=true) or stop (isPaused=false)
-                    // During pause, we want to preserve session handle and speakerphone
-                    val isUserPause = isPaused.value
-                    if (isUserPause) {
-                        Log.i(TAG, "User-initiated pause, preserving session")
-                        // Don't call handleDisconnect() here - it was already called by pause()
-                    } else {
-                        Log.i(TAG, "User-initiated stop, ending session")
-                        handleDisconnect(preserveSessionHandle = false)
-                    }
+                    Log.i(TAG, "User-initiated stop, ending session")
+                    handleDisconnect(preserveSessionHandle = false)
+                    return
+                }
+                
+                // Check if already disconnected (cleanup already done)
+                if (state.value == ConnectionState.DISCONNECTED) {
+                    Log.i(TAG, "Already DISCONNECTED, cleanup already done")
                     return
                 }
                 
@@ -750,10 +767,18 @@ class VoiceClientManager(
                 }
                 
                 // Unexpected closure - attempt reconnection
-                Log.w(TAG, "Unexpected WebSocket closure, attempting reconnection")
+                Log.w(TAG, "⚠️ Unexpected WebSocket closure, attempting reconnection")
                 state.value = ConnectionState.RECONNECTING
                 updateServiceNotification()
+                
+                // Create new scope if needed (old one might be cancelled)
+                if (scope == null || !scope!!.isActive) {
+                    Log.i(TAG, "Creating new coroutine scope for reconnection")
+                    scope = CoroutineScope(Dispatchers.IO)
+                }
+                
                 scope?.launch {
+                    Log.i(TAG, "Starting reconnection attempt...")
                     reconnectionManager.startReconnection()
                 }
             }
@@ -916,6 +941,7 @@ class VoiceClientManager(
                 if (audioRecord == null) {
                     registerBluetoothScoReceiver()
                     setupAudioManager()
+                    enableSpeakerphoneIfNoHeadset() // Auto-enable speakerphone if no headset
                     startAudioRecording()
                 }
                 if (audioTrack == null) {
@@ -1014,7 +1040,15 @@ class VoiceClientManager(
                                         if (!botIsTalking.value) {
                                             Log.i(TAG, "Bot started speaking")
                                             botIsTalking.value = true
-                                            stopAudioRecording()      // Stop AudioRecord to free mic
+                                            
+                                            // Stop AudioRecord only in half-duplex mode
+                                            if (!Preferences.fullDuplexMode.value) {
+                                                stopAudioRecording()      // Stop AudioRecord to free mic
+                                                Log.i(TAG, "🎤 Half-duplex: AudioRecord stopped (bot speaking)")
+                                            } else {
+                                                Log.i(TAG, "🎤 Full-duplex: AudioRecord continues (user can interrupt)")
+                                            }
+                                            
                                             updatePicovoiceState()    // Resume Picovoice (can use mic now)
                                         }
                                         updateBotResponseTime() // Bot responded with audio
@@ -1031,7 +1065,15 @@ class VoiceClientManager(
                 if (serverContent?.containsKey("turnComplete") == true) {
                     Log.i(TAG, "🔇 Bot stopped speaking (turnComplete in serverContent)")
                     botIsTalking.value = false
-                    resumeAudioRecording()    // Resume AudioRecord
+                    
+                    // Resume AudioRecord only if it was stopped (half-duplex mode)
+                    if (!Preferences.fullDuplexMode.value) {
+                        resumeAudioRecording()    // Resume AudioRecord
+                        Log.i(TAG, "🎤 Half-duplex: AudioRecord resumed (bot finished)")
+                    } else {
+                        Log.i(TAG, "🎤 Full-duplex: AudioRecord was never stopped")
+                    }
+                    
                     updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
                 }
             }
@@ -1040,7 +1082,15 @@ class VoiceClientManager(
             if (jsonObject.containsKey("turnComplete")) {
                 Log.i(TAG, "🔇 Bot stopped speaking (turnComplete at root)")
                 botIsTalking.value = false
-                resumeAudioRecording()    // Resume AudioRecord
+                
+                // Resume AudioRecord only if it was stopped (half-duplex mode)
+                if (!Preferences.fullDuplexMode.value) {
+                    resumeAudioRecording()    // Resume AudioRecord
+                    Log.i(TAG, "🎤 Half-duplex: AudioRecord resumed (bot finished)")
+                } else {
+                    Log.i(TAG, "🎤 Full-duplex: AudioRecord was never stopped")
+                }
+                
                 updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
             }
 
@@ -1378,6 +1428,36 @@ class VoiceClientManager(
     }
     
     /**
+     * Enable speakerphone automatically if no headset is connected
+     * Called when starting a new conversation
+     */
+    private fun enableSpeakerphoneIfNoHeadset() {
+        try {
+            audioManager?.let { am ->
+                // Check if any headset is connected
+                val isBluetoothConnected = am.isBluetoothScoAvailableOffCall || am.isBluetoothA2dpOn
+                val isWiredHeadsetConnected = am.isWiredHeadsetOn
+                
+                Log.i(TAG, "🎧 Checking headset status:")
+                Log.i(TAG, "  - Bluetooth available: ${am.isBluetoothScoAvailableOffCall}")
+                Log.i(TAG, "  - Bluetooth A2DP: ${am.isBluetoothA2dpOn}")
+                Log.i(TAG, "  - Wired headset: $isWiredHeadsetConnected")
+                
+                // If no headset is connected, enable speakerphone
+                if (!isBluetoothConnected && !isWiredHeadsetConnected) {
+                    am.isSpeakerphoneOn = true
+                    isSpeakerphoneOn.value = true
+                    Log.i(TAG, "🔊 Auto-enabled speakerphone (no headset detected)")
+                } else {
+                    Log.i(TAG, "🎧 Headset detected, keeping speakerphone OFF")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error checking headset status: ${e.message}", e)
+        }
+    }
+    
+    /**
      * Register Bluetooth SCO state receiver to monitor connection
      */
     private fun registerBluetoothScoReceiver() {
@@ -1573,13 +1653,20 @@ class VoiceClientManager(
                         val level = calculateAudioLevel(buffer.copyOf(read))
                         userAudioLevel.floatValue = level
                         
-                        // CRITICAL FIX: Don't send audio while bot is talking
+                        // CRITICAL FIX: Don't send audio while bot is talking (in half-duplex mode)
                         // This prevents echo/feedback and bot interruption
-                        if (botIsTalking.value) {
+                        if (botIsTalking.value && !Preferences.fullDuplexMode.value) {
+                            // Half-duplex: Don't send audio while bot talks
                             if (DEBUG_LOGGING) {
-                                Log.d(TAG, "⏸️ Skipping audio send - bot is talking")
+                                Log.d(TAG, "⏸️ Half-duplex: Skipping audio send - bot is talking")
                             }
                             continue // Skip sending this audio chunk
+                        } else if (botIsTalking.value && Preferences.fullDuplexMode.value) {
+                            // Full-duplex: Send audio even when bot talks (user can interrupt)
+                            if (DEBUG_LOGGING) {
+                                Log.d(TAG, "🎤 Full-duplex: Sending audio while bot talks (user can interrupt)")
+                            }
+                            // Continue normally - don't skip
                         }
                         
                         // Detect if user is talking using configurable threshold
@@ -1696,19 +1783,25 @@ class VoiceClientManager(
         }
         
         val previousState = state.value
+        
+        // CRITICAL FIX: Set isPaused FIRST before changing state
+        // This ensures reconnection logic sees isPaused=true immediately
+        isPaused.value = true
+        Log.i(TAG, "🔄 Pausing session - isPaused set to TRUE")
+        
         state.value = ConnectionState.DISCONNECTING
         Log.i(TAG, "State transition: $previousState -> DISCONNECTING (pause - session handle preserved)")
         updateServiceNotification()
         
         // Cancel any ongoing reconnection attempts
+        // This must happen AFTER isPaused is set to true
         reconnectionManager.cancelReconnection()
         
         // CRITICAL FIX: Do NOT stop auto-pause monitoring during pause
         // The monitoring will be stopped in handleDisconnect() anyway
         // Keeping it here was redundant and could cause issues
         
-        // Mark as paused and disable mic
-        isPaused.value = true
+        // Disable mic
         mic.value = false // Update mic state to reflect paused session
         
         // Stop AudioRecord if still running
@@ -1719,7 +1812,7 @@ class VoiceClientManager(
         
         // Close WebSocket but DO NOT clear session handle
         // This allows resumption when user re-enables mic
-        Log.i(TAG, "🔄 Pausing session - session handle preserved for resumption")
+        Log.i(TAG, "🔄 Closing WebSocket - session handle preserved for resumption")
         webSocket?.close(1000, "Paused by user")
         
         // Clean up resources but preserve session handle
@@ -1840,23 +1933,30 @@ class VoiceClientManager(
     }
 
     /**
-     * Start Google Cloud Speech-to-Text streaming transcription
-     * Uses the same audio from AudioRecord (no microphone conflict)
+     * Enable or disable microphone (pause/resume session)
+     * Used by wake word detection and UI button
      */
     fun enableMic(enabled: Boolean) {
-        mic.value = enabled
+        Log.i(TAG, "enableMic called - enabled: $enabled, current state: ${state.value}, current mic: ${mic.value}")
         
         if (enabled) {
-            // If disconnected, resume the session
+            // User wants to enable mic (resume session)
             if (state.value == ConnectionState.DISCONNECTED) {
                 Log.i(TAG, "Mic enabled - resuming session")
+                mic.value = true
                 resume()
-            } else {
-                // Just start recording if already connected
+            } else if (state.value == ConnectionState.CONNECTED) {
+                // Already connected, just start recording
+                Log.i(TAG, "Mic enabled - starting recording (already connected)")
+                mic.value = true
                 audioRecord?.startRecording()
                 updateActivity() // User interaction
+            } else {
+                Log.w(TAG, "⚠️ Mic enable ignored - invalid state: ${state.value}")
             }
         } else {
+            // User wants to disable mic (pause session)
+            
             // CRITICAL FIX: Do NOT pause if already RECONNECTING!
             // Picovoice może fałszywie wykryć wake word podczas reconnection
             // Wywołanie pause() anuluje reconnection i powoduje utknięcie
@@ -1866,14 +1966,21 @@ class VoiceClientManager(
                 return
             }
             
-            // If connected, pause the session
+            // CRITICAL FIX: Do NOT pause if already DISCONNECTED!
+            // This prevents double-pause which causes issues
+            if (state.value == ConnectionState.DISCONNECTED) {
+                Log.w(TAG, "⚠️ Mic disabled but already DISCONNECTED - ignoring")
+                return
+            }
+            
+            // If connected or connecting, pause the session
             if (state.value == ConnectionState.CONNECTED || 
                 state.value == ConnectionState.CONNECTING) {
                 Log.i(TAG, "Mic disabled - pausing session")
+                // Note: pause() will set mic.value = false
                 pause()
             } else {
-                // Just stop recording if already disconnected
-                audioRecord?.stop()
+                Log.w(TAG, "⚠️ Mic disable ignored - unexpected state: ${state.value}")
             }
         }
     }
@@ -2350,6 +2457,12 @@ class VoiceClientManager(
          * If reconnecting takes longer than 5 seconds, automatically restart (like pause/resume)
          */
         suspend fun startReconnection() {
+            // CRITICAL FIX: Check if session is paused before starting reconnection
+            if (isPaused.value) {
+                Log.w(TAG, "⚠️ Reconnection cancelled - session is paused (isPaused=true)")
+                return
+            }
+            
             // Cancel any existing reconnection job
             reconnectJob?.cancel()
             
@@ -2379,6 +2492,13 @@ class VoiceClientManager(
                 Log.i(TAG, "🔍 DEBUG: Auto-restart job launched successfully")
                 
                 while (isActive && attemptCount < maxAttempts) {
+                    // CRITICAL FIX: Check if session was paused during reconnection
+                    if (isPaused.value) {
+                        Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during reconnection")
+                        autoRestartJob.cancel()
+                        return@launch
+                    }
+                    
                     // Check global timeout
                     val elapsed = System.currentTimeMillis() - startTime
                     if (elapsed > TOTAL_RECONNECTION_TIMEOUT) {
@@ -2398,6 +2518,13 @@ class VoiceClientManager(
                     
                     // Wait before attempting reconnection
                     delay(delay)
+                    
+                    // Check again after delay
+                    if (isPaused.value) {
+                        Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during delay")
+                        autoRestartJob.cancel()
+                        return@launch
+                    }
                     
                     // Attempt to reconnect
                     attemptReconnect()
@@ -2426,6 +2553,12 @@ class VoiceClientManager(
          * This is what user does manually when reconnection is stuck
          */
         private suspend fun doAutomaticRestart() {
+            // CRITICAL FIX: Check if session was paused before automatic restart
+            if (isPaused.value) {
+                Log.w(TAG, "⚠️ Automatic restart cancelled - session is paused")
+                return
+            }
+            
             Log.e(TAG, "🚨🚨🚨 AUTOMATIC RESTART TRIGGERED! 🚨🚨🚨")
             Log.i(TAG, "🔄 AUTOMATIC RESTART - Doing what pause/resume does:")
             Log.i(TAG, "   1. Cancel all reconnection attempts")
@@ -2443,6 +2576,12 @@ class VoiceClientManager(
             
             // Wait for clean closure
             delay(500)
+            
+            // Check again after delay
+            if (isPaused.value) {
+                Log.w(TAG, "⚠️ Automatic restart cancelled - session was paused during cleanup")
+                return
+            }
             
             // Reset attempt count for fresh start
             attemptCount = 0
@@ -2493,6 +2632,12 @@ class VoiceClientManager(
          */
         private suspend fun attemptReconnect() {
             try {
+                // CRITICAL FIX: Check if session was paused before attempting reconnect
+                if (isPaused.value) {
+                    Log.w(TAG, "⚠️ Reconnection cancelled - session is paused")
+                    return
+                }
+                
                 Log.i(TAG, "🔄 Attempting reconnection (attempt $attemptCount of $maxAttempts)...")
                 Log.i(TAG, "   Thread settings: ${currentThreadSettings?.conversationId ?: "none"}")
                 Log.i(TAG, "   Current state: ${state.value}")
@@ -2505,6 +2650,12 @@ class VoiceClientManager(
                 // This is what makes pause/resume work - clean slate
                 Log.d(TAG, "   Waiting 500ms for clean WebSocket closure...")
                 delay(500)
+                
+                // Check again after delay
+                if (isPaused.value) {
+                    Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during cleanup")
+                    return
+                }
                 
                 // Ensure we're in RECONNECTING state
                 if (state.value != ConnectionState.RECONNECTING) {

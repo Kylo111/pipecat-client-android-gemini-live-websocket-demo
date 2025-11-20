@@ -36,12 +36,13 @@ class RTVIApplication : Application() {
         OfflineConversationManager.init(this)
         PicovoiceManager.initialize(this)
         
-        // Start PorcupineService as foreground service
-        // It will be paused/resumed dynamically via broadcasts
-        startPorcupineService()
+        // Picovoice is disabled by default - user can enable it in settings
+        // This prevents crash on Android 14+ which requires RECORD_AUDIO permission
+        // before starting foreground service with microphone type
     }
     
-    private fun startPorcupineService() {
+    // This method is called from MainActivity after permissions are granted
+    fun startPorcupineService() {
         try {
             val intent = android.content.Intent(this, PorcupineService::class.java)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {

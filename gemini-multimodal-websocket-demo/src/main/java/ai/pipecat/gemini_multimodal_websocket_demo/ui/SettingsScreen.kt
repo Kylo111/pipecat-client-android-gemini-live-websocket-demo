@@ -269,6 +269,34 @@ fun SettingsScreen(
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Perplexity API Key
+                    var perplexityApiKey by remember { mutableStateOf(Preferences.perplexityApiKey.value ?: "") }
+                    
+                    Column {
+                        SettingsTextField(
+                            label = "Klucz API Perplexity (opcjonalny)",
+                            value = perplexityApiKey,
+                            onValueChange = { 
+                                perplexityApiKey = it
+                                Preferences.perplexityApiKey.value = it
+                            },
+                            isPassword = true
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Perplexity Sonar API zapewnia wyszukiwanie w czasie rzeczywistym z automatycznymi cytowaniami. Zdobądź klucz na: https://www.perplexity.ai/settings/api",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Tools Instruction
                     Column {
@@ -666,6 +694,76 @@ fun SettingsScreen(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+
+                // Audio Mode Section
+                SettingsSection(title = "Tryb audio") {
+                    // Full-Duplex Mode Toggle
+                    var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
+                    
+                    SettingsToggle(
+                        label = "Full-Duplex (eksperymentalny)",
+                        checked = fullDuplexMode,
+                        onCheckedChange = { 
+                            fullDuplexMode = it
+                            Preferences.fullDuplexMode.value = it
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (fullDuplexMode) {
+                            "⚠️ FULL-DUPLEX: Możesz przerywać bota, ale może wystąpić echo lub bot może przerywać swoje wypowiedzi. Mikrofon nagrywa cały czas."
+                        } else {
+                            "✅ HALF-DUPLEX (zalecane): Bot kończy swoje wypowiedzi bez przerywania. Mikrofon jest wyłączany gdy bot mówi."
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = if (fullDuplexMode) Color(0xFFFF9800) else Color(0xFF4CAF50),
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Detailed explanation
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️ Różnice między trybami:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "• Half-Duplex: Mikrofon wyłącza się gdy bot mówi. Nie możesz przerywać bota, ale jego odpowiedzi są stabilne i bez echo.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Full-Duplex: Mikrofon działa cały czas. Możesz przerywać bota, ale może wystąpić acoustic echo lub bot może przerywać swoje wypowiedzi (znany bug Gemini API).",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
                             style = TextStyles.base,
                             lineHeight = 14.sp
                         )

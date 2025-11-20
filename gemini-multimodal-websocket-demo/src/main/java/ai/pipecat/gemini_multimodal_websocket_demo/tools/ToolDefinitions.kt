@@ -22,7 +22,7 @@ object ToolDefinitions {
      * Includes both built-in tools and user-defined custom tools
      */
     fun getAllTools(context: android.content.Context): List<JsonObject> {
-        val builtInTools = listOf(
+        val builtInTools = mutableListOf(
             searchWebTool(),
             getWeatherTool(),
             getCurrentTimeTool(),
@@ -31,13 +31,29 @@ object ToolDefinitions {
             createNoteTool(),
             controlMediaTool(),
             searchNearbyTool(),
-            createOfflineConversationTool()
+            createOfflineConversationTool(),
+            startNavigationTool()
         )
+        
+        // Add Perplexity search if API key is configured
+        val perplexityApiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.perplexityApiKey.value
+        if (!perplexityApiKey.isNullOrBlank()) {
+            builtInTools.add(searchPerplexityTool())
+        }
         
         // Add custom tools from user configuration
         val customTools = CustomToolsManager.getCustomToolDeclarations(context)
         
         return builtInTools + customTools
+    }
+    
+    /**
+     * Get Google Search grounding configuration
+     * This is a special tool that uses Gemini's built-in grounding feature
+     * Note: This should be added separately to the setup message, not as a function_declaration
+     */
+    fun getGoogleSearchGrounding(): JsonObject = buildJsonObject {
+        put("google_search", buildJsonObject {})
     }
     
     /**
@@ -274,6 +290,74 @@ object ToolDefinitions {
             put("required", buildJsonArray {
                 add(JsonPrimitive("name"))
                 add(JsonPrimitive("systemPrompt"))
+            })
+        }
+    }
+    
+    /**
+     * Start Google Maps navigation to a destination
+     */
+    private fun startNavigationTool() = buildJsonObject {
+        put("name", "start_navigation")
+        put("description", "Start turn-by-turn navigation in Google Maps to a specific destination. Ask the user for the destination address if not provided. Use this when user wants directions, navigation, or to go somewhere.")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("destination") {
+                    put("type", "string")
+                    put("description", "Destination address, place name, or coordinates (e.g., 'Plac Zamkowy, Warsaw', 'Eiffel Tower', '52.2297,21.0122')")
+                }
+                putJsonObject("mode") {
+                    put("type", "string")
+                    put("description", "Navigation mode: 'driving' (car), 'walking', 'bicycling', or 'transit' (public transport)")
+                    put("enum", buildJsonArray {
+                        add(JsonPrimitive("driving"))
+                        add(JsonPrimitive("walking"))
+                        add(JsonPrimitive("bicycling"))
+                        add(JsonPrimitive("transit"))
+                    })
+                    put("default", "driving")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("destination"))
+            })
+        }
+    }
+    
+    /**
+     * Search using Perplexity Sonar API
+     * Provides real-time search with automatic citations
+     */
+    private fun searchPerplexityTool() = buildJsonObject {
+        put("name", "search_perplexity")
+        put("description", "Search for current information about political events, news, and real-time data using Perplexity Sonar API. This provides more accurate and up-to-date information than regular web search, with automatic citations. Use this for political news, current events, and complex queries requiring authoritative sources. Supports time-based filtering (hour, day, week, month, year).")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("query") {
+                    put("type", "string")
+                    put("description", "Search query (e.g., 'latest political events in Poland', 'current news about climate change')")
+                }
+                putJsonObject("recency_filter") {
+                    put("type", "string")
+                    put("description", "Time filter for search results: 'hour' (last hour), 'day' (last 24h), 'week' (last 7 days), 'month' (last 30 days), 'year' (last 365 days). Default: no filter (all time)")
+                    put("enum", buildJsonArray {
+                        add(JsonPrimitive("hour"))
+                        add(JsonPrimitive("day"))
+                        add(JsonPrimitive("week"))
+                        add(JsonPrimitive("month"))
+                        add(JsonPrimitive("year"))
+                    })
+                }
+                putJsonObject("max_results") {
+                    put("type", "number")
+                    put("description", "Maximum number of search results to return (1-20). Default: 5")
+                    put("default", 5)
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("query"))
             })
         }
     }

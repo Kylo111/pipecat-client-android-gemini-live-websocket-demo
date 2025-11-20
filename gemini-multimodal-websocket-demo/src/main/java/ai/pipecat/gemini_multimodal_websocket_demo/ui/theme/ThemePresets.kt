@@ -35,10 +35,10 @@ object ThemePresets {
     )
     
     private val classicDarkColors = ThemeColors(
-        buttonNormal = Color(0xFF60A5FA),
+        buttonNormal = Color(0xFF374151),
         buttonWarning = Color(0xFFEF4444),
         buttonSection = Color(0xFF1E3A5F),
-        buttonAccent = Color(0xFF3B82F6),
+        buttonAccent = Color(0xFF10B981),
         activityBackground = Color(0xFF111827),
         mainSurfaceBackground = Color(0xFF1F2937),
         cardBackground = Color(0xFF1F2937),
