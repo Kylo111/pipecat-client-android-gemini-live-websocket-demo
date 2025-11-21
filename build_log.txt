@@ -1,0 +1,50 @@
+﻿> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gemini-multimodal-websocket-demo:preBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:preDebugBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:generateDebugBuildConfig UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:checkDebugAarMetadata UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:generateDebugResValues UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mapDebugSourceSetPaths UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:generateDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:packageDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:parseDebugLocalResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:extractDeepLinksDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugMainManifest UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugManifest UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugManifestForPackage UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:javaPreCompileDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugShaders UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:compileDebugShaders NO-SOURCE
+> Task :gemini-multimodal-websocket-demo:generateDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:compressDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:checkDebugDuplicateClasses UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:desugarDebugFileDependencies UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugStartupProfile UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeExtDexDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeLibDexDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugJniLibFolders UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugNativeLibs UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:stripDebugDebugSymbols UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:validateSigningDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:writeDebugAppMetadata UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:kspDebugKotlin
+> Task :gemini-multimodal-websocket-demo:compileDebugKotlin
+> Task :gemini-multimodal-websocket-demo:compileDebugJavaWithJavac UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugJavaRes UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugJavaResource UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:dexBuilderDebug
+> Task :gemini-multimodal-websocket-demo:mergeProjectDexDebug
+> Task :gemini-multimodal-websocket-demo:packageDebug
+> Task :gemini-multimodal-websocket-demo:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :gemini-multimodal-websocket-demo:installDebug
+Installing APK 'gemini-multimodal-websocket-demo-debug.apk' on '2409FPCC4G - 15' for :gemini-multimodal-websocket-demo:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 6s
+39 actionable tasks: 6 executed, 33 up-to-date

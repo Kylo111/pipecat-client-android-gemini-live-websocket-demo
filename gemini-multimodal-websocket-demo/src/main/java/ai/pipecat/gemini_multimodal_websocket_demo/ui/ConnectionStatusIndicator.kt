@@ -1,7 +1,9 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
-import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.ConnectionState
 import ai.pipecat.gemini_multimodal_websocket_demo.R
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode

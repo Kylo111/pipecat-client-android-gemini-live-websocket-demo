@@ -1,5 +1,15 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
+import ai.pipecat.gemini_multimodal_websocket_demo.state.ConnectionState
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.ConversationListScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.NetworkMonitor
+import android.content.BroadcastReceiver
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.BackPressHandler
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
@@ -8,19 +18,6 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.ConversationListScreen
-import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
-import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationType
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.textFieldColors
-import ai.pipecat.gemini_multimodal_websocket_demo.utils.NetworkMonitor
-import android.content.BroadcastReceiver
-import android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE
-import android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
 import android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW
 import android.content.Context
 import android.content.Intent
