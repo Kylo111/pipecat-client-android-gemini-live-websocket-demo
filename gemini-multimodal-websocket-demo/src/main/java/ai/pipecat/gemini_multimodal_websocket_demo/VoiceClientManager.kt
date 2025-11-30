@@ -197,6 +197,11 @@ class VoiceClientManager(
     private var audioTrack: AudioTrack? = null
     private val audioTrackMutex = Mutex()
     private var recordingJob: Job? = null
+    private var audioPlaybackJob: Job? = null
+    
+    // Audio queue for smooth playback without pops/clicks
+    private val audioQueue = mutableListOf<Pair<Int, ByteArray>>() // Pair<generationId, audioData>
+    private val audioQueueMutex = Mutex()
     private var scope: CoroutineScope? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioManager: AudioManager? = null
@@ -460,6 +465,131 @@ class VoiceClientManager(
         botSilenceDetectionJob?.cancel()
         botSilenceDetectionJob = null
         Log.d(TAG, "Bot silence detection stopped")
+    }
+    
+    /**
+     * Start monitoring user inactivity for auto-pause
+     * Pauses session after configured timeout of user inactivity
+     */
+    private fun startAutoPauseMonitoring() {
+        // Cancel existing job if any
+        autoPauseJob?.cancel()
+        
+        val timeout = Preferences.autoPauseTimeoutSeconds.value
+        if (timeout <= 0) {
+            Log.i(TAG, "Auto-pause disabled (timeout: ${timeout}s)")
+            secondsUntilAutoPause.value = -1
+            return
+        }
+        
+        // Initialize timer
+        lastActivityTime = System.currentTimeMillis()
+        secondsUntilAutoPause.value = timeout
+        
+        autoPauseJob = scope?.launch {
+            Log.i(TAG, "Auto-pause monitoring started (timeout: ${timeout}s)")
+            
+            while (isActive) {
+                delay(1000) // Check every second
+                
+                // Skip if bot is talking (don't count as inactivity)
+                if (botIsTalking.value) {
+                    lastActivityTime = System.currentTimeMillis()
+                    secondsUntilAutoPause.value = timeout
+                    continue
+                }
+                
+                // Calculate time since last activity
+                val elapsed = (System.currentTimeMillis() - lastActivityTime) / 1000
+                val remaining = timeout - elapsed.toInt()
+                
+                secondsUntilAutoPause.value = remaining.coerceAtLeast(0)
+                
+                if (remaining <= 0) {
+                    Log.w(TAG, "⏱️ Auto-pause triggered - no user activity for ${timeout}s")
+                    
+                    // Pause session
+                    withContext(Dispatchers.Main) {
+                        pause()
+                    }
+                    
+                    break
+                }
+                
+                if (DEBUG_LOGGING && remaining <= 10) {
+                    Log.d(TAG, "Auto-pause in ${remaining}s...")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop monitoring user inactivity
+     */
+    private fun stopAutoPauseMonitoring() {
+        autoPauseJob?.cancel()
+        autoPauseJob = null
+        secondsUntilAutoPause.value = -1
+        Log.d(TAG, "Auto-pause monitoring stopped")
+    }
+    
+    /**
+     * Start monitoring bot response timeout
+     * Pauses session if bot doesn't respond within configured timeout
+     */
+    private fun startBotResponseTimeoutMonitoring() {
+        // Cancel existing job if any
+        botResponseTimeoutJob?.cancel()
+        
+        val timeout = Preferences.botResponseTimeoutMinutes.value
+        if (timeout <= 0) {
+            Log.i(TAG, "Bot response timeout disabled (timeout: ${timeout}min)")
+            minutesUntilBotTimeout.value = -1
+            return
+        }
+        
+        // Initialize timer
+        lastBotResponseTime = System.currentTimeMillis()
+        minutesUntilBotTimeout.value = timeout
+        
+        botResponseTimeoutJob = scope?.launch {
+            Log.i(TAG, "Bot response timeout monitoring started (timeout: ${timeout}min)")
+            
+            while (isActive) {
+                delay(1000) // Check every second
+                
+                // Calculate time since last bot response
+                val elapsed = (System.currentTimeMillis() - lastBotResponseTime) / 1000 / 60 // minutes
+                val remaining = timeout - elapsed.toInt()
+                
+                minutesUntilBotTimeout.value = remaining.coerceAtLeast(0)
+                
+                if (remaining <= 0) {
+                    Log.w(TAG, "⏱️ Bot response timeout triggered - no response for ${timeout}min")
+                    
+                    // Pause session
+                    withContext(Dispatchers.Main) {
+                        pause()
+                    }
+                    
+                    break
+                }
+                
+                if (DEBUG_LOGGING && remaining <= 1) {
+                    Log.d(TAG, "Bot response timeout in ${remaining}min...")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop monitoring bot response timeout
+     */
+    private fun stopBotResponseTimeoutMonitoring() {
+        botResponseTimeoutJob?.cancel()
+        botResponseTimeoutJob = null
+        minutesUntilBotTimeout.value = -1
+        Log.d(TAG, "Bot response timeout monitoring stopped")
     }
     
     /**
@@ -1263,6 +1393,14 @@ class VoiceClientManager(
         
         scope?.launch {
             try {
+                // Clear audio queue first
+                audioQueueMutex.withLock {
+                    val queueSize = audioQueue.size
+                    audioQueue.clear()
+                    Log.i(TAG, "⚡ Cleared audio queue ($queueSize chunks discarded)")
+                }
+                
+                // Then flush AudioTrack buffer
                 audioTrackMutex.withLock {
                     val audioTrackInstance = audioTrack
                     if (audioTrackInstance != null && audioTrackInstance.state == AudioTrack.STATE_INITIALIZED) {
@@ -1299,7 +1437,7 @@ class VoiceClientManager(
         // Log audio stats every 5 seconds
         val now = System.currentTimeMillis()
         if (now - lastAudioLogTime > 5000) {
-            Log.i(TAG, "📊 Audio stats: $audioChunksReceived chunks, ${totalAudioBytesReceived / 1024}KB total")
+            Log.i(TAG, "📊 Audio stats: $audioChunksReceived chunks, ${totalAudioBytesReceived / 1024}KB total, queue size: ${audioQueue.size}")
             lastAudioLogTime = now
         }
         
@@ -1323,55 +1461,20 @@ class VoiceClientManager(
         // Capture current generation ID
         val currentGenId = audioGenerationId.get()
         
-        // Play received audio with thread-safe synchronization
+        // Add to queue instead of playing immediately
+        // This prevents pops/clicks by ensuring smooth sequential playback
         scope?.launch {
-            // Fast check before acquiring lock
-            if (currentGenId != audioGenerationId.get()) {
-                if (DEBUG_LOGGING) Log.d(TAG, "🔇 Dropping audio chunk (interrupted) - GenID mismatch")
-                return@launch
-            }
-            
-            try {
-                audioTrackMutex.withLock {
-                    // Double check inside lock
-                    if (currentGenId != audioGenerationId.get()) {
-                        Log.d(TAG, "🔇 Dropping audio chunk inside lock (interrupted)")
-                        return@withLock
-                    }
-                    
-                    val audioTrackInstance = audioTrack
-                    if (audioTrackInstance == null) {
-                        Log.w(TAG, "⚠️ AudioTrack is null, cannot play audio")
-                        return@withLock
-                    }
-                    
-                    // Check AudioTrack state before writing
-                    val state = audioTrackInstance.state
-                    val playState = audioTrackInstance.playState
-                    
-                    if (state != AudioTrack.STATE_INITIALIZED) {
-                        Log.e(TAG, "❌ AudioTrack not initialized (state: $state)")
-                        return@withLock
-                    }
-                    
-                    if (playState != AudioTrack.PLAYSTATE_PLAYING) {
-                        Log.w(TAG, "⚠️ AudioTrack not playing (playState: $playState), restarting...")
-                        audioTrackInstance.play()
-                    }
-                    
-                    val written = audioTrackInstance.write(boostedAudio, 0, boostedAudio.size)
-                    
-                    if (written < 0) {
-                        Log.e(TAG, "❌ AudioTrack write error: $written")
-                    } else if (written != boostedAudio.size) {
-                        Log.w(TAG, "⚠️ AudioTrack write incomplete: wrote $written of ${boostedAudio.size} bytes")
-                    } else if (DEBUG_LOGGING) {
-                        Log.d(TAG, "✅ AudioTrack write successful: $written bytes")
-                    }
+            audioQueueMutex.withLock {
+                audioQueue.add(Pair(currentGenId, boostedAudio))
+                if (DEBUG_LOGGING) {
+                    Log.d(TAG, "📥 Added audio to queue (size: ${audioQueue.size}, genId: $currentGenId)")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error writing to AudioTrack: ${e.message}", e)
             }
+        }
+        
+        // Start playback job if not running
+        if (audioPlaybackJob == null || !audioPlaybackJob!!.isActive) {
+            startAudioPlaybackJob()
         }
         
         // Calculate audio level for visualization
@@ -1380,6 +1483,122 @@ class VoiceClientManager(
         
         if (DEBUG_LOGGING && level > 0.1f) {
             Log.d(TAG, "🔊 Bot audio level: $level")
+        }
+    }
+    
+    /**
+     * Start audio playback job that processes queue sequentially
+     * This ensures smooth playback without pops/clicks between chunks
+     */
+    private fun startAudioPlaybackJob() {
+        audioPlaybackJob?.cancel()
+        
+        audioPlaybackJob = scope?.launch {
+            Log.i(TAG, "🎵 Audio playback job started")
+            
+            while (isActive) {
+                // Get next chunk from queue
+                val chunk = audioQueueMutex.withLock {
+                    if (audioQueue.isEmpty()) {
+                        null
+                    } else {
+                        audioQueue.removeAt(0)
+                    }
+                }
+                
+                if (chunk == null) {
+                    // Queue empty, wait a bit
+                    delay(10)
+                    continue
+                }
+                
+                val (genId, audioData) = chunk
+                
+                // Check if this chunk is still valid (not interrupted)
+                if (genId != audioGenerationId.get()) {
+                    if (DEBUG_LOGGING) {
+                        Log.d(TAG, "🔇 Skipping queued audio chunk (interrupted, genId: $genId != ${audioGenerationId.get()})")
+                    }
+                    continue
+                }
+                
+                // Play the chunk
+                try {
+                    audioTrackMutex.withLock {
+                        // Double check generation ID inside lock
+                        if (genId != audioGenerationId.get()) {
+                            if (DEBUG_LOGGING) {
+                                Log.d(TAG, "🔇 Skipping audio chunk inside lock (interrupted)")
+                            }
+                            return@withLock
+                        }
+                        
+                        val audioTrackInstance = audioTrack
+                        if (audioTrackInstance == null) {
+                            Log.w(TAG, "⚠️ AudioTrack is null, cannot play audio")
+                            return@withLock
+                        }
+                        
+                        // Check AudioTrack state before writing
+                        val state = audioTrackInstance.state
+                        val playState = audioTrackInstance.playState
+                        
+                        if (state != AudioTrack.STATE_INITIALIZED) {
+                            Log.e(TAG, "❌ AudioTrack not initialized (state: $state)")
+                            return@withLock
+                        }
+                        
+                        if (playState != AudioTrack.PLAYSTATE_PLAYING) {
+                            Log.w(TAG, "⚠️ AudioTrack not playing (playState: $playState), restarting...")
+                            audioTrackInstance.play()
+                        }
+                        
+                        // CRITICAL FIX: Use write() with WRITE_BLOCKING mode for smoother playback
+                        // This ensures data is written completely before returning, preventing underruns
+                        val written = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            // Use blocking write for API 21+ - waits until buffer has space
+                            audioTrackInstance.write(audioData, 0, audioData.size, AudioTrack.WRITE_BLOCKING)
+                        } else {
+                            // Fallback for older APIs
+                            audioTrackInstance.write(audioData, 0, audioData.size)
+                        }
+                        
+                        if (written < 0) {
+                            Log.e(TAG, "❌ AudioTrack write error: $written")
+                            
+                            // Check for underrun (error code -3 = ERROR_DEAD_OBJECT, -2 = ERROR_BAD_VALUE)
+                            if (written == AudioTrack.ERROR_DEAD_OBJECT) {
+                                Log.e(TAG, "❌ AudioTrack dead - attempting recovery")
+                                // AudioTrack died, need to recreate
+                                try {
+                                    audioTrackInstance.stop()
+                                    audioTrackInstance.release()
+                                    audioTrack = null
+                                    // Will be recreated on next connection
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error during AudioTrack recovery: ${e.message}")
+                                }
+                            }
+                        } else if (written != audioData.size) {
+                            Log.w(TAG, "⚠️ AudioTrack write incomplete: wrote $written of ${audioData.size} bytes")
+                        } else if (DEBUG_LOGGING) {
+                            Log.d(TAG, "✅ AudioTrack write successful: $written bytes")
+                        }
+                        
+                        // Monitor buffer underrun (API 24+)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            val underrunCount = audioTrackInstance.underrunCount
+                            if (underrunCount > 0 && DEBUG_LOGGING) {
+                                Log.w(TAG, "⚠️ AudioTrack underrun detected (count: $underrunCount)")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error writing to AudioTrack: ${e.message}", e)
+                }
+            }
+            
+            Log.i(TAG, "🎵 Audio playback job ended")
         }
     }
     
@@ -1476,14 +1695,15 @@ class VoiceClientManager(
                     Log.i(TAG, "ℹ️ No Bluetooth SCO available, using built-in microphone")
                 }
                 
-                // CRITICAL FIX: Restore speakerphone state if it was enabled before pause
+                // CRITICAL FIX: Only restore speakerphone state during resume (not first connection)
+                // During first connection, enableSpeakerphoneIfNoHeadset() will handle it
                 // This ensures user's audio settings are preserved during pause/resume
                 if (isSpeakerphoneOn.value) {
                     am.isSpeakerphoneOn = true
                     Log.i(TAG, "✅ Speakerphone restored (was enabled before pause)")
                 } else {
-                    am.isSpeakerphoneOn = false
-                    Log.i(TAG, "Speakerphone disabled (was not enabled before)")
+                    // Don't explicitly disable - let enableSpeakerphoneIfNoHeadset() decide
+                    Log.i(TAG, "Speakerphone state will be set by enableSpeakerphoneIfNoHeadset()")
                 }
                 
                 // Log final audio routing state
@@ -1811,13 +2031,14 @@ class VoiceClientManager(
                 AUDIO_FORMAT
             )
             
-            // Use 4x minimum buffer size for better streaming stability
-            // This prevents audio dropouts during network fluctuations
-            val bufferSize = minBufferSize * 4
+            // Use 8x minimum buffer size for better streaming stability
+            // Larger buffer prevents audio dropouts (pops/clicks) during network jitter
+            // This gives more time for packets to arrive before buffer underrun
+            val bufferSize = minBufferSize * 8
 
             Log.i(TAG, "Starting audio playback:")
             Log.i(TAG, "  Min buffer size: $minBufferSize bytes")
-            Log.i(TAG, "  Using buffer size: $bufferSize bytes (4x min)")
+            Log.i(TAG, "  Using buffer size: $bufferSize bytes (8x min)")
             Log.i(TAG, "  Sample rate: $OUTPUT_SAMPLE_RATE Hz")
             Log.i(TAG, "  Buffer duration: ~${(bufferSize * 1000) / (OUTPUT_SAMPLE_RATE * 2)}ms")
 
@@ -1830,10 +2051,14 @@ class VoiceClientManager(
                 AudioTrack.MODE_STREAM
             )
 
+            // CRITICAL: Start playback immediately in MODE_STREAM
+            // AudioTrack will wait until buffer has enough data before actually playing
+            // This prevents underrun at the start
             audioTrack?.play()
             Log.i(TAG, "✅ Audio playback started successfully")
             Log.i(TAG, "  AudioTrack state: ${audioTrack?.state}")
             Log.i(TAG, "  AudioTrack playback state: ${audioTrack?.playState}")
+            Log.i(TAG, "  Buffer will auto-fill before playback begins (prevents initial pops)")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to start audio playback: ${e.message}", e)
             if (DEBUG_LOGGING) {
@@ -1937,9 +2162,12 @@ class VoiceClientManager(
             reconnectionManager.cancelReconnection()
             imageProcessingJob?.cancel()
             recordingJob?.cancel()
+            audioPlaybackJob?.cancel()
             autoPauseJob?.cancel()
             botResponseTimeoutJob?.cancel()
             idleCheckJob?.cancel()
+            botSilenceDetectionJob?.cancel()
+            webSocketHealthJob?.cancel()
             
             Log.d(TAG, "[forceStop] All jobs cancelled")
             
@@ -2169,6 +2397,18 @@ class VoiceClientManager(
         recordingJob?.cancel()
         recordingJob = null
         Log.d(TAG, "Recording job cancelled")
+        
+        audioPlaybackJob?.cancel()
+        audioPlaybackJob = null
+        Log.d(TAG, "Audio playback job cancelled")
+        
+        // Clear audio queue
+        scope?.launch {
+            audioQueueMutex.withLock {
+                audioQueue.clear()
+                Log.d(TAG, "Audio queue cleared")
+            }
+        }
         
         try {
             audioRecord?.stop()
@@ -2817,126 +3057,4 @@ class VoiceClientManager(
         }
     }
     
-    /**
-     * Start auto-pause monitoring
-     * Timer counts down only when bot is NOT speaking
-     * When timer reaches 0, session is paused
-     */
-    private fun startAutoPauseMonitoring() {
-        // Cancel existing job
-        autoPauseJob?.cancel()
-        
-        val timeout = Preferences.autoPauseTimeoutSeconds.value
-        if (timeout <= 0) {
-            Log.i(TAG, "Auto-pause disabled (timeout = $timeout)")
-            secondsUntilAutoPause.value = -1
-            return
-        }
-        
-        Log.i(TAG, "Starting auto-pause monitoring (timeout: ${timeout}s)")
-        lastActivityTime = System.currentTimeMillis()
-        secondsUntilAutoPause.value = timeout
-        
-        autoPauseJob = scope?.launch {
-            while (isActive) {
-                delay(1000) // Check every second
-                
-                // Only count down if bot is NOT speaking
-                if (!botIsTalking.value && state.value == ConnectionState.CONNECTED) {
-                    val elapsed = (System.currentTimeMillis() - lastActivityTime) / 1000
-                    val remaining = timeout - elapsed.toInt()
-                    
-                    secondsUntilAutoPause.value = remaining.coerceAtLeast(0)
-                    
-                    if (remaining <= 0) {
-                        Log.i(TAG, "⏸️ Auto-pause triggered after ${timeout}s of inactivity")
-                        pause()
-                        secondsUntilAutoPause.value = -1
-                        break
-                    }
-                    
-                    if (remaining <= 5 && remaining > 0) {
-                        Log.d(TAG, "Auto-pause in ${remaining}s...")
-                    }
-                } else if (botIsTalking.value) {
-                    // Bot is speaking - don't count down, but show current value
-                    val elapsed = (System.currentTimeMillis() - lastActivityTime) / 1000
-                    val remaining = timeout - elapsed.toInt()
-                    secondsUntilAutoPause.value = remaining.coerceAtLeast(0)
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop auto-pause monitoring
-     */
-    private fun stopAutoPauseMonitoring() {
-        Log.d(TAG, "Stopping auto-pause monitoring")
-        autoPauseJob?.cancel()
-        autoPauseJob = null
-        secondsUntilAutoPause.value = -1
-        
-        // Also stop bot response timeout monitoring
-        stopBotResponseTimeoutMonitoring()
-    }
-    
-    /**
-     * Start bot response timeout monitoring
-     * Monitors time since last bot response
-     * If bot doesn't respond for configured time, session is paused
-     * This protects against situations where background noise prevents auto-pause
-     * but bot is not actually responding
-     */
-    private fun startBotResponseTimeoutMonitoring() {
-        // Cancel existing job
-        botResponseTimeoutJob?.cancel()
-        
-        val timeoutMinutes = Preferences.botResponseTimeoutMinutes.value
-        if (timeoutMinutes <= 0) {
-            Log.i(TAG, "Bot response timeout disabled (timeout = $timeoutMinutes)")
-            minutesUntilBotTimeout.value = -1
-            return
-        }
-        
-        Log.i(TAG, "Starting bot response timeout monitoring (timeout: ${timeoutMinutes}min)")
-        lastBotResponseTime = System.currentTimeMillis()
-        minutesUntilBotTimeout.value = timeoutMinutes
-        
-        botResponseTimeoutJob = scope?.launch {
-            while (isActive) {
-                delay(10000) // Check every 10 seconds
-                
-                // Only monitor if connected
-                if (state.value == ConnectionState.CONNECTED) {
-                    val elapsedMinutes = (System.currentTimeMillis() - lastBotResponseTime) / 60000
-                    val remainingMinutes = timeoutMinutes - elapsedMinutes.toInt()
-                    
-                    minutesUntilBotTimeout.value = remainingMinutes.coerceAtLeast(0)
-                    
-                    if (remainingMinutes <= 0) {
-                        Log.w(TAG, "⏸️ Bot response timeout triggered after ${timeoutMinutes}min without response")
-                        Log.w(TAG, "This may indicate background noise preventing auto-pause while bot is not responding")
-                        pause()
-                        minutesUntilBotTimeout.value = -1
-                        break
-                    }
-                    
-                    if (remainingMinutes == 1) {
-                        Log.d(TAG, "Bot response timeout in 1 minute...")
-                    }
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop bot response timeout monitoring
-     */
-    private fun stopBotResponseTimeoutMonitoring() {
-        Log.d(TAG, "Stopping bot response timeout monitoring")
-        botResponseTimeoutJob?.cancel()
-        botResponseTimeoutJob = null
-        minutesUntilBotTimeout.value = -1
-    }
 }

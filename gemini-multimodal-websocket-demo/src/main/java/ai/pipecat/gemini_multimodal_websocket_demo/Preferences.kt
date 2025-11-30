@@ -271,7 +271,7 @@ CORRECT: [Execute search_perplexity or search_web immediately, then provide the 
     """.trimIndent())
     
     // Summary mode preferences
-    val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, false)
+    val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, true) // Default: Podsumowanie (Summary mode)
     val summaryModel = StringPref(PREF_SUMMARY_MODEL, "gemini-2.5-flash")
     val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, """
 Przeanalizuj poniższą transkrypcję rozmowy głosowej i stwórz zwięzłe podsumowanie.
