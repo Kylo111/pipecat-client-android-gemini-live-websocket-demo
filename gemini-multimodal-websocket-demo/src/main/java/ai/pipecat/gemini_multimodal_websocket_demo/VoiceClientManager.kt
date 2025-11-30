@@ -39,6 +39,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -241,6 +242,9 @@ class VoiceClientManager(
     private var isSessionResumable: Boolean = false
     private var sessionCreatedTime: Long = 0L
     private val SESSION_RESUMPTION_TIMEOUT = 2 * 60 * 60 * 1000L // 2 hours in milliseconds
+    
+    // Audio generation ID to handle interruption and discard pending chunks
+    private val audioGenerationId = AtomicInteger(0)
     
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)  // Increased from 10s to 30s
@@ -986,6 +990,28 @@ class VoiceClientManager(
             if (jsonObject.containsKey("serverContent")) {
                 val serverContent = jsonObject["serverContent"]?.jsonObject
                 
+                // Check for interruption signal
+                if (serverContent?.containsKey("interrupted") == true) {
+                    val interrupted = serverContent["interrupted"]?.jsonPrimitive?.content?.toBoolean() ?: false
+                    if (interrupted) {
+                        Log.i(TAG, "⚡ Interruption signal received from Gemini")
+                        interruptPlayback()
+                        
+                        // Update state immediately
+                        botIsTalking.value = false
+                        botAudioLevel.floatValue = 0f
+                        
+                        // If in half-duplex, ensure we resume recording since we interrupted
+                        if (!Preferences.fullDuplexMode.value) {
+                             resumeAudioRecording()
+                        }
+                        
+                        // CRITICAL: Return immediately to avoid processing any audio in this message
+                        // which would be stale/interrupted audio
+                        return
+                    }
+                }
+                
                 // Check for output transcription (bot's audio transcribed to text)
                 if (serverContent?.containsKey("outputTranscription") == true) {
                     val outputTranscription = serverContent["outputTranscription"]?.jsonObject
@@ -1230,6 +1256,35 @@ class VoiceClientManager(
         return ""
     }
 
+    private fun interruptPlayback() {
+        // Increment generation ID to invalidate all pending audio chunks
+        val newId = audioGenerationId.incrementAndGet()
+        Log.i(TAG, "⚡ Interrupting playback - invalidating pending chunks (New GenID: $newId)")
+        
+        scope?.launch {
+            try {
+                audioTrackMutex.withLock {
+                    val audioTrackInstance = audioTrack
+                    if (audioTrackInstance != null && audioTrackInstance.state == AudioTrack.STATE_INITIALIZED) {
+                        Log.i(TAG, "⚡ Flushing AudioTrack buffer")
+                        try {
+                            // Pause first to stop playback
+                            audioTrackInstance.pause()
+                            // Flush to clear buffered audio
+                            audioTrackInstance.flush()
+                            // Resume playback (ready for next audio)
+                            audioTrackInstance.play()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error flushing audio track: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in interruptPlayback: ${e.message}")
+            }
+        }
+    }
+    
     private var audioChunksReceived = 0
     private var totalAudioBytesReceived = 0L
     private var lastAudioLogTime = 0L
@@ -1265,10 +1320,25 @@ class VoiceClientManager(
             audioData
         }
         
+        // Capture current generation ID
+        val currentGenId = audioGenerationId.get()
+        
         // Play received audio with thread-safe synchronization
         scope?.launch {
+            // Fast check before acquiring lock
+            if (currentGenId != audioGenerationId.get()) {
+                if (DEBUG_LOGGING) Log.d(TAG, "🔇 Dropping audio chunk (interrupted) - GenID mismatch")
+                return@launch
+            }
+            
             try {
                 audioTrackMutex.withLock {
+                    // Double check inside lock
+                    if (currentGenId != audioGenerationId.get()) {
+                        Log.d(TAG, "🔇 Dropping audio chunk inside lock (interrupted)")
+                        return@withLock
+                    }
+                    
                     val audioTrackInstance = audioTrack
                     if (audioTrackInstance == null) {
                         Log.w(TAG, "⚠️ AudioTrack is null, cannot play audio")
@@ -1641,7 +1711,8 @@ class VoiceClientManager(
                 
                 while (isActive && (state.value == ConnectionState.CONNECTED || state.value == ConnectionState.RECONNECTING)) {
                     // Skip reading if bot is talking (AudioRecord is stopped)
-                    if (botIsTalking.value) {
+                    // BUT only in half-duplex mode. In full-duplex, we continue reading.
+                    if (botIsTalking.value && !Preferences.fullDuplexMode.value) {
                         delay(100)  // Wait while bot talks
                         continue
                     }

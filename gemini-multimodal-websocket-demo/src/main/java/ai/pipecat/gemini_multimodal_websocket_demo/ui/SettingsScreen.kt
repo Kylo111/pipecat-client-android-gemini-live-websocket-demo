@@ -706,7 +706,7 @@ fun SettingsScreen(
                     var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
                     
                     SettingsToggle(
-                        label = "Full-Duplex (eksperymentalny)",
+                        label = "Full-Duplex",
                         checked = fullDuplexMode,
                         onCheckedChange = { 
                             fullDuplexMode = it
@@ -718,13 +718,13 @@ fun SettingsScreen(
                     
                     Text(
                         text = if (fullDuplexMode) {
-                            "⚠️ FULL-DUPLEX: Możesz przerywać bota, ale może wystąpić echo lub bot może przerywać swoje wypowiedzi. Mikrofon nagrywa cały czas."
+                            "✅ FULL-DUPLEX: Możesz przerywać bota w dowolnym momencie. Mikrofon nagrywa cały czas."
                         } else {
-                            "✅ HALF-DUPLEX (zalecane): Bot kończy swoje wypowiedzi bez przerywania. Mikrofon jest wyłączany gdy bot mówi."
+                            "ℹ️ HALF-DUPLEX: Bot kończy swoje wypowiedzi bez przerywania. Mikrofon jest wyłączany gdy bot mówi."
                         },
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W400,
-                        color = if (fullDuplexMode) Color(0xFFFF9800) else Color(0xFF4CAF50),
+                        color = if (fullDuplexMode) Color(0xFF4CAF50) else Color.Gray,
                         style = TextStyles.base,
                         lineHeight = 16.sp
                     )
@@ -760,7 +760,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         Text(
-                            text = "• Full-Duplex: Mikrofon działa cały czas. Możesz przerywać bota, ale może wystąpić acoustic echo lub bot może przerywać swoje wypowiedzi (znany bug Gemini API).",
+                            text = "• Full-Duplex: Mikrofon działa cały czas. Możesz przerywać bota w trakcie wypowiedzi, co pozwala na bardziej naturalną rozmowę.",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.DarkGray,

@@ -303,5 +303,5 @@ Podsumowanie powinno być:
     val parentalLockEnabled = BooleanPref(PREF_PARENTAL_LOCK_ENABLED, false)
     
     // Audio mode (full-duplex vs half-duplex)
-    val fullDuplexMode = BooleanPref(PREF_FULL_DUPLEX_MODE, false) // Default: half-duplex (safer)
+    val fullDuplexMode = BooleanPref(PREF_FULL_DUPLEX_MODE, true) // Default: full-duplex
 }
