@@ -1,0 +1,935 @@
+# Component Documentation
+
+This document provides detailed technical documentation for all major components in the voice conversation system.
+
+## Core Components
+
+### VoiceClientManager
+
+**Role:** Central coordinator for WebSocket communication, audio streaming, and conversation state management.
+
+**Location:** `VoiceClientManager.kt:170`
+
+**Main Fields:**
+
+- `webSocket: WebSocket?` - Active OkHttp WebSocket connection to Gemini API
+  - **Invariant:** Non-null only when state is CONNECTED or CONNECTING
+  
+- `audioRecord: AudioRecord?` - Microphone input recorder
+  - **Configuration:** 16kHz sample rate, MONO channel, PCM 16-bit encoding
+  - **Invariant:** Non-null only when state is CONNECTED
+  
+- `audioTrack: AudioTrack?` - Audio output player
+  - **Configuration:** 24kHz sample rate, MONO channel, PCM 16-bit encoding
+  - **Invariant:** Non-null only when state is CONNECTED
+  
+- `state: MutableState<ConnectionState>` - Current connection state
+  - **Type:** Compose mutable state for reactive UI updates
+  - **Values:** DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, DISCONNECTING
+  
+- `scope: CoroutineScope?` - Coroutine scope for async operations
+  - **Dispatcher:** Dispatchers.IO for network and audio operations
+  - **Lifecycle:** Created on start(), cancelled on stop()
+  
+- `wakeLock: PowerManager.WakeLock?` - Keeps CPU active during conversation
+  - **Type:** PARTIAL_WAKE_LOCK
+  - **Timeout:** 4 hours maximum
+  - **Invariant:** Held only when state is CONNECTED
+  
+- `sessionManager: SessionManager?` - Manages session context and transcripts
+  - **Relationship:** Composition (optional for offline mode)
+  
+- `reconnectionManager: ReconnectionManager` - Handles automatic reconnection
+  - **Relationship:** Composition
+  - **Strategy:** Exponential backoff with max 5 attempts
+
+**Main Methods:**
+
+#### `start(threadSettings: ThreadSettings?): Unit`
+**Role:** Initiates WebSocket connection and starts audio streaming
+
+**Preconditions:**
+- API key must be configured in Preferences
+- State must be DISCONNECTED, RECONNECTING, or stuck in CONNECTING
+- Not currently in DISCONNECTING state
+
+**Parameters:**
+- `threadSettings: ThreadSettings?` - Optional per-conversation settings
+  - `voiceName: String?` - Gemini voice selection (e.g., "Puck", "Charon")
+  - `speechSpeed: Float` - Speed multiplier (0.5-2.0, default 1.0)
+  - `volumeBoost: Float` - Volume multiplier (0.5-2.0, default 1.0)
+  - `temperature: Float` - Response creativity (0.0-2.0, default 1.0)
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- State transitions to CONNECTING (or remains RECONNECTING)
+- WebSocket connection initiated
+- Scope created if null
+- On successful connection (setupComplete):
+  - State transitions to CONNECTED
+  - AudioRecord and AudioTrack started
+  - Wake lock acquired
+  - Monitoring jobs started (auto-pause, bot timeout, health check)
+
+**Side-effects:**
+- Creates OkHttp WebSocket connection
+- Registers Bluetooth SCO receiver
+- Starts foreground VoiceService
+- Acquires wake lock
+- Increases audio volume
+- Sends setup message with system prompt and tools
+
+**Possible Errors:**
+- Adds Error("API key required") if key missing
+- WebSocket connection failures handled in onFailure callback
+
+**Example:**
+```kotlin
+val settings = ThreadSettings(
+    conversationId = "conv-123",
+    voiceName = "Puck",
+    speechSpeed = 1.2f,
+    temperature = 0.8f
+)
+voiceClientManager.start(settings)
+```
+
+**Code Reference:** `VoiceClientManager.kt:560-850`
+
+---
+
+#### `stop(): Unit`
+**Role:** Terminates connection and cleans up all resources
+
+**Preconditions:** None (safe to call in any state)
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- State transitions to DISCONNECTED
+- WebSocket closed
+- Audio resources released
+- Wake lock released
+- Session ended (transcript sent to LibreChat)
+- All monitoring jobs cancelled
+
+**Side-effects:**
+- Closes WebSocket connection
+- Stops and releases AudioRecord
+- Stops and releases AudioTrack
+- Releases wake lock
+- Stops foreground VoiceService
+- Unregisters Bluetooth SCO receiver
+- Cancels coroutine scope
+- Calls sessionManager.endSession()
+
+**Possible Errors:**
+- Exceptions during cleanup are logged but don't prevent completion
+
+**Example:**
+```kotlin
+voiceClientManager.stop()
+// All resources released, safe to exit app
+```
+
+**Code Reference:** `VoiceClientManager.kt:2800-2850`
+
+---
+
+#### `pause(): Unit`
+**Role:** Pauses session while preserving resumption handle for later continuation
+
+**Preconditions:**
+- State must be CONNECTED
+- Session must be active
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- State transitions to DISCONNECTED
+- `isPaused` flag set to true
+- `sessionResumptionHandle` preserved
+- WebSocket closed
+- Audio resources released
+- Session context preserved (not ended)
+
+**Side-effects:**
+- Closes WebSocket (graceful close code 1000)
+- Stops audio recording and playback
+- Releases wake lock
+- Stops foreground service
+- Preserves session handle for 2-hour window
+
+**Possible Errors:**
+- None (graceful operation)
+
+**Example:**
+```kotlin
+voiceClientManager.pause()
+// Session paused, can resume within 2 hours
+```
+
+**Code Reference:** `VoiceClientManager.kt:2850-2900`
+
+---
+
+#### `resume(): Unit`
+**Role:** Resumes paused session using stored resumption handle
+
+**Preconditions:**
+- `isPaused` must be true
+- `sessionResumptionHandle` must be non-null
+- Handle must be valid (< 2 hours since session creation)
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- `isPaused` flag cleared
+- State transitions to CONNECTING
+- WebSocket reconnects with resumption handle
+- Audio resources restarted on successful connection
+
+**Side-effects:**
+- Clears isPaused flag
+- Calls start() with preserved thread settings
+- Sends setup message with resumption handle
+- Restores audio pipeline
+
+**Possible Errors:**
+- If handle expired: Gemini starts new session instead of resuming
+- Connection failures handled same as start()
+
+**Example:**
+```kotlin
+voiceClientManager.pause()
+// ... user does something else ...
+voiceClientManager.resume()
+// Session continues from where it left off
+```
+
+**Code Reference:** `VoiceClientManager.kt:2900-2950`
+
+---
+
+#### `sendImage(uri: Uri): Unit`
+**Role:** Sends image to Gemini for vision analysis
+
+**Preconditions:**
+- State must be CONNECTED
+- URI must point to valid image file
+
+**Parameters:**
+- `uri: Uri` - Android URI pointing to image file
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Image processed and sent to Gemini
+- `isProcessingImage` state updated during processing
+- Image event recorded in session
+
+**Side-effects:**
+- Reads image file from URI
+- Resizes image if needed (max 1024x1024)
+- Converts to JPEG format
+- Base64 encodes image data
+- Sends via WebSocket as inline data
+- Records image event in SessionManager
+
+**Possible Errors:**
+- Adds Error if image processing fails
+- Adds Error if WebSocket send fails
+
+**Example:**
+```kotlin
+val imageUri = // ... from camera or gallery
+voiceClientManager.sendImage(imageUri)
+// Image sent to Gemini for analysis
+```
+
+**Code Reference:** `VoiceClientManager.kt:2100-2200`
+
+---
+
+#### `handleTextMessage(text: String): Unit`
+**Role:** Processes incoming WebSocket text messages from Gemini
+
+**Preconditions:**
+- WebSocket must be open
+- Message must be valid JSON
+
+**Parameters:**
+- `text: String` - JSON message from Gemini API
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Message parsed and appropriate actions taken
+- State updated based on message type
+- Transcripts captured if present
+- Audio queued if present
+
+**Side-effects:**
+- Updates WebSocket health timestamp
+- Parses JSON message
+- Handles different message types:
+  - `setupComplete`: Transitions to CONNECTED, starts audio
+  - `sessionResumptionUpdate`: Stores resumption handle
+  - `serverContent`: Processes bot audio and transcripts
+  - `turnComplete`: Marks bot finished speaking
+  - `toolCall`: Executes function calling tools
+  - `interrupted`: Clears audio queue
+
+**Possible Errors:**
+- JSON parsing errors logged
+- Invalid message formats logged
+
+**Code Reference:** `VoiceClientManager.kt:1100-1700`
+
+---
+
+#### `handleAudioMessage(audioBytes: ByteArray): Unit`
+**Role:** Processes incoming audio data from Gemini
+
+**Preconditions:**
+- AudioTrack must be initialized
+- Audio data must be valid PCM
+
+**Parameters:**
+- `audioBytes: ByteArray` - Raw PCM audio data (24kHz, mono, 16-bit)
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Audio added to playback queue
+- Bot talking state updated
+- Audio level indicator updated
+
+**Side-effects:**
+- Adds audio to queue with current generation ID
+- Updates `botIsTalking` state
+- Updates `botAudioLevel` for UI indicator
+- Updates bot response timestamp
+- Records bot audio timestamp for silence detection
+
+**Possible Errors:**
+- Queue overflow handled by limiting size
+- AudioTrack write errors logged
+
+**Code Reference:** `VoiceClientManager.kt:1750-1800`
+
+---
+
+**Dependencies:**
+- **Composition:** SessionManager, ReconnectionManager, ToolExecutor, ImageProcessor
+- **Aggregation:** OkHttpClient, AudioManager, PowerManager
+- **Android APIs:** AudioRecord, AudioTrack, WakeLock, Context
+
+**Used By:**
+- MainActivity (owns instance)
+- VoiceService (observes state)
+
+**Lifecycle:**
+1. **Creation:** Instantiated by MainActivity with Context and SessionManager
+2. **Usage:** Repeated start() → CONNECTED → pause()/stop() cycles
+3. **Destruction:** stop() releases all resources, scope cancelled
+
+**Testability:**
+- **Mocking:** Requires mocking WebSocket, AudioRecord, AudioTrack, PowerManager, Context
+- **Edge Cases:**
+  - Rapid start/stop cycles
+  - Network failures during connection
+  - Audio device conflicts (Bluetooth, headphones)
+  - Session handle expiration
+  - Memory pressure during conversation
+  - Interruption handling (phone calls, other apps)
+
+---
+
+### SessionManager
+
+**Role:** Manages conversation session lifecycle, transcript capture, and synchronization with LibreChat.
+
+**Location:** `SessionManager.kt:25`
+
+**Main Fields:**
+
+- `currentSession: SessionContext?` - Active session with transcripts and metadata
+  - **Type:** Data class containing session ID, conversation ID, transcripts, images
+  - **Invariant:** Non-null only during active session
+  
+- `currentDbSessionId: String?` - Database session ID for persistence
+  - **Purpose:** Links in-memory session to database record
+  
+- `libreChatService: LibreChatService` - API client for LibreChat integration
+  - **Relationship:** Aggregation
+  
+- `transcriptSyncManager: TranscriptSyncManager` - Handles reliable transcript delivery
+  - **Relationship:** Composition
+  - **Strategy:** Infinite retry with exponential backoff
+  
+- `sessionRepository: SessionRepository` - Database access for sessions
+  - **Relationship:** Aggregation (lazy initialized)
+  
+- `conversationRepository: ConversationRepository` - Database access for conversations
+  - **Relationship:** Aggregation (lazy initialized)
+
+**Main Methods:**
+
+#### `startSession(conversationId: String): Result<SessionContext>`
+**Role:** Initializes new session and fetches learning context from LibreChat
+
+**Preconditions:**
+- Valid LibreChat authentication token
+- Network connectivity
+
+**Parameters:**
+- `conversationId: String` - LibreChat conversation thread ID
+
+**Returns:** `Result<SessionContext>` - Success with context or failure with error
+
+**Postconditions:**
+- `currentSession` populated with system prompt and metadata
+- Database session created
+- `currentDbSessionId` set
+
+**Side-effects:**
+- HTTP GET request to LibreChat API (/api/context/{conversationId})
+- Database INSERT for new session
+- Creates SessionContext with fetched system prompt
+
+**Possible Errors:**
+- Network errors (timeout, DNS failure)
+- Authentication errors (401, 403)
+- API errors (500, 503)
+- Falls back to default context on error
+
+**Example:**
+```kotlin
+val result = sessionManager.startSession("conv-123")
+result.onSuccess { context ->
+    println("System prompt: ${context.systemPrompt}")
+}
+```
+
+**Code Reference:** `SessionManager.kt:150-220`
+
+---
+
+#### `startOfflineSession(conversationId: String): Result<String>`
+**Role:** Starts session without LibreChat, building context from local database
+
+**Preconditions:**
+- Conversation exists in local database
+
+**Parameters:**
+- `conversationId: String` - Local offline conversation ID
+
+**Returns:** `Result<String>` - Success with context string or failure
+
+**Postconditions:**
+- Database session created
+- Context built from previous sessions
+- Old sessions cleaned up (background)
+
+**Side-effects:**
+- Database queries to build context
+- Database INSERT for new session
+- Background cleanup of old sessions (>30 days)
+
+**Possible Errors:**
+- Database errors logged but don't fail operation
+
+**Example:**
+```kotlin
+val result = sessionManager.startOfflineSession("offline-123")
+result.onSuccess { context ->
+    println("Context length: ${context.length}")
+}
+```
+
+**Code Reference:** `SessionManager.kt:100-150`
+
+---
+
+#### `captureUserTranscript(text: String): Unit`
+**Role:** Records user speech transcript
+
+**Preconditions:**
+- Session must be active (currentSession or currentDbSessionId)
+
+**Parameters:**
+- `text: String` - Transcribed user speech from Gemini
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Transcript added to in-memory session (if LibreChat)
+- Transcript appended to database session
+- Transcript limit enforced (max 10,000 entries)
+
+**Side-effects:**
+- Adds TranscriptEntry to currentSession.transcripts
+- Async database UPDATE to append transcript
+- Removes oldest entries if limit exceeded
+
+**Possible Errors:**
+- Database errors logged but don't fail operation
+- Empty/blank text skipped
+
+**Example:**
+```kotlin
+sessionManager.captureUserTranscript("Hello, how are you?")
+```
+
+**Code Reference:** `SessionManager.kt:250-280`
+
+---
+
+#### `captureBotTranscript(text: String): Unit`
+**Role:** Records bot speech transcript
+
+**Preconditions:**
+- Session must be active
+
+**Parameters:**
+- `text: String` - Transcribed bot speech from Gemini
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Transcript added to in-memory session (if LibreChat)
+- Transcript appended to database session
+
+**Side-effects:**
+- Adds TranscriptEntry to currentSession.transcripts
+- Async database UPDATE to append transcript
+
+**Possible Errors:**
+- Database errors logged
+- Empty/blank text skipped
+
+**Example:**
+```kotlin
+sessionManager.captureBotTranscript("I'm doing well, thank you!")
+```
+
+**Code Reference:** `SessionManager.kt:280-310`
+
+---
+
+#### `endSession(): Result<Unit>`
+**Role:** Ends session and synchronizes transcript/summary to LibreChat
+
+**Preconditions:**
+- Session must be active (or can be called when no session)
+
+**Returns:** `Result<Unit>` - Success or failure
+
+**Postconditions:**
+- Session cleared (currentSession = null)
+- Transcript/summary sent to LibreChat (with infinite retry)
+- Database session marked complete
+- VoiceClientManager stopped
+
+**Side-effects:**
+- Formats transcripts as conversation text
+- Generates AI summary if enabled (using Gemini)
+- HTTP POST to LibreChat API (/api/sessions/summary)
+- Database UPDATE to mark session complete
+- Stops VoiceClientManager
+- Uses TranscriptSyncManager for reliable delivery
+
+**Possible Errors:**
+- Sync failures handled by infinite retry
+- Database errors logged
+- Short sessions (<30s) skip transcript/summary
+
+**Example:**
+```kotlin
+val result = sessionManager.endSession()
+result.onSuccess {
+    println("Session ended successfully")
+}
+```
+
+**Code Reference:** `SessionManager.kt:400-600`
+
+---
+
+**Dependencies:**
+- **Composition:** TranscriptSyncManager, GeminiSummaryService
+- **Aggregation:** LibreChatService, SessionRepository, ConversationRepository, ContextBuilder
+- **Android:** Context, CoroutineScope
+
+**Used By:**
+- VoiceClientManager (calls transcript methods)
+- MainActivity (calls start/end session)
+
+**Lifecycle:**
+1. **Creation:** Created by MainActivity with LibreChatService and scope
+2. **Usage:** startSession() → capture transcripts → endSession() cycle
+3. **Destruction:** Lives for app lifetime, no explicit cleanup
+
+**Testability:**
+- **Mocking:** Mock LibreChatService, repositories for unit tests
+- **Edge Cases:**
+  - Network failures during sync
+  - Session timeout
+  - Empty transcripts
+  - Very long transcripts (>10,000 entries)
+  - Rapid session start/end cycles
+
+---
+
+### VoiceService
+
+**Role:** Foreground service to maintain voice conversation in background with persistent notification.
+
+**Location:** `VoiceService.kt:20`
+
+**Main Fields:**
+
+- `wakeLock: PowerManager.WakeLock?` - Keeps CPU active when screen off
+  - **Type:** PARTIAL_WAKE_LOCK
+  - **Timeout:** 4 hours maximum
+  - **Invariant:** Held only when service is running
+  
+- `serviceTimeoutJob: Job?` - Coroutine job for service timeout
+  - **Duration:** 2 hours maximum
+  - **Purpose:** Prevents indefinite service runtime
+  
+- `batteryProfiler: BatteryProfiler` - Monitors battery usage
+  - **Purpose:** Performance monitoring and optimization
+
+**Main Methods:**
+
+#### `onStartCommand(intent: Intent?, flags: Int, startId: Int): Int`
+**Role:** Handles service start and action intents
+
+**Preconditions:** None
+
+**Parameters:**
+- `intent: Intent?` - Intent with action (ACTION_START, ACTION_STOP, ACTION_END_CONVERSATION)
+- `flags: Int` - Start flags from system
+- `startId: Int` - Unique start ID
+
+**Returns:** `START_NOT_STICKY` - Don't restart if killed
+
+**Postconditions:**
+- Service started as foreground with notification
+- Wake lock acquired
+- Timeout scheduled
+
+**Side-effects:**
+- Calls startForeground() with notification
+- Acquires wake lock with 4-hour timeout
+- Schedules 2-hour service timeout
+- Starts battery profiling
+
+**Possible Errors:**
+- SecurityException if notification permission missing
+
+**Code Reference:** `VoiceService.kt:50-100`
+
+---
+
+#### `updateNotification(status: String): Unit`
+**Role:** Updates foreground notification with new status text
+
+**Preconditions:**
+- Service must be running as foreground
+
+**Parameters:**
+- `status: String` - Status text to display (e.g., "Connected", "Reconnecting...")
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Notification updated with new text
+
+**Side-effects:**
+- Creates new notification
+- Calls NotificationManager.notify()
+
+**Possible Errors:**
+- SecurityException if permission missing
+
+**Code Reference:** `VoiceService.kt:150-180`
+
+---
+
+**Dependencies:**
+- **Android APIs:** Service, NotificationManager, PowerManager, WakeLock
+- **Composition:** BatteryProfiler, PerformanceLogger
+
+**Used By:**
+- MainActivity (starts/stops service)
+- VoiceClientManager (updates notification)
+
+**Lifecycle:**
+1. **Creation:** onCreate() called by system
+2. **Started:** onStartCommand() with ACTION_START
+3. **Running:** Foreground service with notification
+4. **Stopped:** onStartCommand() with ACTION_STOP or timeout
+5. **Destroyed:** onDestroy() releases resources
+
+**Testability:**
+- **Mocking:** Mock NotificationManager, PowerManager
+- **Edge Cases:**
+  - Service killed by system (low memory)
+  - Wake lock timeout
+  - Service timeout
+  - Multiple start/stop cycles
+
+---
+
+### PorcupineService
+
+**Role:** Foreground service for continuous wake word detection using Picovoice Porcupine.
+
+**Location:** `PorcupineService.kt:20`
+
+**Main Fields:**
+
+- `porcupineManager: PorcupineManager?` - Porcupine wake word detector
+  - **Invariant:** Non-null only when active (not paused)
+  
+- `isPorcupinePaused: Boolean` - Pause state flag
+  - **Purpose:** Coordinates microphone access with VoiceClientManager
+  
+- `loadedWakeWords: MutableList<WakeWordConfig>` - Currently loaded wake words
+  - **Contents:** System wake words + custom wake words assigned to threads
+
+**Main Methods:**
+
+#### `pausePorcupine(): Unit`
+**Role:** Pauses wake word detection and releases microphone
+
+**Preconditions:** Service must be running
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- PorcupineManager stopped and deleted
+- AudioRecord released
+- `isPorcupinePaused` set to true
+
+**Side-effects:**
+- Calls porcupineManager.stop()
+- Calls porcupineManager.delete()
+- Waits 300ms for thread to stop
+- Releases AudioRecord for VoiceClientManager
+
+**Possible Errors:**
+- Exceptions logged but don't fail operation
+
+**Code Reference:** `PorcupineService.kt:100-150`
+
+---
+
+#### `resumePorcupine(): Unit`
+**Role:** Resumes wake word detection and reclaims microphone
+
+**Preconditions:**
+- Service must be initialized
+- Screen must be ON (Android 14+ restriction)
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- New PorcupineManager created
+- AudioRecord active
+- `isPorcupinePaused` cleared
+
+**Side-effects:**
+- Waits 500ms for VoiceClientManager to release mic
+- Calls initializePorcupine()
+- Starts listening for wake words
+
+**Possible Errors:**
+- Fails if screen is OFF (Android 14+)
+- AudioRecord conflicts logged
+
+**Code Reference:** `PorcupineService.kt:150-200`
+
+---
+
+**Dependencies:**
+- **Picovoice:** PorcupineManager, Porcupine
+- **Android:** Service, NotificationManager, BroadcastReceiver
+- **Composition:** WakeWordHandler
+
+**Used By:**
+- VoiceClientManager (sends pause/resume broadcasts)
+- MainActivity (starts service on boot)
+
+**Lifecycle:**
+1. **Creation:** onCreate() registers broadcast receiver
+2. **Started:** onStartCommand() initializes Porcupine
+3. **Running:** Alternates between PAUSED and ACTIVE states
+4. **Destroyed:** onDestroy() stops Porcupine and unregisters receiver
+
+**Testability:**
+- **Mocking:** Mock PorcupineManager, AudioRecord
+- **Edge Cases:**
+  - Screen OFF resume attempts
+  - Rapid pause/resume cycles
+  - Wake word file missing
+  - AudioRecord conflicts
+
+---
+
+### ReconnectionManager
+
+**Role:** Manages automatic reconnection with exponential backoff strategy.
+
+**Location:** `VoiceClientManager.kt:2950` (inner class)
+
+**Main Fields:**
+
+- `attemptCount: Int` - Current reconnection attempt number
+  - **Range:** 0 to maxAttempts
+  
+- `maxAttempts: Int = 5` - Maximum reconnection attempts
+  
+- `baseDelay: Long = 2000` - Initial delay in milliseconds
+  
+- `maxDelay: Long = 30000` - Maximum delay cap
+
+**Strategy:**
+- Exponential backoff: `delay = min(baseDelay * 2^attempt, maxDelay)`
+- Attempts: 2s, 4s, 8s, 16s, 30s
+- After max attempts: triggers callback for user decision
+
+**Main Methods:**
+
+#### `startReconnection(): Unit`
+**Role:** Initiates reconnection attempt with exponential backoff
+
+**Preconditions:**
+- State must be RECONNECTING
+- Attempt count < maxAttempts
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Delay calculated and applied
+- Connection reattempted
+- Attempt count incremented
+
+**Side-effects:**
+- Coroutine delay based on attempt count
+- Calls VoiceClientManager.start()
+- Updates reconnection attempt state
+- Triggers callback if max attempts reached
+
+**Possible Errors:**
+- Connection failures handled by VoiceClientManager
+
+**Code Reference:** `VoiceClientManager.kt:2950-3000`
+
+---
+
+#### `reset(): Unit`
+**Role:** Resets attempt counter after successful connection
+
+**Preconditions:** None
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- `attemptCount` set to 0
+
+**Code Reference:** `VoiceClientManager.kt:3000-3010`
+
+---
+
+**Dependencies:**
+- **Parent:** VoiceClientManager (inner class)
+
+**Used By:**
+- VoiceClientManager (on connection failures)
+
+**Lifecycle:**
+1. **Creation:** Created with VoiceClientManager
+2. **Usage:** startReconnection() on failures, reset() on success
+3. **Destruction:** Lives with VoiceClientManager
+
+**Testability:**
+- **Mocking:** Test with mock VoiceClientManager
+- **Edge Cases:**
+  - Max attempts reached
+  - User cancels during reconnection
+  - Successful reconnection on first attempt
+  - Network returns during backoff delay
+
+---
+
+## Supporting Components
+
+### MainActivity
+
+**Role:** Main activity managing UI, lifecycle, and component coordination.
+
+**Location:** `MainActivity.kt:100`
+
+**Key Responsibilities:**
+- Owns VoiceClientManager and SessionManager instances
+- Manages screen navigation (Login, Thread List, In Call, Settings)
+- Observes connection state and controls VoiceService lifecycle
+- Handles lifecycle events (pause, resume, stop, destroy)
+- Manages memory pressure events
+- Registers wake word broadcast receivers
+
+**Code Reference:** `MainActivity.kt:100-1417`
+
+---
+
+### PicovoiceManager
+
+**Role:** Centralized manager for Picovoice wake word detection system.
+
+**Location:** `PicovoiceManager.kt:15`
+
+**Key Responsibilities:**
+- Service control (enable, disable, restart)
+- Custom wake word management (add, delete, import .ppn files)
+- Thread associations (assign wake words to conversations)
+- Settings management (access key, sensitivity, activation sound)
+- System wake word configuration
+
+**Code Reference:** `PicovoiceManager.kt:15-400`
+
+---
+
+### WebSocketErrorClassifier
+
+**Role:** Classifies WebSocket errors to determine appropriate recovery strategy.
+
+**Location:** `utils/WebSocketErrorClassifier.kt:10`
+
+**Error Types:**
+- **RECOVERABLE:** Network issues (timeout, DNS, connection refused)
+- **FATAL:** SSL, protocol, authentication errors
+- **UNKNOWN:** Unclassified errors (treated as recoverable)
+
+**Code Reference:** `utils/WebSocketErrorClassifier.kt:10-80`
+
+---
+
+## Code References Summary
+
+| Component | File | Key Lines |
+|-----------|------|-----------|
+| VoiceClientManager | VoiceClientManager.kt | 170-3061 |
+| SessionManager | SessionManager.kt | 25-972 |
+| VoiceService | VoiceService.kt | 20-300 |
+| PorcupineService | PorcupineService.kt | 20-400 |
+| ReconnectionManager | VoiceClientManager.kt | 2950-3050 |
+| MainActivity | MainActivity.kt | 100-1417 |
+| PicovoiceManager | PicovoiceManager.kt | 15-400 |
+| WebSocketErrorClassifier | utils/WebSocketErrorClassifier.kt | 10-80 |
+
+**Last Updated:** 2025-12-01
