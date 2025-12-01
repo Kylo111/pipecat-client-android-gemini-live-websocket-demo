@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Documentation Hygiene Agent",
+  "description": "Lightweight documentation hygiene agent that checks for stray markdown files in project root, validates recent changes in /docs against documentation-rules.md, ensures archive consistency with proper headers, and logs all changes to MIGRATION_LOG.md. Runs on every commit to maintain documentation quality.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Act as a lightweight documentation hygiene agent for this project. Apply all rules from .kiro/steering/documentation-rules.md when you run.\n\nYour responsibilities on each run:\n\n1. Check for stray markdown files in the project root\n   - Find any .md files in the project root that are not special files (README.md, DOCS_INDEX.md, MIGRATION_LOG.md, DOCS_MAINTENANCE_RULES.md, Kiro spec/steering files).\n   - If a file name matches temporary patterns (TASK_*.md, ANALIZA_*.md, NAPRAWA_*.md, FIX_*.md, etc.), do NOT rewrite its content.\n   - Propose moving it to the correct /archive subfolder (/archive/tasks, /archive/analyses, /archive/fixes) and, if appropriate, suggest which existing document in /docs should contain the permanent version of this information.\n\n2. Validate recent changes in /docs\n   - Look at markdown files in /docs/** that changed in this commit.\n   - Verify they are in the correct directory (project/domain/implementation/operations/testing/guides) and follow the naming/quality rules from documentation-rules.md.\n   - If you notice obvious issues (missing required sections, missing code references, wrong placement), list them in a short report instead of rewriting large parts of the docs.\n\n3. Check archive consistency\n   - Ensure files under /archive/** have the proper STATUS: ARCHIVED header as described in dokumentation-rules.md.\n   - If you find archived files without the correct header, propose the exact header to add.\n\n4. Logging\n   - If you actually move a file or fix an archive header, append a minimal log entry to MIGRATION_LOG.md using the standard log format from documentation-rules.md.\n   - If no hygiene changes are needed, do not touch MIGRATION_LOG.md; just say \"No documentation hygiene changes required for this commit.\"\n\nAt the end, output a concise summary with:\n- stray markdown files found in the root (and suggested archive target),\n- potential issues in /docs that need manual attention,\n- any archive/header/log changes you made or suggest."
+  }
+}
