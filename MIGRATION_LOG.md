@@ -916,3 +916,78 @@ docs/
 
 **Status:** ✅ MIGRATION COMPLETE - READY FOR USER APPROVAL
 
+
+
+---
+
+## Documentation Hygiene - Stray Files Archiving
+
+### Batch Archive Operation - Phase and Source Files (14 files)
+- **Operation:** ARCHIVE_BATCH
+- **Timestamp:** 2025-12-01 (Post-Phase 5)
+- **Files Processed:** 14 stray markdown files from root directory
+- **Destination:** archive/analyses/
+- **Reason:** Phase completion reports and source material files that were consolidated into /docs/
+- **Status:** SUCCESS
+
+**Files Archived:**
+
+**Phase Documentation (5 files):**
+1. PHASE_2_SUMMARY.md → Phase 2 completion report
+2. PHASE_3_PROGRESS.md → Phase 3 progress report
+3. PHASE_3_SUMMARY.md → Phase 3 completion report
+4. PHASE_4_SUMMARY.md → Phase 4 completion report
+5. PHASE_5_FINAL_REPORT.md → Phase 5 final report
+
+**Planning and Audit (2 files):**
+6. DOC_RESTRUCTURING_PLAN.md → Documentation restructuring plan (superseded by MIGRATION_LOG.md)
+7. AUDYT_GEMINI_LIVE_FULL_DUPLEX.md → Technical audit report (source for requirements.md and architecture.md)
+
+**Picovoice Source Files (4 files):**
+8. PICOVOICE_BUILTIN_KEYWORDS.md → Consolidated into /docs/guides/picovoice-setup.md
+9. PICOVOICE_QUICK_START.md → Consolidated into /docs/guides/picovoice-setup.md
+10. PICOVOICE_TROUBLESHOOTING.md → Consolidated into /docs/guides/picovoice-setup.md
+11. PICOVOICE_WAKE_WORD_SETUP_GUIDE.md → Consolidated into /docs/guides/picovoice-setup.md
+
+**Other Source Files (3 files):**
+12. REFACTORING_PLAN.md → Source for /docs/project/requirements.md, architecture.md, decisions.md, and lifecycle.md
+13. SECURITY_AUDIT_REPORT.md → Source for /docs/project/requirements.md and decisions.md
+14. TESTING_SCENARIOS.md → Source for /docs/testing/ (planned for future)
+
+### Archive Header Verification
+- **All 14 files have ARCHIVED headers:** ✅ YES
+- **All files have archived date:** ✅ YES (2025-12-01)
+- **All files have reason for archiving:** ✅ YES
+- **All files have link to current documentation:** ✅ YES
+- **Original content preserved:** ✅ YES
+
+### Root Directory Status After Archiving
+**Remaining files in root (appropriate):**
+- README.md (project overview)
+- LICENSE (project license)
+- MIGRATION_LOG.md (this log)
+- DOCS_INDEX.md (documentation index)
+- DOCS_MAINTENANCE_RULES.md (maintenance procedures)
+- DOCUMENTATION_HYGIENE_REPORT.md (hygiene audit report)
+
+**Total files in root:** 6 (down from 20 before archiving)
+**Reduction:** 70% cleanup of stray files
+
+### Statistics
+- **Total files archived in this operation:** 14
+- **Total files in /archive/:** 91 (77 from Phase 2 + 14 from this operation)
+- **Total operations logged:** 102 (101 from phases + 1 batch operation)
+- **All archived files have proper headers:** ✅ YES
+
+### Verification Complete
+- ✅ All 14 files successfully moved to /archive/analyses/
+- ✅ All files have proper ARCHIVED headers with dates, reasons, and links
+- ✅ No files deleted - all content preserved
+- ✅ Root directory cleaned up
+- ✅ Operation logged in MIGRATION_LOG.md
+
+---
+
+**Documentation Hygiene Status:** ✅ COMPLETE
+**All 14 stray files archived with proper headers**
+**Root directory cleaned and organized**
