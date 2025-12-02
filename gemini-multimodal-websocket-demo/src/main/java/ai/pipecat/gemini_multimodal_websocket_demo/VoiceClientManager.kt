@@ -7,6 +7,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.audio.BluetoothAudioControlle
 import ai.pipecat.gemini_multimodal_websocket_demo.audio.BluetoothAudioListener
 import ai.pipecat.gemini_multimodal_websocket_demo.audio.AudioRouting
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
+import ai.pipecat.gemini_multimodal_websocket_demo.monitor.ConversationMonitor
+import ai.pipecat.gemini_multimodal_websocket_demo.monitor.ConversationMonitorListener
 import ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager
 import ai.pipecat.gemini_multimodal_websocket_demo.network.WebSocketClient
 import ai.pipecat.gemini_multimodal_websocket_demo.network.WebSocketClientListener
@@ -15,6 +17,16 @@ import ai.pipecat.gemini_multimodal_websocket_demo.protocol.*
 import ai.pipecat.gemini_multimodal_websocket_demo.session.SessionStateManager
 import ai.pipecat.gemini_multimodal_websocket_demo.session.SessionStateListener
 import ai.pipecat.gemini_multimodal_websocket_demo.session.SessionState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceSessionState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.AuxiliaryState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceSessionStateMachine
+import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceUiState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceUiStateMapper
+import ai.pipecat.gemini_multimodal_websocket_demo.state.AudioLevels
+import ai.pipecat.gemini_multimodal_websocket_demo.state.TimerState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.TranscriptState
+import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceEvent
+import ai.pipecat.gemini_multimodal_websocket_demo.state.SideEffect
 import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions
 import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolExecutor
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.Timestamp
@@ -35,12 +47,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.NonCancellable
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -91,7 +107,7 @@ class VoiceClientManager internal constructor(
         
         // Debug logging flag - set to true for detailed logs (WebSocket messages, audio stats, etc.)
         // Set to false in production to reduce log verbosity
-        private const val DEBUG_LOGGING = false
+        private const val DEBUG_LOGGING = true
     }
     
     // Public constructor for backward compatibility
@@ -127,32 +143,22 @@ class VoiceClientManager internal constructor(
     // No additional transcription service needed
     private var currentSpeechSpeed: Float = 1.0f
     private var currentVolumeBoost: Float = 1.0f
-    private var lastActivityTime: Long = 0L
-    private var lastBotResponseTime: Long = 0L
-    private var idleCheckJob: Job? = null
     private var onSessionTimeout: (() -> Unit)? = null
     
-    // Auto-pause monitoring
-    private var autoPauseJob: Job? = null
-    val secondsUntilAutoPause = mutableStateOf(-1) // -1 = disabled, 0+ = seconds remaining
-    
-    // Bot response timeout monitoring
-    private var botResponseTimeoutJob: Job? = null
-    val minutesUntilBotTimeout = mutableStateOf(-1) // -1 = disabled, 0+ = minutes remaining
-    
-    // Bot silence detection (to stop animation when audio ends)
-    private var lastBotAudioTime: Long = 0L
-    private var botSilenceDetectionJob: Job? = null
-    private val BOT_SILENCE_THRESHOLD_MS = 1500L // 1.5 seconds of silence = bot stopped talking
-    
-
+    // Note: Timer-related variables (autoPauseJob, botResponseTimeoutJob, botSilenceDetectionJob, 
+    // lastActivityTime, lastBotResponseTime, lastBotAudioTime) have been removed.
+    // Timer logic is now handled by ConversationMonitor (Task 16.3 complete).
+    // secondsUntilAutoPause and minutesUntilBotTimeout are now synced from VoiceUiState.
     
     // Image processing
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
     private var pendingImage: Uri? = null
     private var imageProcessingJob: Job? = null
     
-    // Initialize SessionStateListener, AudioEngineListener, BluetoothAudioListener, and WebSocketClientListener
+    // ConversationMonitor for timer-based logic
+    private var conversationMonitor: ConversationMonitor? = null
+    
+    // Initialize SessionStateListener, AudioEngineListener, BluetoothAudioListener, WebSocketClientListener, and ConversationMonitorListener
     init {
         sessionStateManager.listener = object : SessionStateListener {
             override fun onSessionStateChanged(state: SessionState) {
@@ -170,19 +176,10 @@ class VoiceClientManager internal constructor(
                 // Update user audio level for UI (already done by AudioEngine, but we keep this for consistency)
                 userAudioLevel.floatValue = level
                 
-                // Send audio to WebSocket via WebSocketClient
-                val currentGenId = audioGenerationId.get()
-                scope?.launch {
-                    try {
-                        val realtimeInput = geminiProtocol.serializeRealtimeInput(data)
-                        webSocketClient.send(realtimeInput)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error sending audio data", e)
-                    }
-                }
+                // Wrap in VoiceEvent and process through state machine
+                processEvent(VoiceEvent.AudioInput(data, level))
                 
-                // Update activity time
-                updateActivity()
+                // Note: Activity time tracking removed - now handled by ConversationMonitor
                 userIsTalking.value = level > 0.05f
             }
             
@@ -212,15 +209,8 @@ class VoiceClientManager internal constructor(
         bluetoothAudioController.listener = object : BluetoothAudioListener {
             override fun onAudioRoutingChanged(routing: AudioRouting) {
                 Log.i(TAG, "Audio routing changed: $routing")
-                // Update UI state based on routing
-                when (routing) {
-                    AudioRouting.SPEAKER -> {
-                        isSpeakerphoneOn.value = true
-                    }
-                    else -> {
-                        isSpeakerphoneOn.value = false
-                    }
-                }
+                // Note: isSpeakerphoneOn is now synced from VoiceUiState via BluetoothAudioController.isSpeakerphoneOn StateFlow
+                // No direct assignment needed here
             }
             
             override fun onScoStateChanged(connected: Boolean) {
@@ -232,7 +222,8 @@ class VoiceClientManager internal constructor(
         webSocketClient.listener = object : WebSocketClientListener {
             override fun onConnected() {
                 Log.i(TAG, "WebSocketClient: Connected")
-                // Connection is established, waiting for setupComplete message
+                // Wrap in VoiceEvent and process through state machine
+                processEvent(VoiceEvent.WebSocketConnected)
             }
             
             override fun onMessage(text: String) {
@@ -248,6 +239,9 @@ class VoiceClientManager internal constructor(
             override fun onDisconnected(code: Int, reason: String) {
                 Log.i(TAG, "WebSocketClient: Disconnected - code: $code, reason: $reason")
                 Log.i(TAG, "Current state: ${state.value}, isPaused: ${isPaused.value}")
+                
+                // Wrap in VoiceEvent and process through state machine
+                processEvent(VoiceEvent.WebSocketDisconnected(code, reason))
                 
                 // CRITICAL FIX: Check isPaused flag FIRST before checking state
                 // This handles race condition where state might already be DISCONNECTED
@@ -280,6 +274,9 @@ class VoiceClientManager internal constructor(
                 
                 // Unexpected closure - attempt reconnection
                 Log.w(TAG, "⚠️ Unexpected WebSocket closure, attempting reconnection")
+                // Note: state.value is now synced from VoiceUiState
+                // For reconnection, we need to set this directly as it's not part of VoiceSessionState
+                // TODO: Consider adding reconnection to state machine
                 state.value = ConnectionState.RECONNECTING
                 updateServiceNotification()
                 
@@ -296,21 +293,32 @@ class VoiceClientManager internal constructor(
             }
             
             override fun onError(error: WebSocketError) {
+                // Wrap in VoiceEvent and process through state machine
+                val isRecoverable = error is WebSocketError.Recoverable
+                val errorMessage = when (error) {
+                    is WebSocketError.Recoverable -> error.message
+                    is WebSocketError.Fatal -> error.message
+                }
+                processEvent(VoiceEvent.WebSocketError(errorMessage, isRecoverable))
+                
                 when (error) {
                     is WebSocketError.Recoverable -> {
                         Log.i(TAG, "WebSocketClient: Recoverable error - ${error.message}")
                         
                         // Get user-friendly error message based on error type
-                        val errorMessage = when (error.throwable) {
+                        val userMessage = when (error.throwable) {
                             is java.net.SocketTimeoutException -> context.getString(R.string.error_network_timeout)
                             is java.net.UnknownHostException -> context.getString(R.string.error_dns_failure)
                             is java.net.ConnectException -> context.getString(R.string.error_connection_refused)
                             else -> context.getString(R.string.error_connection_lost, error.message)
                         }
-                        errors.add(Error(errorMessage))
+                        errors.add(Error(userMessage))
                         
                         // Transition to RECONNECTING state
                         if (state.value != ConnectionState.RECONNECTING) {
+                            // Note: state.value is now synced from VoiceUiState
+                            // For reconnection, we need to set this directly as it's not part of VoiceSessionState
+                            // TODO: Consider adding reconnection to state machine
                             state.value = ConnectionState.RECONNECTING
                             updateServiceNotification()
                             scope?.launch {
@@ -323,11 +331,11 @@ class VoiceClientManager internal constructor(
                         Log.e(TAG, "WebSocketClient: Fatal error - ${error.message}")
                         
                         // Get user-friendly error message based on error type
-                        val errorMessage = when (error.throwable) {
+                        val userMessage = when (error.throwable) {
                             is javax.net.ssl.SSLException -> context.getString(R.string.error_ssl_error)
                             else -> context.getString(R.string.error_critical, error.message)
                         }
-                        errors.add(Error(errorMessage))
+                        errors.add(Error(userMessage))
                         handleDisconnect()
                     }
                 }
@@ -371,6 +379,80 @@ class VoiceClientManager internal constructor(
         reconnectionManager.isPausedCheck = {
             isPaused.value
         }
+        
+        // Initialize ConversationMonitor with current preferences
+        // Note: ConversationMonitor will be recreated when preferences change
+        conversationMonitor = ConversationMonitor(
+            scope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
+            autoPauseTimeoutSeconds = Preferences.autoPauseTimeoutSeconds.value,
+            botResponseTimeoutMinutes = Preferences.botResponseTimeoutMinutes.value
+        )
+        
+        // Wire ConversationMonitor callbacks
+        conversationMonitor?.listener = object : ConversationMonitorListener {
+            override fun onAutoPauseTriggered() {
+                Log.i(TAG, "ConversationMonitor: Auto-pause triggered")
+                // Wrap in VoiceEvent and process through state machine
+                processEvent(VoiceEvent.AutoPauseTriggered)
+            }
+            
+            override fun onBotResponseTimeout() {
+                Log.i(TAG, "ConversationMonitor: Bot response timeout")
+                // Wrap in VoiceEvent and process through state machine
+                processEvent(VoiceEvent.BotResponseTimeout)
+            }
+            
+            override fun onSilenceDetected() {
+                Log.i(TAG, "ConversationMonitor: Bot silence detected")
+                // Wrap in VoiceEvent and process through state machine
+                processEvent(VoiceEvent.SilenceDetected)
+            }
+        }
+        
+        // Sync VoiceUiState to legacy mutableStateOf fields for backward compatibility
+        // This ensures MainActivity continues to work without changes (same MutableState references)
+        // Requirements: 4.6, 4.7, 6.4
+        CoroutineScope(Dispatchers.Main).launch {
+            _uiState.collect { newState ->
+                // Connection state
+                state.value = newState.connectionState
+                
+                // Session state
+                isPaused.value = newState.isPaused
+                
+                // Audio state
+                mic.value = newState.isMicEnabled
+                botIsTalking.value = newState.isBotTalking
+                userIsTalking.value = newState.isUserTalking
+                botAudioLevel.floatValue = newState.botAudioLevel
+                userAudioLevel.floatValue = newState.userAudioLevel
+                isSpeakerphoneOn.value = newState.isSpeakerphoneOn
+                
+                // Bot state
+                botReady.value = newState.isBotReady
+                
+                // Timer state
+                secondsUntilAutoPause.value = newState.secondsUntilAutoPause
+                minutesUntilBotTimeout.value = newState.minutesUntilBotTimeout
+                
+                // Tool execution state
+                isExecutingTool.value = newState.isExecutingTool
+                currentToolName.value = newState.currentToolName
+                
+                // Image processing state
+                isProcessingImage.value = newState.isProcessingImage
+                
+                // Transcript state
+                lastUserTranscript.value = newState.lastUserTranscript
+                lastBotTranscript.value = newState.lastBotTranscript
+                
+                // Reconnection state
+                reconnectionAttempt.value = newState.reconnectionAttempt
+                
+                // Note: errors list is not synced here as it's managed separately
+                // Note: expiryTime and camera are not part of VoiceUiState
+            }
+        }
     }
 
     val state = mutableStateOf(ConnectionState.DISCONNECTED)
@@ -386,9 +468,348 @@ class VoiceClientManager internal constructor(
     val isProcessingImage = mutableStateOf(false)
     val isSpeakerphoneOn = mutableStateOf(false)
     
+    // Timer state - synced from VoiceUiState (ConversationMonitor manages the actual timers)
+    val secondsUntilAutoPause = mutableStateOf(-1) // -1 = disabled, 0+ = seconds remaining
+    val minutesUntilBotTimeout = mutableStateOf(-1) // -1 = disabled, 0+ = minutes remaining
+    
+    // State machine components (Phase 2)
+    private val _sessionState = MutableStateFlow<VoiceSessionState>(VoiceSessionState.Idle)
+    private val _auxiliaryState = MutableStateFlow(AuxiliaryState())
+    private val stateMachine = VoiceSessionStateMachine()
+    private val _uiState = MutableStateFlow(VoiceUiState())
+    val uiState: StateFlow<VoiceUiState> = _uiState.asStateFlow()
+    
+    // Mutex for synchronizing event processing to prevent race conditions
+    private val eventProcessingMutex = Mutex()
+    
     // Tool execution state
     val isExecutingTool = mutableStateOf(false)
     val currentToolName = mutableStateOf<String?>(null)
+    
+    /**
+     * Process an event through the state machine.
+     * 
+     * This is the central event processing method that:
+     * 1. Calls stateMachine.reduce(currentState, event)
+     * 2. Updates _sessionState with newState
+     * 3. Executes returned sideEffects
+     * 4. Updates _uiState via mapper
+     * 5. Logs event and state transition for debugging
+     * 
+     * CRITICAL: State reading and updating is synchronized with a mutex to prevent race conditions
+     * when multiple audio chunks arrive simultaneously. However, side effects are executed OUTSIDE
+     * the mutex to avoid blocking other events.
+     * 
+     * Requirements: 5.4, 5.5, 5.6
+     * 
+     * @param event The event to process
+     */
+    private fun processEvent(event: VoiceEvent) {
+        scope?.launch {
+            try {
+                // Synchronize only state reading and updating, not side effect execution
+                val result = eventProcessingMutex.withLock {
+                    val currentState = _sessionState.value
+                    val currentAuxiliaryState = _auxiliaryState.value
+                    
+                    // Log event for debugging
+                    if (DEBUG_LOGGING) {
+                        Log.d(TAG, "📨 Processing event: ${event::class.simpleName}")
+                        Log.d(TAG, "   Current state: ${currentState::class.simpleName}")
+                        Log.d(TAG, "   Auxiliary state: isExecutingTool=${currentAuxiliaryState.isExecutingTool}, isProcessingImage=${currentAuxiliaryState.isProcessingImage}")
+                    }
+                    
+                    // Call state machine reducer (pure function)
+                    val reduceResult = stateMachine.reduce(currentState, currentAuxiliaryState, event)
+                    
+                    // Log state transition
+                    if (reduceResult.newState != currentState) {
+                        Log.i(TAG, "🔄 State transition: ${currentState::class.simpleName} -> ${reduceResult.newState::class.simpleName}")
+                    } else {
+                        if (DEBUG_LOGGING) {
+                            Log.d(TAG, "   State unchanged: ${currentState::class.simpleName}")
+                        }
+                    }
+                    
+                    // Log auxiliary state changes
+                    if (reduceResult.newAuxiliaryState != null && reduceResult.newAuxiliaryState != currentAuxiliaryState) {
+                        Log.i(TAG, "🔄 Auxiliary state changed: isExecutingTool=${reduceResult.newAuxiliaryState.isExecutingTool}, isProcessingImage=${reduceResult.newAuxiliaryState.isProcessingImage}")
+                    }
+                    
+                    // Log side effects
+                    if (reduceResult.sideEffects.isNotEmpty()) {
+                        Log.d(TAG, "   Side effects (${reduceResult.sideEffects.size}): ${reduceResult.sideEffects.joinToString { it::class.simpleName ?: "Unknown" }}")
+                    }
+                    
+                    // Update session state
+                    _sessionState.value = reduceResult.newState
+                    
+                    // Update auxiliary state if changed
+                    if (reduceResult.newAuxiliaryState != null) {
+                        _auxiliaryState.value = reduceResult.newAuxiliaryState
+                    }
+                    
+                    // Return result for side effect execution outside mutex
+                    reduceResult
+                }
+                
+                // Execute side effects OUTSIDE mutex to avoid blocking other events
+                executeSideEffects(result.sideEffects)
+                
+                // Update UI state via mapper
+                updateUiState()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing event: ${event::class.simpleName}", e)
+                errors.add(Error("Internal error: ${e.message}"))
+            }
+        }
+    }
+    
+    /**
+     * Update UI state by mapping session state and other components to VoiceUiState.
+     * 
+     * This method collects current state from various sources and uses VoiceUiStateMapper
+     * to derive the UI-observable state.
+     */
+    private fun updateUiState() {
+        val sessionState = _sessionState.value
+        val auxiliaryState = _auxiliaryState.value
+        
+        // Collect audio levels
+        val audioLevels = AudioLevels(
+            userLevel = userAudioLevel.floatValue,
+            botLevel = botAudioLevel.floatValue
+        )
+        
+        // Collect timer state from ConversationMonitor
+        val timerState = TimerState(
+            secondsUntilAutoPause = conversationMonitor?.secondsUntilAutoPause?.value ?: -1,
+            minutesUntilBotTimeout = conversationMonitor?.minutesUntilBotTimeout?.value ?: -1
+        )
+        
+        // Collect transcript state
+        val transcripts = TranscriptState(
+            lastUser = lastUserTranscript.value,
+            lastBot = lastBotTranscript.value,
+            lastUserTime = lastUserTranscriptTime.value,
+            lastBotTime = lastBotTranscriptTime.value
+        )
+        
+        // Map to UI state
+        val newUiState = VoiceUiStateMapper.map(
+            sessionState = sessionState,
+            audioLevels = audioLevels,
+            timerState = timerState,
+            transcripts = transcripts,
+            errors = errors.toList(),
+            isReconnecting = state.value == ConnectionState.RECONNECTING,
+            reconnectionAttempt = reconnectionAttempt.value,
+            isSpeakerphoneOn = isSpeakerphoneOn.value,
+            isExecutingTool = auxiliaryState.isExecutingTool,
+            currentToolName = auxiliaryState.currentToolName,
+            isProcessingImage = auxiliaryState.isProcessingImage
+        )
+        
+        _uiState.value = newUiState
+    }
+    
+    /**
+     * Execute a list of side effects.
+     * 
+     * Side effects are executed sequentially in the order they are provided.
+     * Each side effect delegates to the appropriate component (AudioEngine, WebSocketClient, etc.).
+     * Cleanup operations (Stop*, Clear*, Disconnect) use NonCancellable context to ensure
+     * they complete even if the coroutine is cancelled.
+     * 
+     * Requirements: 3.1, 3.2, 3.4, 6.2
+     * 
+     * @param sideEffects List of side effects to execute
+     */
+    private suspend fun executeSideEffects(sideEffects: List<SideEffect>) {
+        for (sideEffect in sideEffects) {
+            try {
+                when (sideEffect) {
+                    // Audio side effects
+                    is SideEffect.StartRecording -> {
+                        Log.d(TAG, "🎤 Side effect: StartRecording")
+                        audioEngine.startRecording()
+                    }
+                    is SideEffect.StopRecording -> {
+                        Log.d(TAG, "🎤 Side effect: StopRecording")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            audioEngine.stopRecording()
+                        }
+                    }
+                    is SideEffect.PauseRecording -> {
+                        Log.d(TAG, "🎤 Side effect: PauseRecording")
+                        audioEngine.pauseRecording()
+                    }
+                    is SideEffect.ResumeRecording -> {
+                        Log.d(TAG, "🎤 Side effect: ResumeRecording")
+                        audioEngine.resumeRecording()
+                    }
+                    is SideEffect.StartPlayback -> {
+                        Log.d(TAG, "🔊 Side effect: StartPlayback")
+                        audioEngine.startPlayback()
+                    }
+                    is SideEffect.StopPlayback -> {
+                        Log.d(TAG, "🔊 Side effect: StopPlayback")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            audioEngine.stopPlayback()
+                        }
+                    }
+                    is SideEffect.ClearAudioQueue -> {
+                        Log.d(TAG, "🔊 Side effect: ClearAudioQueue")
+                        // CRITICAL FIX: Increment audioGenerationId to invalidate old audio chunks
+                        // This ensures any pending audio with old generation ID will be discarded
+                        val newGenId = audioGenerationId.incrementAndGet()
+                        Log.d(TAG, "🔊 Audio generation ID incremented to $newGenId (old audio invalidated)")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            audioEngine.clearAudioQueue()
+                        }
+                    }
+                    is SideEffect.QueueAudio -> {
+                        if (DEBUG_LOGGING) {
+                            Log.d(TAG, "🔊 Side effect: QueueAudio (${sideEffect.data.size} bytes)")
+                        }
+                        val currentGenId = audioGenerationId.get()
+                        audioEngine.queueAudio(sideEffect.data, currentGenId)
+                    }
+                    
+                    // Network side effects
+                    is SideEffect.Connect -> {
+                        Log.d(TAG, "🌐 Side effect: Connect")
+                        webSocketClient.connect(sideEffect.url, sideEffect.setupMessage)
+                    }
+                    is SideEffect.Disconnect -> {
+                        Log.d(TAG, "🌐 Side effect: Disconnect (code: ${sideEffect.code})")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            webSocketClient.disconnect(sideEffect.code, sideEffect.reason)
+                        }
+                    }
+                    is SideEffect.SendAudio -> {
+                        if (DEBUG_LOGGING) {
+                            Log.d(TAG, "🌐 Side effect: SendAudio (${sideEffect.data.size} bytes)")
+                        }
+                        val realtimeInput = geminiProtocol.serializeRealtimeInput(sideEffect.data)
+                        webSocketClient.send(realtimeInput)
+                    }
+                    is SideEffect.SendToolResponse -> {
+                        Log.d(TAG, "🌐 Side effect: SendToolResponse (callId: ${sideEffect.callId})")
+                        val responseJson = geminiProtocol.serializeToolResponse(sideEffect.callId, sideEffect.result)
+                        webSocketClient.send(responseJson)
+                    }
+                    
+                    // Timer side effects - now delegated to ConversationMonitor
+                    is SideEffect.StartAutoPauseTimer -> {
+                        Log.d(TAG, "⏱️ Side effect: StartAutoPauseTimer")
+                        conversationMonitor?.startAutoPauseTimer()
+                    }
+                    is SideEffect.StopAutoPauseTimer -> {
+                        Log.d(TAG, "⏱️ Side effect: StopAutoPauseTimer")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            conversationMonitor?.stopAutoPauseTimer()
+                        }
+                    }
+                    is SideEffect.StartBotResponseTimer -> {
+                        Log.d(TAG, "⏱️ Side effect: StartBotResponseTimer")
+                        conversationMonitor?.startBotResponseTimer()
+                    }
+                    is SideEffect.StopBotResponseTimer -> {
+                        Log.d(TAG, "⏱️ Side effect: StopBotResponseTimer")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            conversationMonitor?.stopBotResponseTimer()
+                        }
+                    }
+                    is SideEffect.StartSilenceDetection -> {
+                        Log.d(TAG, "⏱️ Side effect: StartSilenceDetection")
+                        conversationMonitor?.startSilenceDetection()
+                    }
+                    is SideEffect.StopSilenceDetection -> {
+                        Log.d(TAG, "⏱️ Side effect: StopSilenceDetection")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            conversationMonitor?.stopSilenceDetection()
+                        }
+                    }
+                    
+                    // Session side effects
+                    is SideEffect.SaveSessionHandle -> {
+                        Log.d(TAG, "💾 Side effect: SaveSessionHandle (resumable: ${sideEffect.resumable})")
+                        sessionStateManager.updateResumptionHandle(sideEffect.handle, sideEffect.resumable)
+                    }
+                    is SideEffect.ClearSessionHandle -> {
+                        Log.d(TAG, "💾 Side effect: ClearSessionHandle")
+                        // Use NonCancellable to ensure cleanup completes
+                        withContext(NonCancellable) {
+                            sessionStateManager.endSession()
+                        }
+                    }
+                    
+                    // UI side effects
+                    is SideEffect.UpdateServiceNotification -> {
+                        Log.d(TAG, "🔔 Side effect: UpdateServiceNotification")
+                        updateServiceNotification()
+                    }
+                    is SideEffect.ShowError -> {
+                        Log.d(TAG, "❌ Side effect: ShowError - ${sideEffect.message}")
+                        errors.add(Error(sideEffect.message))
+                    }
+                    is SideEffect.UpdatePicovoiceState -> {
+                        Log.d(TAG, "🎙️ Side effect: UpdatePicovoiceState")
+                        updatePicovoiceState()
+                    }
+                    
+                    // Tool side effects
+                    is SideEffect.ExecuteTool -> {
+                        Log.d(TAG, "🔧 Side effect: ExecuteTool (${sideEffect.name})")
+                        // Tool execution is handled asynchronously
+                        // Note: isExecutingTool state is now managed by state machine via ToolCallReceived/ToolExecutionComplete events
+                        scope?.launch {
+                            try {
+                                val result = toolExecutor.executeTool(sideEffect.name, sideEffect.args)
+                                
+                                // Emit ToolExecutionComplete event to update state
+                                processEvent(VoiceEvent.ToolExecutionComplete(sideEffect.id, result))
+                                
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error executing tool: ${sideEffect.name}", e)
+                                errors.add(Error("Tool execution failed: ${e.message}"))
+                                // Still emit completion event to clear the executing state
+                                processEvent(VoiceEvent.ToolExecutionComplete(sideEffect.id, "Error: ${e.message}"))
+                            }
+                        }
+                    }
+                    
+                    // Transcript side effects
+                    is SideEffect.EmitUserTranscript -> {
+                        Log.d(TAG, "📝 Side effect: EmitUserTranscript")
+                        lastUserTranscript.value = sideEffect.text
+                        lastUserTranscriptTime.value = System.currentTimeMillis()
+                        sessionManager?.captureUserTranscript(sideEffect.text)
+                        onUserTranscript?.invoke(sideEffect.text)
+                    }
+                    is SideEffect.EmitBotTranscript -> {
+                        Log.d(TAG, "📝 Side effect: EmitBotTranscript")
+                        lastBotTranscript.value = sideEffect.text
+                        lastBotTranscriptTime.value = System.currentTimeMillis()
+                        sessionManager?.captureBotTranscript(sideEffect.text)
+                        onBotTranscript?.invoke(sideEffect.text)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing side effect: ${sideEffect::class.simpleName}", e)
+                errors.add(Error("Side effect error: ${e.message}"))
+            }
+        }
+    }
     
     // Indicates if session is paused (disconnected but can be resumed)
     val isPaused = mutableStateOf(false)
@@ -447,21 +868,6 @@ class VoiceClientManager internal constructor(
         stop()
     }
 
-    
-    /**
-     * Update last activity time (called when user speaks or interacts)
-     */
-    private fun updateActivity() {
-        if (!botIsTalking.value) {
-            lastActivityTime = System.currentTimeMillis()
-            val timeout = Preferences.autoPauseTimeoutSeconds.value
-            secondsUntilAutoPause.value = timeout
-            Log.d(TAG, "User activity detected - timer reset to ${timeout}s")
-        }
-    }
-    
-
-    
     /**
      * Update Picovoice service state based on session state
      * Send broadcast to PorcupineService to pause/resume wake word detection
@@ -500,180 +906,20 @@ class VoiceClientManager internal constructor(
     }
     
     /**
-     * Update last bot response time (called when bot responds with audio or text)
+     * Start a new voice session or resume a paused session.
+     * 
+     * This method:
+     * 1. Validates preconditions (API key, state)
+     * 2. Builds the WebSocket URL and setup message
+     * 3. Processes StartRequested event through the state machine
+     * 
+     * The state machine will transition to Connecting and return a Connect side effect,
+     * which will be executed by the side effect executor to establish the WebSocket connection.
+     * 
+     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
+     * 
+     * @param threadSettings Optional thread-specific configuration
      */
-    private fun updateBotResponseTime() {
-        lastBotResponseTime = System.currentTimeMillis()
-        val timeout = Preferences.botResponseTimeoutMinutes.value
-        minutesUntilBotTimeout.value = timeout
-        Log.d(TAG, "Bot response detected - timer reset to ${timeout}min")
-    }
-    
-    /**
-     * Start monitoring bot audio silence to detect when bot stops speaking
-     * This is a fallback mechanism in case turnComplete message is not received
-     */
-    private fun startBotSilenceDetection() {
-        // Cancel existing job if any
-        botSilenceDetectionJob?.cancel()
-        
-        botSilenceDetectionJob = scope?.launch {
-            while (isActive) {
-                delay(500) // Check every 500ms
-                
-                // Only check if bot is marked as talking
-                if (botIsTalking.value) {
-                    val silenceDuration = System.currentTimeMillis() - lastBotAudioTime
-                    
-                    // If we haven't received audio for BOT_SILENCE_THRESHOLD_MS, bot stopped talking
-                    if (silenceDuration > BOT_SILENCE_THRESHOLD_MS) {
-                        Log.i(TAG, "🔇 Bot stopped speaking (silence detected: ${silenceDuration}ms)")
-                        botIsTalking.value = false
-                        botAudioLevel.floatValue = 0f
-                    }
-                }
-            }
-        }
-        
-        Log.d(TAG, "Bot silence detection started (threshold: ${BOT_SILENCE_THRESHOLD_MS}ms)")
-    }
-    
-    /**
-     * Stop monitoring bot audio silence
-     */
-    private fun stopBotSilenceDetection() {
-        botSilenceDetectionJob?.cancel()
-        botSilenceDetectionJob = null
-        Log.d(TAG, "Bot silence detection stopped")
-    }
-    
-    /**
-     * Start monitoring user inactivity for auto-pause
-     * Pauses session after configured timeout of user inactivity
-     */
-    private fun startAutoPauseMonitoring() {
-        // Cancel existing job if any
-        autoPauseJob?.cancel()
-        
-        val timeout = Preferences.autoPauseTimeoutSeconds.value
-        if (timeout <= 0) {
-            Log.i(TAG, "Auto-pause disabled (timeout: ${timeout}s)")
-            secondsUntilAutoPause.value = -1
-            return
-        }
-        
-        // Initialize timer
-        lastActivityTime = System.currentTimeMillis()
-        secondsUntilAutoPause.value = timeout
-        
-        autoPauseJob = scope?.launch {
-            Log.i(TAG, "Auto-pause monitoring started (timeout: ${timeout}s)")
-            
-            while (isActive) {
-                delay(1000) // Check every second
-                
-                // Skip if bot is talking (don't count as inactivity)
-                if (botIsTalking.value) {
-                    lastActivityTime = System.currentTimeMillis()
-                    secondsUntilAutoPause.value = timeout
-                    continue
-                }
-                
-                // Calculate time since last activity
-                val elapsed = (System.currentTimeMillis() - lastActivityTime) / 1000
-                val remaining = timeout - elapsed.toInt()
-                
-                secondsUntilAutoPause.value = remaining.coerceAtLeast(0)
-                
-                if (remaining <= 0) {
-                    Log.w(TAG, "⏱️ Auto-pause triggered - no user activity for ${timeout}s")
-                    
-                    // Pause session
-                    withContext(Dispatchers.Main) {
-                        pause()
-                    }
-                    
-                    break
-                }
-                
-                if (DEBUG_LOGGING && remaining <= 10) {
-                    Log.d(TAG, "Auto-pause in ${remaining}s...")
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop monitoring user inactivity
-     */
-    private fun stopAutoPauseMonitoring() {
-        autoPauseJob?.cancel()
-        autoPauseJob = null
-        secondsUntilAutoPause.value = -1
-        Log.d(TAG, "Auto-pause monitoring stopped")
-    }
-    
-    /**
-     * Start monitoring bot response timeout
-     * Pauses session if bot doesn't respond within configured timeout
-     */
-    private fun startBotResponseTimeoutMonitoring() {
-        // Cancel existing job if any
-        botResponseTimeoutJob?.cancel()
-        
-        val timeout = Preferences.botResponseTimeoutMinutes.value
-        if (timeout <= 0) {
-            Log.i(TAG, "Bot response timeout disabled (timeout: ${timeout}min)")
-            minutesUntilBotTimeout.value = -1
-            return
-        }
-        
-        // Initialize timer
-        lastBotResponseTime = System.currentTimeMillis()
-        minutesUntilBotTimeout.value = timeout
-        
-        botResponseTimeoutJob = scope?.launch {
-            Log.i(TAG, "Bot response timeout monitoring started (timeout: ${timeout}min)")
-            
-            while (isActive) {
-                delay(1000) // Check every second
-                
-                // Calculate time since last bot response
-                val elapsed = (System.currentTimeMillis() - lastBotResponseTime) / 1000 / 60 // minutes
-                val remaining = timeout - elapsed.toInt()
-                
-                minutesUntilBotTimeout.value = remaining.coerceAtLeast(0)
-                
-                if (remaining <= 0) {
-                    Log.w(TAG, "⏱️ Bot response timeout triggered - no response for ${timeout}min")
-                    
-                    // Pause session
-                    withContext(Dispatchers.Main) {
-                        pause()
-                    }
-                    
-                    break
-                }
-                
-                if (DEBUG_LOGGING && remaining <= 1) {
-                    Log.d(TAG, "Bot response timeout in ${remaining}min...")
-                }
-            }
-        }
-    }
-    
-    /**
-     * Stop monitoring bot response timeout
-     */
-    private fun stopBotResponseTimeoutMonitoring() {
-        botResponseTimeoutJob?.cancel()
-        botResponseTimeoutJob = null
-        minutesUntilBotTimeout.value = -1
-        Log.d(TAG, "Bot response timeout monitoring stopped")
-    }
-
-
-
     fun start(threadSettings: ThreadSettings? = null) {
         // Allow start only if DISCONNECTED, RECONNECTING, or if we're stuck in CONNECTING
         if (state.value == ConnectionState.CONNECTED) {
@@ -749,24 +995,15 @@ class VoiceClientManager internal constructor(
             Log.i(TAG, "  Using default settings from preferences")
         }
 
-        // Transition to CONNECTING state (unless already RECONNECTING)
-        if (state.value != ConnectionState.RECONNECTING) {
-            val previousState = state.value
-            state.value = ConnectionState.CONNECTING
-            Log.i(TAG, "State transition: $previousState -> CONNECTING")
-            updateServiceNotification()
-        } else {
-            Log.i(TAG, "Reconnection attempt in progress, maintaining RECONNECTING state")
-        }
-        
+        // Create coroutine scope if needed
         if (scope == null) {
             scope = CoroutineScope(Dispatchers.IO)
         }
 
-        // v1beta supports session resumption
+        // Build WebSocket URL (v1beta supports session resumption)
         val url = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey"
         
-        // Prepare setup message
+        // Build setup message
         // Configure setup with audio transcription enabled
         // This allows us to get text transcripts of both input and output audio
         
@@ -830,160 +1067,89 @@ class VoiceClientManager internal constructor(
         )
         
         val setupJson = geminiProtocol.serializeSetupMessage(setupMsg)
-        Log.i(TAG, "📤 Preparing setup message:")
+        Log.i(TAG, "📤 Setup message prepared:")
         Log.i(TAG, "  Total JSON length: ${setupJson.length} chars")
         Log.i(TAG, "  System instruction length: ${systemPrompt.length} chars")
         if (DEBUG_LOGGING) {
             Log.d(TAG, "  Full setup JSON: $setupJson")
         }
         
-        // Connect using WebSocketClient
-        webSocketClient.connect(url, setupJson)
+        // Process start event through state machine
+        // This will transition to Connecting state and return a Connect side effect
+        // The side effect executor will call webSocketClient.connect(url, setupJson)
+        Log.i(TAG, "Processing StartRequested event through state machine")
+        processEvent(VoiceEvent.StartRequested(threadSettings, url, setupJson))
+        
+        // Note: State transition and connection are now handled by state machine and side effect executor
+        // No direct state manipulation or webSocketClient.connect() call here
     }
 
     private fun handleTextMessage(text: String) {
         // Parse message using GeminiProtocol
         val event = geminiProtocol.parseMessage(text)
         
-        // Handle the parsed event
+        // Route all events through state machine via processEvent()
+        // Requirements: 5.2 - Network messages wrapped in VoiceEvent and passed to reducer
         when (event) {
             is GeminiEvent.SetupComplete -> {
-                val previousState = state.value
-                Log.i(TAG, "Setup complete - State transition: $previousState -> CONNECTED")
-                state.value = ConnectionState.CONNECTED
-                botReady.value = true
-                updateServiceNotification()
+                Log.i(TAG, "📨 GeminiEvent.SetupComplete -> VoiceEvent.SetupComplete")
+                processEvent(VoiceEvent.SetupComplete)
                 
-                // Reset reconnection manager on successful connection
+                // Additional setup that doesn't belong in state machine
                 reconnectionManager.reset()
-                
-                // Reset audio stats
                 audioChunksReceived = 0
                 totalAudioBytesReceived = 0L
                 lastAudioLogTime = System.currentTimeMillis()
-                
-                // Only start audio if not already started (for reconnection case)
-                if (!audioEngine.isRecording.value) {
-                    bluetoothAudioController.initialize()
-                    bluetoothAudioController.enableSpeakerphoneIfNoHeadset() // Auto-enable speakerphone if no headset
-                    audioEngine.startRecording()
-                }
-                if (!audioEngine.isPlaying.value) {
-                    audioEngine.startPlayback()
-                }
-                
-                // Using Gemini Live API transcription (no additional service needed)
-                
+                bluetoothAudioController.initialize()
+                bluetoothAudioController.enableSpeakerphoneIfNoHeadset()
                 acquireWakeLock()
-                
-                // Only start auto-pause monitoring if not already running
-                if (autoPauseJob == null || !autoPauseJob!!.isActive) {
-                    startAutoPauseMonitoring()
-                }
-                
-                // Start bot response timeout monitoring
-                if (botResponseTimeoutJob == null || !botResponseTimeoutJob!!.isActive) {
-                    startBotResponseTimeoutMonitoring()
-                }
-                
-                // Start bot silence detection
-                if (botSilenceDetectionJob == null || !botSilenceDetectionJob!!.isActive) {
-                    startBotSilenceDetection()
-                }
-                
-                // Start WebSocket health monitoring via WebSocketClient
                 webSocketClient.startHealthMonitoring()
-                
-                // Retry pending image if any (after reconnection)
                 retryPendingImage()
-                
-                // Note: We use Gemini Live API's built-in transcription
-                // Both input and output audio are transcribed automatically
             }
             
             is GeminiEvent.SessionUpdate -> {
-                sessionStateManager.updateResumptionHandle(event.handle, event.resumable)
-                
-                val currentState = sessionStateManager.state.value
-                Log.i(TAG, "📝 Session resumption update received:")
+                Log.i(TAG, "📨 GeminiEvent.SessionUpdate -> VoiceEvent.SessionHandleReceived")
                 Log.i(TAG, "  Handle: ${event.handle.take(20)}... (${event.handle.length} chars)")
                 Log.i(TAG, "  Resumable: ${event.resumable}")
-                Log.i(TAG, "  Valid until: ${java.text.SimpleDateFormat("HH:mm:ss").format(currentState.createdTime + SessionStateManager.SESSION_RESUMPTION_TIMEOUT)}")
+                processEvent(VoiceEvent.SessionHandleReceived(event.handle, event.resumable))
             }
             
             is GeminiEvent.AudioData -> {
-                handleAudioMessage(event.audioBytes)
-                
-                if (!botIsTalking.value) {
-                    Log.i(TAG, "Bot started speaking")
-                    botIsTalking.value = true
-                    
-                    // Pause AudioRecord only in half-duplex mode
-                    if (!Preferences.fullDuplexMode.value) {
-                        audioEngine.pauseRecording()      // Pause AudioRecord to free mic
-                        Log.i(TAG, "🎤 Half-duplex: AudioRecord paused (bot speaking)")
-                    } else {
-                        Log.i(TAG, "🎤 Full-duplex: AudioRecord continues (user can interrupt)")
-                    }
-                    
-                    updatePicovoiceState()    // Resume Picovoice (can use mic now)
+                if (DEBUG_LOGGING) {
+                    Log.d(TAG, "📨 GeminiEvent.AudioData -> VoiceEvent.BotAudioReceived (${event.audioBytes.size} bytes)")
                 }
-                updateBotResponseTime() // Bot responded with audio
+                processEvent(VoiceEvent.BotAudioReceived(event.audioBytes))
+                
+                // Note: Bot audio time tracking removed - now handled by ConversationMonitor
+                conversationMonitor?.updateBotAudioTime()
             }
             
             is GeminiEvent.Transcript -> {
                 when (event.speaker) {
                     GeminiEvent.Transcript.Speaker.BOT -> {
-                        Log.i(TAG, "✅ Bot transcript (Gemini): ${event.text}")
-                        lastBotTranscript.value = event.text
-                        lastBotTranscriptTime.value = System.currentTimeMillis()
-                        sessionManager?.captureBotTranscript(event.text)
-                        onBotTranscript?.invoke(event.text)
-                        updateBotResponseTime() // Bot responded
+                        Log.i(TAG, "📨 GeminiEvent.Transcript(BOT) -> VoiceEvent.BotTranscript: ${event.text}")
+                        processEvent(VoiceEvent.BotTranscript(event.text))
                     }
                     GeminiEvent.Transcript.Speaker.USER -> {
-                        Log.i(TAG, "✅ User transcript (Gemini): ${event.text}")
-                        lastUserTranscript.value = event.text
-                        lastUserTranscriptTime.value = System.currentTimeMillis()
-                        sessionManager?.captureUserTranscript(event.text)
-                        onUserTranscript?.invoke(event.text)
-                        updateActivity() // User is active
+                        Log.i(TAG, "📨 GeminiEvent.Transcript(USER) -> VoiceEvent.UserTranscript: ${event.text}")
+                        processEvent(VoiceEvent.UserTranscript(event.text))
                     }
                 }
             }
             
             is GeminiEvent.ToolCall -> {
-                Log.i(TAG, "🔧 Tool call received: ${event.name} (id: ${event.id})")
-                handleToolCall(event)
+                Log.i(TAG, "📨 GeminiEvent.ToolCall -> VoiceEvent.ToolCallReceived: ${event.name} (id: ${event.id})")
+                processEvent(VoiceEvent.ToolCallReceived(event.id, event.name, event.arguments))
             }
             
             is GeminiEvent.TurnComplete -> {
-                Log.i(TAG, "🔇 Bot stopped speaking (turnComplete)")
-                botIsTalking.value = false
-                
-                // Resume AudioRecord only if it was paused (half-duplex mode)
-                if (!Preferences.fullDuplexMode.value) {
-                    audioEngine.resumeRecording()    // Resume AudioRecord
-                    Log.i(TAG, "🎤 Half-duplex: AudioRecord resumed (bot finished)")
-                } else {
-                    Log.i(TAG, "🎤 Full-duplex: AudioRecord was never paused")
-                }
-                
-                updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
+                Log.i(TAG, "📨 GeminiEvent.TurnComplete -> VoiceEvent.TurnComplete")
+                processEvent(VoiceEvent.TurnComplete)
             }
             
             is GeminiEvent.Interrupted -> {
-                Log.i(TAG, "⚡ Interruption signal received from Gemini")
-                audioEngine.interruptPlayback()
-                
-                // Update state immediately
-                botIsTalking.value = false
-                botAudioLevel.floatValue = 0f
-                
-                // If in half-duplex, ensure we resume recording since we interrupted
-                if (!Preferences.fullDuplexMode.value) {
-                     audioEngine.resumeRecording()
-                }
+                Log.i(TAG, "📨 GeminiEvent.Interrupted -> VoiceEvent.Interrupted")
+                processEvent(VoiceEvent.Interrupted)
             }
             
             is GeminiEvent.Unknown -> {
@@ -999,77 +1165,7 @@ class VoiceClientManager internal constructor(
         }
     }
     
-    /**
-     * Handle tool call from Gemini
-     * Executes the requested function and sends result back
-     */
-    private fun handleToolCall(toolCall: GeminiEvent.ToolCall) {
-        scope?.launch {
-            try {
-                Log.i(TAG, "🔧 handleToolCall START")
-                Log.i(TAG, "🔧 Executing tool: ${toolCall.name} (id: ${toolCall.id})")
-                Log.i(TAG, "  Arguments: ${toolCall.arguments}")
-                
-                // Set tool execution state
-                isExecutingTool.value = true
-                currentToolName.value = toolCall.name
-                
-                // Execute the tool
-                val startTime = System.currentTimeMillis()
-                val result = try {
-                    Log.i(TAG, "⏳ Starting tool execution...")
-                    val res = toolExecutor.executeTool(toolCall.name, toolCall.arguments)
-                    val duration = System.currentTimeMillis() - startTime
-                    Log.i(TAG, "✅ Tool execution completed in ${duration}ms")
-                    res
-                } catch (e: Exception) {
-                    val duration = System.currentTimeMillis() - startTime
-                    Log.e(TAG, "❌ Tool execution failed after ${duration}ms: ${e.message}", e)
-                    "Error: ${e.message}"
-                } finally {
-                    // Clear tool execution state
-                    isExecutingTool.value = false
-                    currentToolName.value = null
-                }
-                
-                Log.i(TAG, "📤 Tool result (${result.length} chars): ${result.take(200)}${if (result.length > 200) "..." else ""}")
-                
-                // Send tool response back to Gemini
-                sendToolResponse(toolCall.id, result)
-                
-                Log.i(TAG, "🔧 handleToolCall END")
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error handling tool call: ${e.message}", e)
-                e.printStackTrace()
-                // Clear tool execution state on error
-                isExecutingTool.value = false
-                currentToolName.value = null
-            }
-        }
-    }
-    
-    /**
-     * Send tool response back to Gemini
-     */
-    private fun sendToolResponse(callId: String, result: String) {
-        try {
-            val responseJson = geminiProtocol.serializeToolResponse(callId, result)
-            val sent = webSocketClient.send(responseJson)
-            
-            if (sent) {
-                Log.i(TAG, "📤 Tool response sent for call ID: $callId")
-                if (DEBUG_LOGGING) {
-                    Log.d(TAG, "  Response JSON: $responseJson")
-                }
-            } else {
-                Log.e(TAG, "❌ Failed to send tool response")
-            }
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending tool response: ${e.message}", e)
-        }
-    }
+
     
     private var audioChunksReceived = 0
     private var totalAudioBytesReceived = 0L
@@ -1090,8 +1186,8 @@ class VoiceClientManager internal constructor(
             Log.d(TAG, "📥 Received audio chunk #$audioChunksReceived: ${audioData.size} bytes")
         }
         
-        // Update last bot audio time for silence detection
-        lastBotAudioTime = System.currentTimeMillis()
+        // Note: Bot audio time tracking removed - now handled by ConversationMonitor
+        conversationMonitor?.updateBotAudioTime()
         
         // Apply volume boost if configured
         val boostedAudio = if (currentVolumeBoost != 1.0f) {
@@ -1103,12 +1199,13 @@ class VoiceClientManager internal constructor(
             audioData
         }
         
-        // Capture current generation ID and queue audio for playback
-        val currentGenId = audioGenerationId.get()
-        audioEngine.queueAudio(boostedAudio, currentGenId)
+        // CRITICAL FIX: Route audio through state machine instead of directly to AudioEngine
+        // This ensures the state machine knows bot is speaking and can properly manage state transitions
+        // The state machine will return SideEffect.QueueAudio which will be executed by executeSideEffects
+        processEvent(VoiceEvent.BotAudioReceived(boostedAudio))
         
         if (DEBUG_LOGGING) {
-            Log.d(TAG, "📥 Queued audio for playback (genId: $currentGenId)")
+            Log.d(TAG, "📥 Audio routed through state machine")
         }
     }
     
@@ -1130,91 +1227,20 @@ class VoiceClientManager internal constructor(
 
 
     /**
-     * Pause the session (disconnect but keep session handle for resumption)
-     * Called when user disables microphone or when auto-pause triggers
+     * Pause the session (disconnect but keep session handle for resumption).
+     * 
+     * This method processes a PauseRequested event through the state machine.
+     * The state machine will transition to Paused state and return side effects for:
+     * - StopRecording
+     * - StopAutoPauseTimer
+     * - Disconnect (with code 1000, reason "User paused")
+     * - UpdateServiceNotification
+     * - UpdatePicovoiceState
+     * 
+     * All cleanup is handled by the state machine through side effects.
+     * 
+     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
      */
-    fun pause() {
-        if (state.value == ConnectionState.DISCONNECTED) {
-            Log.i(TAG, "Pause called but already DISCONNECTED, ignoring")
-            return
-        }
-        
-        val previousState = state.value
-        
-        // CRITICAL FIX: Set isPaused FIRST before changing state
-        // This ensures reconnection logic sees isPaused=true immediately
-        isPaused.value = true
-        Log.i(TAG, "🔄 Pausing session - isPaused set to TRUE")
-        
-        // Pause session in SessionStateManager (preserves resumption handle)
-        sessionStateManager.pauseSession()
-        
-        state.value = ConnectionState.DISCONNECTING
-        Log.i(TAG, "State transition: $previousState -> DISCONNECTING (pause - session handle preserved)")
-        updateServiceNotification()
-        
-        // Cancel any ongoing reconnection attempts
-        // This must happen AFTER isPaused is set to true
-        reconnectionManager.cancelReconnection()
-        
-        // CRITICAL FIX: Do NOT stop auto-pause monitoring during pause
-        // The monitoring will be stopped in handleDisconnect() anyway
-        // Keeping it here was redundant and could cause issues
-        
-        // Disable mic
-        mic.value = false // Update mic state to reflect paused session
-        
-        // Stop AudioEngine recording if still running
-        if (audioEngine.isRecording.value) {
-            audioEngine.stopRecording()
-        }
-        
-        // Update Picovoice state (start it since session is paused)
-        updatePicovoiceState()
-        
-        // Close WebSocket but DO NOT clear session handle
-        // This allows resumption when user re-enables mic
-        Log.i(TAG, "🔄 Closing WebSocket - session handle preserved for resumption")
-        webSocketClient.disconnect(1000, "Paused by user")
-        
-        // Clean up resources but preserve session handle
-        handleDisconnect(preserveSessionHandle = true)
-    }
-    
-    /**
-     * Resume the session (reconnect using session resumption)
-     * Called when user enables microphone after pause
-     */
-    fun resume() {
-        if (state.value != ConnectionState.DISCONNECTED) {
-            Log.w(TAG, "Resume called but not DISCONNECTED (state: ${state.value})")
-            return
-        }
-        
-        // Clear paused flag
-        isPaused.value = false
-        
-        // Resume session in SessionStateManager (will check handle validity)
-        // Note: resumeSession() will call startSession() if handle expired
-        sessionStateManager.resumeSession()
-        
-        // Update Picovoice state (stop it since session is resuming)
-        updatePicovoiceState()
-        
-        // Start auto-pause monitoring
-        startAutoPauseMonitoring()
-        
-        val currentSessionState = sessionStateManager.state.value
-        if (currentSessionState.resumptionHandle == null) {
-            Log.w(TAG, "⚠️ Resume called but no session handle available - starting new session")
-        } else {
-            Log.i(TAG, "🔄 Resuming session with handle: ${currentSessionState.resumptionHandle?.take(20)}...")
-        }
-        
-        // Start connection (will use session resumption if handle available)
-        // AudioRecord will start automatically after connection is established
-        start(currentThreadSettings)
-    }
     
     /**
      * Force stop for emergency cleanup
@@ -1232,10 +1258,9 @@ class VoiceClientManager internal constructor(
             // Cancel all jobs immediately
             reconnectionManager.cancelReconnection()
             imageProcessingJob?.cancel()
-            autoPauseJob?.cancel()
-            botResponseTimeoutJob?.cancel()
-            idleCheckJob?.cancel()
-            botSilenceDetectionJob?.cancel()
+            // Note: Timer jobs (autoPauseJob, botResponseTimeoutJob, idleCheckJob, botSilenceDetectionJob) 
+            // removed - now handled by ConversationMonitor
+            conversationMonitor?.release()
             
             Log.d(TAG, "[forceStop] All jobs cancelled")
             
@@ -1277,14 +1302,12 @@ class VoiceClientManager internal constructor(
                 Log.e(TAG, "[forceStop] Error cancelling scope", e)
             }
             
-            // Update state
-            state.value = ConnectionState.DISCONNECTED
-            botReady.value = false
-            botIsTalking.value = false
-            userIsTalking.value = false
-            mic.value = false
+            // Note: State updates are now handled through VoiceUiState sync
+            // Process stop event to transition to Idle state
+            processEvent(VoiceEvent.StopRequested)
+            
+            // camera is not part of VoiceUiState, so we still update it directly
             camera.value = false
-            isPaused.value = false
             
             Log.i(TAG, "[forceStop] Force stop completed")
         } catch (e: Exception) {
@@ -1295,6 +1318,10 @@ class VoiceClientManager internal constructor(
     /**
      * Enable or disable microphone (pause/resume session)
      * Used by wake word detection and UI button
+     * 
+     * This method now uses event-based processing through the state machine.
+     * 
+     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
      */
     fun enableMic(enabled: Boolean) {
         Log.i(TAG, "enableMic called - enabled: $enabled, current state: ${state.value}, current mic: ${mic.value}")
@@ -1303,16 +1330,15 @@ class VoiceClientManager internal constructor(
             // User wants to enable mic (resume session)
             if (state.value == ConnectionState.DISCONNECTED) {
                 Log.i(TAG, "Mic enabled - resuming session")
-                mic.value = true
                 resume()
             } else if (state.value == ConnectionState.CONNECTED) {
-                // Already connected, just start recording
-                Log.i(TAG, "Mic enabled - starting recording (already connected)")
-                mic.value = true
-                if (!audioEngine.isRecording.value) {
-                    audioEngine.startRecording()
+                // Already connected, toggle mic if it's currently disabled
+                if (!mic.value) {
+                    Log.i(TAG, "Mic enabled - toggling mic on")
+                    processEvent(VoiceEvent.MicToggled)
+                } else {
+                    Log.d(TAG, "Mic already enabled, no action needed")
                 }
-                updateActivity() // User interaction
             } else {
                 Log.w(TAG, "⚠️ Mic enable ignored - invalid state: ${state.value}")
             }
@@ -1339,7 +1365,6 @@ class VoiceClientManager internal constructor(
             if (state.value == ConnectionState.CONNECTED || 
                 state.value == ConnectionState.CONNECTING) {
                 Log.i(TAG, "Mic disabled - pausing session")
-                // Note: pause() will set mic.value = false
                 pause()
             } else {
                 Log.w(TAG, "⚠️ Mic disable ignored - unexpected state: ${state.value}")
@@ -1347,6 +1372,18 @@ class VoiceClientManager internal constructor(
         }
     }
 
+    /**
+     * Stop the voice session completely.
+     * 
+     * This method processes a StopRequested event through the state machine,
+     * which will transition to Idle state and return side effects for cleanup.
+     * 
+     * The state machine handles core cleanup (AudioEngine, WebSocket, timers, notifications).
+     * Additional cleanup (scope, wake lock, Bluetooth, image processing) is done here
+     * because these are not part of the core state machine logic.
+     * 
+     * Requirements: 3.3, 6.2 - Public methods use events instead of direct state manipulation
+     */
     fun stop() {
         if (state.value == ConnectionState.DISCONNECTED) {
             Log.i(TAG, "Stop called but already DISCONNECTED, ignoring")
@@ -1354,32 +1391,140 @@ class VoiceClientManager internal constructor(
         }
 
         val previousState = state.value
-        state.value = ConnectionState.DISCONNECTING
-        Log.i(TAG, "State transition: $previousState -> DISCONNECTING (user initiated)")
-        updateServiceNotification()
+        Log.i(TAG, "Stop requested - current state: $previousState")
         
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
         
-        // Clear paused flag
-        isPaused.value = false
+        // Cancel image processing job
+        imageProcessingJob?.cancel()
+        imageProcessingJob = null
+        pendingImage = null
+        Log.d(TAG, "Image processing job cancelled and pending image cleared")
         
         // End session and clear resumption handle
         Log.i(TAG, "Ending session (user-initiated disconnect)")
         sessionStateManager.endSession()
         
-        webSocketClient.disconnect(1000, "User disconnected")
-        handleDisconnect()
+        // Process stop event through state machine
+        // The state machine will transition to Idle and return side effects:
+        // - StopRecording, StopPlayback, StopSilenceDetection, ClearAudioQueue
+        // - Disconnect(), ClearSessionHandle
+        // - UpdateServiceNotification, UpdatePicovoiceState
+        processEvent(VoiceEvent.StopRequested)
+        
+        // Additional cleanup not handled by state machine:
+        
+        // Stop WebSocket health monitoring
+        webSocketClient.stopHealthMonitoring()
+        Log.d(TAG, "WebSocket health monitoring stopped")
+        
+        // Release BluetoothAudioController
+        bluetoothAudioController.release()
+        Log.d(TAG, "BluetoothAudioController released")
+        
+        // Cancel coroutine scope
+        scope?.cancel()
+        scope = null
+        Log.d(TAG, "Coroutine scope cancelled")
+        
+        // Release wake lock
+        releaseWakeLock()
+        Log.d(TAG, "Wake lock released")
+        
+        // Reset thread settings
+        currentThreadSettings = null
+        currentSpeechSpeed = 1.0f
+        currentVolumeBoost = 1.0f
+        Log.d(TAG, "Thread settings reset")
+        
+        // Reset camera and expiry time (not part of VoiceUiState)
+        camera.value = false
+        expiryTime.value = null
+        
+        Log.i(TAG, "Stop complete - all resources cleaned up")
     }
     
     /**
-     * Toggle microphone on/off (pause/resume session)
-     * Used by wake word detection and UI button
+     * Pause the voice session (disconnect but preserve session handle for resumption).
+     * 
+     * This method processes a PauseRequested event through the state machine,
+     * which will transition to Paused state and disconnect while preserving the session handle.
+     * 
+     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
+     */
+    fun pause() {
+        if (state.value == ConnectionState.DISCONNECTED) {
+            Log.w(TAG, "Pause called but already DISCONNECTED, ignoring")
+            return
+        }
+        
+        Log.i(TAG, "Pause requested - current state: ${state.value}")
+        
+        // Cancel any ongoing reconnection attempts
+        reconnectionManager.cancelReconnection()
+        
+        // Process pause event through state machine
+        // The state machine will transition to Paused and return side effects:
+        // - StopRecording, StopAutoPauseTimer
+        // - Disconnect (preserving session handle)
+        // - UpdateServiceNotification, UpdatePicovoiceState
+        processEvent(VoiceEvent.PauseRequested)
+        
+        Log.i(TAG, "Pause complete - session handle preserved for resumption")
+    }
+    
+    /**
+     * Resume a paused voice session.
+     * 
+     * This method processes a ResumeRequested event through the state machine,
+     * which will transition from Paused to Connecting and attempt to resume the session.
+     * 
+     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
+     */
+    fun resume() {
+        if (!isPaused.value) {
+            Log.w(TAG, "Resume called but session is not paused, calling start() instead")
+            start(currentThreadSettings)
+            return
+        }
+        
+        Log.i(TAG, "Resume requested - attempting to resume paused session")
+        
+        // Resume is essentially the same as start() - we need to reconnect
+        // The session handle is preserved, so Gemini will resume the session
+        start(currentThreadSettings)
+    }
+    
+    /**
+     * Toggle microphone on/off.
+     * Used by wake word detection and UI button.
+     * 
+     * This method now uses event-based processing through the state machine.
+     * The state machine will toggle the isMicEnabled flag in the current state.
+     * 
+     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
      */
     fun toggleMic() {
         Log.i(TAG, "🎤 Toggle microphone - Current state: ${if (mic.value) "ON" else "OFF"}")
-        enableMic(!mic.value)
-        updateActivity() // User interaction
+        
+        // Only toggle if we're in a state where mic control makes sense
+        val currentState = _sessionState.value
+        when (currentState) {
+            is VoiceSessionState.Listening,
+            is VoiceSessionState.Speaking -> {
+                // Process MicToggled event through state machine
+                processEvent(VoiceEvent.MicToggled)
+            }
+            is VoiceSessionState.Paused,
+            is VoiceSessionState.Idle -> {
+                // In paused/idle state, use enableMic to resume/start
+                enableMic(!mic.value)
+            }
+            else -> {
+                Log.w(TAG, "⚠️ Toggle mic ignored - invalid state: ${currentState::class.simpleName}")
+            }
+        }
     }
     
     /**
@@ -1403,7 +1548,7 @@ class VoiceClientManager internal constructor(
         // Cancel image processing job
         imageProcessingJob?.cancel()
         imageProcessingJob = null
-        isProcessingImage.value = false
+        // Note: isProcessingImage is now synced from VoiceUiState
         Log.d(TAG, "Image processing job cancelled")
         
         // Clear pending image if not preserving session
@@ -1447,18 +1592,23 @@ class VoiceClientManager internal constructor(
             Log.d(TAG, "BluetoothAudioController state preserved (session paused) - Speakerphone: ${isSpeakerphoneOn.value}")
         }
         
-        stopAutoPauseMonitoring()
-        Log.d(TAG, "Auto-pause monitoring stopped")
-        
-        stopBotSilenceDetection()
+        // Note: Timer monitoring (auto-pause, bot silence detection) is now handled by ConversationMonitor
+        // ConversationMonitor cleanup happens through state machine side effects
         
         // Stop WebSocket health monitoring via WebSocketClient
         webSocketClient.stopHealthMonitoring()
         Log.d(TAG, "WebSocket health monitoring stopped")
         
-        scope?.cancel()
-        scope = null
-        Log.d(TAG, "Coroutine scope cancelled")
+        // CRITICAL FIX: Only cancel scope if NOT preserving session
+        // When pausing, keep scope alive so UI state sync continues working
+        // and user can resume the session
+        if (!preserveSessionHandle) {
+            scope?.cancel()
+            scope = null
+            Log.d(TAG, "Coroutine scope cancelled (session ended)")
+        } else {
+            Log.d(TAG, "Coroutine scope KEPT (session paused, UI sync continues)")
+        }
         
         // CRITICAL FIX: Only release wake lock if NOT preserving session
         // When pausing (preserveSessionHandle=true), keep wake lock active
@@ -1475,31 +1625,24 @@ class VoiceClientManager internal constructor(
             currentThreadSettings = null
             currentSpeechSpeed = 1.0f
             currentVolumeBoost = 1.0f
-            lastActivityTime = 0L
+            // Note: lastActivityTime removed - now handled by ConversationMonitor
             Log.d(TAG, "Thread settings reset")
         } else {
             Log.d(TAG, "Thread settings preserved for session resumption")
         }
         
         val previousState = state.value
-        state.value = ConnectionState.DISCONNECTED
+        // Note: State updates are now handled through VoiceUiState sync
+        // The state machine should already be in Idle or appropriate state
         Log.i(TAG, "State transition: $previousState -> DISCONNECTED (cleanup complete)")
         updateServiceNotification()
         
-        botReady.value = false
-        botIsTalking.value = false
-        userIsTalking.value = false
+        // Note: botReady, botIsTalking, userIsTalking, mic, userAudioLevel, botAudioLevel
+        // are now synced from VoiceUiState
         
-        // Only reset mic state if not preserving session
-        // This allows UI to show mic as "off" during pause
-        if (!preserveSessionHandle) {
-            mic.value = false
-        }
-        
+        // camera and expiryTime are not part of VoiceUiState, so we still update them directly
         camera.value = false
         expiryTime.value = null
-        userAudioLevel.floatValue = 0f
-        botAudioLevel.floatValue = 0f
         
         Log.i(TAG, "Disconnect complete - all resources cleaned up")
     }
@@ -1520,11 +1663,13 @@ class VoiceClientManager internal constructor(
         // Cancel any existing image processing job
         imageProcessingJob?.cancel()
         
+        // Emit ImageProcessingStarted event to update state
+        processEvent(VoiceEvent.ImageProcessingStarted)
+        
         // Launch image processing with timeout
         imageProcessingJob = scope?.launch(Dispatchers.IO) {
             try {
-                // Set processing state for UI progress indicator
-                isProcessingImage.value = true
+                // Note: isProcessingImage is now managed by state machine via ImageProcessingStarted/Completed events
                 
                 // Process image with timeout (30 seconds)
                 val processingResult = kotlinx.coroutines.withTimeout(30000L) {
@@ -1584,7 +1729,7 @@ class VoiceClientManager internal constructor(
                                 "(${processedImage.processedSize} bytes, ${processedImage.dimensions.first}x${processedImage.dimensions.second})"
                         sessionManager?.recordImageSent(imageDescription)
                         
-                        updateActivity() // User interaction
+                        // Note: Activity tracking removed - now handled by ConversationMonitor
                     } else {
                         Log.e(TAG, "Failed to send image - WebSocket send returned false")
                         withContext(Dispatchers.Main) {
@@ -1601,32 +1746,28 @@ class VoiceClientManager internal constructor(
                         else -> context.getString(R.string.error_image_processing_failed_with_message, error.message ?: "")
                     }
                     
-                    withContext(Dispatchers.Main) {
-                        errors.add(Error(errorMessage))
-                    }
+                    // Emit ImageProcessingFailed event to update state and show error
+                    processEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
                 }
+                
+                // Emit ImageProcessingCompleted event to update state
+                processEvent(VoiceEvent.ImageProcessingCompleted)
                 
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                 Log.e(TAG, "Image processing timeout after 30 seconds", e)
-                withContext(Dispatchers.Main) {
-                    errors.add(Error(context.getString(R.string.error_image_processing_timeout)))
-                }
+                val errorMessage = context.getString(R.string.error_image_processing_timeout)
+                processEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
             } catch (e: OutOfMemoryError) {
                 Log.e(TAG, "Out of memory while processing image", e)
-                withContext(Dispatchers.Main) {
-                    errors.add(Error(context.getString(R.string.error_image_too_large_memory)))
-                }
+                val errorMessage = context.getString(R.string.error_image_too_large_memory)
+                processEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
             } catch (e: Exception) {
                 Log.e(TAG, "Error sending image: ${e.message}", e)
                 if (DEBUG_LOGGING) {
                     Log.e(TAG, "Image send error details:", e)
                 }
-                withContext(Dispatchers.Main) {
-                    errors.add(Error(context.getString(R.string.error_image_send_failed, e.message ?: "")))
-                }
-            } finally {
-                // Clear processing state
-                isProcessingImage.value = false
+                val errorMessage = context.getString(R.string.error_image_send_failed, e.message ?: "")
+                processEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
             }
         }
     }
@@ -1757,8 +1898,8 @@ class VoiceClientManager internal constructor(
             return
         }
         
-        // Reset attempt count for fresh start
-        reconnectionAttempt.value = 0
+        // Note: reconnectionAttempt is now synced from VoiceUiState
+        // Reset is handled by reconnectionManager.reset()
         
         // Start fresh connection
         Log.i(TAG, "🆕 Starting fresh connection after automatic restart")
@@ -1827,6 +1968,9 @@ class VoiceClientManager internal constructor(
             
             // Ensure we're in RECONNECTING state
             if (state.value != ConnectionState.RECONNECTING) {
+                // Note: state.value is now synced from VoiceUiState
+                // For reconnection, we need to set this directly as it's not part of VoiceSessionState
+                // TODO: Consider adding reconnection to state machine
                 state.value = ConnectionState.RECONNECTING
             }
             
