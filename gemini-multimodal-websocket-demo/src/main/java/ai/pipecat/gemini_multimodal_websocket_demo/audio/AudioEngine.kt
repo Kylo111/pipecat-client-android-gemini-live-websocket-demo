@@ -6,6 +6,8 @@ import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
@@ -167,9 +169,13 @@ class AudioEngine(
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         
         /**
-         * Buffer size multiplier for audio buffers
+         * Buffer size multiplier for audio buffers.
+         * 
+         * INCREASED from 8 to 30 to provide ~1.2 seconds of buffer instead of ~344ms.
+         * This prevents audio dropouts during network jitter and stops VAD from
+         * incorrectly detecting silence when the buffer empties.
          */
-        private const val BUFFER_MULTIPLIER = 8
+        private const val BUFFER_MULTIPLIER = 30
     }
     
     // State flows for reactive state management
@@ -198,11 +204,38 @@ class AudioEngine(
      */
     private val currentGenerationId = AtomicInteger(0)
     
+    /**
+     * AudioManager for setting MODE_IN_COMMUNICATION for proper AEC.
+     * Requirements: 5.1, 5.5
+     */
+    private var audioManager: AudioManager? = null
+    
+    /**
+     * Previous audio mode to restore when recording stops.
+     * Requirements: 5.5
+     */
+    private var previousAudioMode: Int = AudioManager.MODE_NORMAL
+    
+    /**
+     * Acoustic Echo Canceler for reducing echo feedback.
+     * Requirements: 5.2, 5.3
+     */
+    private var aec: AcousticEchoCanceler? = null
+    
+    /**
+     * Noise Suppressor for reducing background noise.
+     * Requirements: 5.2, 5.3
+     */
+    private var ns: NoiseSuppressor? = null
+    
     // Recording state
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
     private var isRecordingPaused = false
     private var recordingReleasedLatch = CompletableDeferred<Unit>()
+    // Flag to indicate intentional stop - prevents error reporting during normal shutdown
+    @Volatile
+    private var isStoppingRecording = false
     
     // Buffer for recording
     private val inputBufferSize: Int by lazy {
@@ -216,6 +249,41 @@ class AudioEngine(
     // Recording control methods
     
     /**
+     * Enables MODE_IN_COMMUNICATION for proper AEC functionality.
+     * This mode is required for echo cancellation to work on most devices.
+     * Requirements: 5.1
+     */
+    private fun enableCommunicationMode() {
+        try {
+            audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            if (audioManager == null) {
+                Log.w(TAG, "Failed to get AudioManager service")
+                return
+            }
+            
+            previousAudioMode = audioManager?.mode ?: AudioManager.MODE_NORMAL
+            audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+            Log.i(TAG, "AudioManager mode set to MODE_IN_COMMUNICATION (was: $previousAudioMode)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting AudioManager mode", e)
+        }
+    }
+    
+    /**
+     * Restores the previous AudioManager mode.
+     * Requirements: 5.5
+     */
+    private fun restoreAudioMode() {
+        try {
+            audioManager?.mode = previousAudioMode
+            Log.i(TAG, "AudioManager mode restored to $previousAudioMode")
+            audioManager = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restoring AudioManager mode", e)
+        }
+    }
+    
+    /**
      * Starts audio recording from the microphone.
      * Audio data will be delivered via AudioEngineListener.onAudioRecorded callback.
      */
@@ -226,6 +294,10 @@ class AudioEngine(
         }
         
         try {
+            // CRITICAL: Set MODE_IN_COMMUNICATION for AEC to work on most devices
+            // Requirements: 5.1
+            enableCommunicationMode()
+            
             // Initialize AudioRecord if not already created
             if (audioRecord == null) {
                 try {
@@ -278,6 +350,54 @@ class AudioEngine(
                 return
             }
             
+            // Enable AEC if available
+            // Requirements: 5.2, 5.3, 5.6
+            // TEMPORARILY DISABLED FOR TESTING - use headphones to avoid echo
+            Log.i(TAG, "AEC DISABLED for testing - use headphones!")
+            /*
+            try {
+                val audioSessionId = audioRecord?.audioSessionId
+                if (audioSessionId != null && audioSessionId != 0) {
+                    if (AcousticEchoCanceler.isAvailable()) {
+                        aec = AcousticEchoCanceler.create(audioSessionId)
+                        aec?.enabled = true
+                        Log.i(TAG, "AEC enabled: ${aec?.enabled}")
+                    } else {
+                        Log.w(TAG, "AEC not available on this device")
+                    }
+                } else {
+                    Log.w(TAG, "Invalid audio session ID, cannot enable AEC")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error enabling AEC: ${e.message}", e)
+                // Continue without AEC - not critical
+            }
+            */
+            
+            // Enable NS if available
+            // Requirements: 5.2, 5.3, 5.6
+            // TEMPORARILY DISABLED FOR TESTING
+            Log.i(TAG, "NS DISABLED for testing")
+            /*
+            try {
+                val audioSessionId = audioRecord?.audioSessionId
+                if (audioSessionId != null && audioSessionId != 0) {
+                    if (NoiseSuppressor.isAvailable()) {
+                        ns = NoiseSuppressor.create(audioSessionId)
+                        ns?.enabled = true
+                        Log.i(TAG, "NS enabled: ${ns?.enabled}")
+                    } else {
+                        Log.w(TAG, "NS not available on this device")
+                    }
+                } else {
+                    Log.w(TAG, "Invalid audio session ID, cannot enable NS")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error enabling NS: ${e.message}", e)
+                // Continue without NS - not critical
+            }
+            */
+            
             _isRecording.value = true
             isRecordingPaused = false
             
@@ -309,6 +429,12 @@ class AudioEngine(
                             // Notify listener with audio data
                             listener?.onAudioRecorded(audioData, level)
                         } else if (bytesRead < 0) {
+                            // CRITICAL: Check if we're intentionally stopping - don't report errors during normal shutdown
+                            if (isStoppingRecording) {
+                                Log.d(TAG, "Recording stopping - ignoring read error (normal shutdown)")
+                                break
+                            }
+                            
                             // Handle specific error codes
                             when (bytesRead) {
                                 AudioRecord.ERROR_INVALID_OPERATION -> {
@@ -345,6 +471,11 @@ class AudioEngine(
                             }
                         }
                     } catch (e: Exception) {
+                        // CRITICAL: Check if we're intentionally stopping - don't report errors during normal shutdown
+                        if (isStoppingRecording) {
+                            Log.d(TAG, "Recording stopping - ignoring exception (normal shutdown): ${e.message}")
+                            break
+                        }
                         Log.e(TAG, "Error in recording loop", e)
                         listener?.onError(AudioEngineError.RecordingFailed(e.message ?: "Unknown error"))
                         break
@@ -369,6 +500,9 @@ class AudioEngine(
     
     /**
      * Stops audio recording.
+     * 
+     * CRITICAL: Sets isStoppingRecording flag FIRST to prevent error reporting
+     * from the recording loop during normal shutdown.
      */
     fun stopRecording() {
         if (!_isRecording.value) {
@@ -377,6 +511,8 @@ class AudioEngine(
         }
         
         try {
+            // CRITICAL: Set stopping flag FIRST to prevent error reporting from recording loop
+            isStoppingRecording = true
             _isRecording.value = false
             isRecordingPaused = false
             
@@ -391,6 +527,24 @@ class AudioEngine(
                 Log.w(TAG, "AudioRecord already stopped or not initialized", e)
             } catch (e: Exception) {
                 Log.e(TAG, "Error stopping AudioRecord", e)
+            }
+            
+            // Release AEC and NS
+            // Requirements: 5.4
+            try {
+                aec?.release()
+                aec = null
+                Log.d(TAG, "AEC released")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing AEC", e)
+            }
+            
+            try {
+                ns?.release()
+                ns = null
+                Log.d(TAG, "NS released")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing NS", e)
             }
             
             try {
@@ -410,8 +564,16 @@ class AudioEngine(
             // Reset audio level
             _userAudioLevel.value = 0f
             
+            // Restore audio mode
+            // Requirements: 5.5
+            restoreAudioMode()
+            
+            // Reset stopping flag
+            isStoppingRecording = false
+            
             Log.i(TAG, "Recording stopped")
         } catch (e: Exception) {
+            isStoppingRecording = false
             Log.e(TAG, "Error stopping recording", e)
             listener?.onError(AudioEngineError.RecordingFailed("Failed to stop recording: ${e.message}"))
         }
@@ -555,13 +717,25 @@ class AudioEngine(
             // Initialize AudioTrack if not already created
             if (audioTrack == null) {
                 try {
+                    // Use AudioAttributes instead of deprecated STREAM_VOICE_CALL
+                    // This provides better audio routing and reduces clicks/pops
+                    val audioAttributes = android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                    
+                    val audioFormat = android.media.AudioFormat.Builder()
+                        .setSampleRate(OUTPUT_SAMPLE_RATE)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .build()
+                    
                     audioTrack = AudioTrack(
-                        AudioManager.STREAM_VOICE_CALL,
-                        OUTPUT_SAMPLE_RATE,
-                        CHANNEL_CONFIG_OUT,
-                        AUDIO_FORMAT,
+                        audioAttributes,
+                        audioFormat,
                         outputBufferSize,
-                        AudioTrack.MODE_STREAM
+                        AudioTrack.MODE_STREAM,
+                        AudioManager.AUDIO_SESSION_ID_GENERATE
                     )
                 } catch (e: IllegalArgumentException) {
                     val error = "Invalid AudioTrack parameters: ${e.message}"
@@ -637,107 +811,113 @@ class AudioEngine(
                             
                             // Check if this chunk is still valid (not interrupted)
                             if (chunk.generationId != currentGenerationId.get()) {
-                                Log.d(TAG, "Skipping queued audio chunk (interrupted, genId: ${chunk.generationId} != ${currentGenerationId.get()})")
+                                Log.d(TAG, "Skipping queued audio chunk (interrupted)")
                                 continue
                             }
                             
                             // Play the chunk
-                            audioTrackMutex.withLock {
+                            // CRITICAL: Get AudioTrack reference and check state INSIDE lock
+                            val audioTrackInstance = audioTrackMutex.withLock {
                                 // Double check generation ID inside lock
                                 if (chunk.generationId != currentGenerationId.get()) {
-                                    Log.d(TAG, "Skipping audio chunk inside lock (interrupted)")
-                                    return@withLock
+                                    return@withLock null
                                 }
                                 
-                                val audioTrackInstance = audioTrack
-                                if (audioTrackInstance == null) {
-                                    Log.w(TAG, "AudioTrack is null, cannot play audio")
-                                    return@withLock
+                                val track = audioTrack ?: return@withLock null
+                                
+                                if (track.state != AudioTrack.STATE_INITIALIZED) {
+                                    return@withLock null
                                 }
                                 
-                                // Check AudioTrack state before writing
-                                val state = audioTrackInstance.state
-                                val playState = audioTrackInstance.playState
-                                
-                                if (state != AudioTrack.STATE_INITIALIZED) {
-                                    Log.e(TAG, "AudioTrack not initialized (state: $state)")
-                                    listener?.onError(AudioEngineError.PlaybackFailed("AudioTrack not initialized"))
-                                    return@withLock
-                                }
-                                
-                                if (playState != AudioTrack.PLAYSTATE_PLAYING) {
-                                    Log.w(TAG, "AudioTrack not playing (playState: $playState), restarting...")
-                                    audioTrackInstance.play()
-                                }
-                                
-                                // Write audio data with blocking mode for smoother playback
-                                val written = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                    // Use blocking write for API 21+ - waits until buffer has space
-                                    audioTrackInstance.write(chunk.data, 0, chunk.data.size, AudioTrack.WRITE_BLOCKING)
-                                } else {
-                                    // Fallback for older APIs
-                                    audioTrackInstance.write(chunk.data, 0, chunk.data.size)
-                                }
-                                
-                                if (written < 0) {
-                                    // Handle specific error codes
-                                    when (written) {
-                                        AudioTrack.ERROR_INVALID_OPERATION -> {
-                                            Log.e(TAG, "AudioTrack ERROR_INVALID_OPERATION - not properly initialized")
-                                            listener?.onError(AudioEngineError.PlaybackFailed("AudioTrack not properly initialized"))
-                                            // Stop playback loop
-                                            _isPlaying.value = false
-                                        }
-                                        AudioTrack.ERROR_BAD_VALUE -> {
-                                            Log.e(TAG, "AudioTrack ERROR_BAD_VALUE - invalid parameters")
-                                            listener?.onError(AudioEngineError.PlaybackFailed("Invalid playback parameters"))
-                                        }
-                                        AudioTrack.ERROR_DEAD_OBJECT -> {
-                                            Log.e(TAG, "AudioTrack ERROR_DEAD_OBJECT - attempting recovery")
-                                            listener?.onError(AudioEngineError.PlaybackFailed("AudioTrack died, attempting recovery"))
-                                            // AudioTrack died, need to recreate
-                                            try {
-                                                audioTrackInstance.stop()
-                                            } catch (e: Exception) {
-                                                Log.e(TAG, "Error stopping dead AudioTrack", e)
-                                            }
-                                            try {
-                                                audioTrackInstance.release()
-                                            } catch (e: Exception) {
-                                                Log.e(TAG, "Error releasing dead AudioTrack", e)
-                                            }
-                                            audioTrack = null
-                                            _isPlaying.value = false
-                                        }
-                                        AudioTrack.ERROR -> {
-                                            Log.e(TAG, "AudioTrack generic ERROR")
-                                            listener?.onError(AudioEngineError.PlaybackFailed("Generic playback error"))
-                                        }
-                                        else -> {
-                                            Log.e(TAG, "AudioTrack write error: $written")
-                                        }
+                                if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                                    try {
+                                        track.play()
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "Error starting playback: ${e.message}")
+                                        return@withLock null
                                     }
-                                } else if (written != chunk.data.size) {
-                                    Log.w(TAG, "AudioTrack write incomplete: wrote $written of ${chunk.data.size} bytes")
                                 }
+                                
+                                track
+                            }
+                            
+                            // If we got a valid AudioTrack, write data OUTSIDE the lock
+                            if (audioTrackInstance != null) {
+                                // === FIX: Handle partial writes ===
+                                // AudioTrack.write() may not write all bytes at once, especially
+                                // for large chunks. We must loop until all data is written.
+                                var totalBytesWritten = 0
+                                val dataSize = chunk.data.size
+                                
+                                while (totalBytesWritten < dataSize) {
+                                    // Check cancellation/interruption during write loop
+                                    if (!isActive || chunk.generationId != currentGenerationId.get()) {
+                                        break
+                                    }
+                                    
+                                    val remaining = dataSize - totalBytesWritten
+                                    
+                                    val written = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                        audioTrackInstance.write(
+                                            chunk.data,
+                                            totalBytesWritten, // offset
+                                            remaining,
+                                            AudioTrack.WRITE_BLOCKING
+                                        )
+                                    } else {
+                                        audioTrackInstance.write(
+                                            chunk.data,
+                                            totalBytesWritten,
+                                            remaining
+                                        )
+                                    }
+                                    
+                                    if (written < 0) {
+                                        // Handle error codes
+                                        when (written) {
+                                            AudioTrack.ERROR_INVALID_OPERATION -> {
+                                                Log.e(TAG, "AudioTrack ERROR_INVALID_OPERATION")
+                                                _isPlaying.value = false
+                                            }
+                                            AudioTrack.ERROR_DEAD_OBJECT -> {
+                                                Log.e(TAG, "AudioTrack ERROR_DEAD_OBJECT")
+                                                audioTrackMutex.withLock {
+                                                    try { audioTrack?.stop() } catch (_: Exception) {}
+                                                    try { audioTrack?.release() } catch (_: Exception) {}
+                                                    audioTrack = null
+                                                    _isPlaying.value = false
+                                                }
+                                            }
+                                            else -> {
+                                                Log.e(TAG, "AudioTrack write error: $written")
+                                            }
+                                        }
+                                        break // Error occurred, drop rest of chunk
+                                    }
+                                    
+                                    totalBytesWritten += written
+                                }
+                                // === END FIX ===
                                 
                                 // Calculate audio level for visualization
                                 val level = calculateAudioLevel(chunk.data, chunk.data.size)
                                 _botAudioLevel.value = level
                             }
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            Log.d(TAG, "Playback loop cancelled (normal)")
+                            throw e
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error in playback loop", e)
-                            listener?.onError(AudioEngineError.PlaybackFailed(e.message ?: "Unknown error"))
+                            Log.e(TAG, "Error in playback loop iteration", e)
                         }
                     }
                     
-                    Log.i(TAG, "Playback loop ended")
+                    Log.i(TAG, "Playback loop ended normally")
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     // Normal cancellation during stopPlayback - not an error
                     Log.d(TAG, "Playback coroutine cancelled (normal)")
                     throw e  // Re-throw to properly cancel coroutine
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error in playback loop", e)
+                    Log.e(TAG, "Fatal error in playback loop", e)
                     listener?.onError(AudioEngineError.PlaybackFailed(e.message ?: "Unknown error"))
                 }
             }
@@ -803,23 +983,32 @@ class AudioEngine(
     }
     
     /**
-     * Queues audio data for playback.
-     * Only audio with matching generationId will be played.
-     * Audio with old generation IDs (from before interruption) will be silently dropped.
+     * Gets the current generation ID for debugging purposes.
+     * 
+     * Requirements: 1.4
+     * 
+     * @return The current generation ID
+     */
+    fun getCurrentGenerationId(): Int = currentGenerationId.get()
+    
+    /**
+     * Queues audio data for playback using the internal current generation ID.
+     * This method is thread-safe and ensures audio is always queued with the correct generation ID.
+     * 
+     * IMPORTANT: This is the ONLY method for queueing audio. The generation ID is managed
+     * internally to prevent synchronization issues between components.
+     * 
+     * Requirements: 1.3, 1.4
      * 
      * @param data The audio data to play
-     * @param generationId The generation ID for this audio chunk
      */
-    fun queueAudio(data: ByteArray, generationId: Int) {
-        // Only queue if generationId matches current
-        if (generationId == currentGenerationId.get()) {
-            scope.launch {
-                audioQueueMutex.withLock {
-                    audioQueue.add(AudioChunk(generationId, data))
-                }
+    fun queueAudio(data: ByteArray) {
+        val genId = currentGenerationId.get()
+        scope.launch {
+            audioQueueMutex.withLock {
+                audioQueue.add(AudioChunk(genId, data))
             }
         }
-        // Packets with old generationId are silently dropped
     }
     
     /**
@@ -843,36 +1032,50 @@ class AudioEngine(
      * Interrupts current playback and increments generation ID.
      * This ensures that any audio packets "in flight" (queued just before interruption)
      * are ignored when playback resumes with a new generation.
+     * 
+     * CRITICAL: This method is now SYNCHRONOUS to ensure audio stops immediately.
+     * The generation ID increment happens atomically before any async operations.
      */
     fun interruptPlayback() {
-        // Increment generation to invalidate in-flight packets
+        // Increment generation FIRST to immediately invalidate in-flight packets
+        // This is atomic and happens before any async operations
         val newId = currentGenerationId.incrementAndGet()
-        Log.i(TAG, "Interrupting playback - invalidating pending chunks (New GenID: $newId)")
+        Log.i(TAG, "🛑 Interrupting playback - invalidating pending chunks (New GenID: $newId)")
         
+        // CRITICAL FIX: Flush AudioTrack SYNCHRONOUSLY on the calling thread
+        // This ensures audio stops immediately, not after some delay
+        try {
+            val audioTrackInstance = audioTrack
+            if (audioTrackInstance != null && audioTrackInstance.state == AudioTrack.STATE_INITIALIZED) {
+                Log.i(TAG, "🛑 Flushing AudioTrack buffer SYNCHRONOUSLY")
+                try {
+                    // Pause first to stop playback immediately
+                    audioTrackInstance.pause()
+                    // Flush to clear buffered audio
+                    audioTrackInstance.flush()
+                    // Resume playback state (ready for next audio)
+                    audioTrackInstance.play()
+                    Log.i(TAG, "✅ AudioTrack flushed successfully")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error flushing audio track: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error accessing AudioTrack in interruptPlayback: ${e.message}", e)
+        }
+        
+        // Clear audio queue asynchronously (queue is already invalidated by generation ID)
         scope.launch(Dispatchers.Default) {
             try {
-                // Clear audio queue first
-                clearAudioQueue()
-                
-                // Then flush AudioTrack buffer
-                audioTrackMutex.withLock {
-                    val audioTrackInstance = audioTrack
-                    if (audioTrackInstance != null && audioTrackInstance.state == AudioTrack.STATE_INITIALIZED) {
-                        Log.i(TAG, "Flushing AudioTrack buffer")
-                        try {
-                            // Pause first to stop playback
-                            audioTrackInstance.pause()
-                            // Flush to clear buffered audio
-                            audioTrackInstance.flush()
-                            // Resume playback (ready for next audio)
-                            audioTrackInstance.play()
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Error flushing audio track: ${e.message}")
-                        }
+                audioQueueMutex.withLock {
+                    val queueSize = audioQueue.size
+                    audioQueue.clear()
+                    if (queueSize > 0) {
+                        Log.i(TAG, "🛑 Cleared audio queue ($queueSize chunks discarded)")
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in interruptPlayback: ${e.message}", e)
+                Log.e(TAG, "Error clearing audio queue: ${e.message}", e)
             }
         }
     }
@@ -924,6 +1127,24 @@ class AudioEngine(
                 Log.e(TAG, "Error canceling playback job", e)
             }
             playbackJob = null
+            
+            // Release AEC and NS - ensure cleanup happens even if stopRecording() wasn't called
+            // Requirements: 5.4
+            try {
+                aec?.release()
+                aec = null
+                Log.d(TAG, "AEC released in release()")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing AEC in release()", e)
+            }
+            
+            try {
+                ns?.release()
+                ns = null
+                Log.d(TAG, "NS released in release()")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing NS in release()", e)
+            }
             
             // Release AudioRecord - handle all possible states
             try {

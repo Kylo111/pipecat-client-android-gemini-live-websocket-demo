@@ -44,7 +44,13 @@ sealed class VoiceEvent {
      * 
      * @property url WebSocket URL to connect to
      * @property setupMessage Setup message to send after connection (with session handle)
+     * 
+     * @deprecated Use start() method instead. This event is no longer used in the state machine.
      */
+    @Deprecated(
+        message = "Use start() method instead",
+        level = DeprecationLevel.WARNING
+    )
     data class ResumeRequested(
         val url: String,
         val setupMessage: String
@@ -139,12 +145,24 @@ sealed class VoiceEvent {
     
     /**
      * Bot started speaking (first audio chunk received).
+     * 
+     * @deprecated BotAudioReceived handles this transition. This event is no longer used.
      */
+    @Deprecated(
+        message = "BotAudioReceived handles this transition",
+        level = DeprecationLevel.WARNING
+    )
     object BotStartedSpeaking : VoiceEvent()
     
     /**
      * Bot stopped speaking (audio stream ended).
+     * 
+     * @deprecated TurnComplete handles this transition. This event is no longer used.
      */
+    @Deprecated(
+        message = "TurnComplete handles this transition",
+        level = DeprecationLevel.WARNING
+    )
     object BotStoppedSpeaking : VoiceEvent()
     
     /**
@@ -161,19 +179,37 @@ sealed class VoiceEvent {
     
     /**
      * User toggled the microphone on/off.
+     * 
+     * @deprecated enableMic() uses pause/resume instead. This event is no longer used.
      */
+    @Deprecated(
+        message = "enableMic() uses pause/resume instead",
+        level = DeprecationLevel.WARNING
+    )
     object MicToggled : VoiceEvent()
     
     /**
      * User toggled the speakerphone on/off.
+     * 
+     * @deprecated This event is not used in the current implementation.
      */
+    @Deprecated(
+        message = "This event is not used",
+        level = DeprecationLevel.WARNING
+    )
     object SpeakerToggled : VoiceEvent()
     
     /**
      * User selected an image to send.
      * 
      * @property uri URI of the selected image
+     * 
+     * @deprecated This event is not used in the current implementation.
      */
+    @Deprecated(
+        message = "This event is not used",
+        level = DeprecationLevel.WARNING
+    )
     data class ImageSelected(
         val uri: Uri
     ) : VoiceEvent()

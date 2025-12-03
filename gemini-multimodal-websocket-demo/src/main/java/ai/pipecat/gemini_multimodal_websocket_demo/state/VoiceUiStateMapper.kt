@@ -100,6 +100,7 @@ object VoiceUiStateMapper {
             userAudioLevel = audioLevels.userLevel,
             isSpeakerphoneOn = isSpeakerphoneOn,
             isBotReady = isBotReady(sessionState),
+            isWaitingForBotResponse = isWaitingForBotResponse(sessionState, transcripts),
             secondsUntilAutoPause = timerState.secondsUntilAutoPause,
             minutesUntilBotTimeout = timerState.minutesUntilBotTimeout,
             isExecutingTool = isExecutingTool,
@@ -122,7 +123,6 @@ object VoiceUiStateMapper {
             is VoiceSessionState.Idle -> ConnectionState.DISCONNECTED
             is VoiceSessionState.Connecting -> ConnectionState.CONNECTING
             is VoiceSessionState.Listening,
-            is VoiceSessionState.Thinking,
             is VoiceSessionState.Speaking -> ConnectionState.CONNECTED
             is VoiceSessionState.Paused -> ConnectionState.DISCONNECTED
             is VoiceSessionState.Error -> ConnectionState.DISCONNECTED
@@ -133,11 +133,10 @@ object VoiceUiStateMapper {
      * Determines if the session is in a connected state.
      * 
      * @param state Current voice session state
-     * @return True if connected (Listening, Thinking, or Speaking)
+     * @return True if connected (Listening or Speaking)
      */
     private fun isConnectedState(state: VoiceSessionState): Boolean {
         return state is VoiceSessionState.Listening ||
-               state is VoiceSessionState.Thinking ||
                state is VoiceSessionState.Speaking
     }
     
@@ -154,7 +153,6 @@ object VoiceUiStateMapper {
     private fun getMicEnabled(state: VoiceSessionState): Boolean {
         return when (state) {
             is VoiceSessionState.Listening -> state.isMicEnabled
-            is VoiceSessionState.Thinking -> state.isMicEnabled
             is VoiceSessionState.Speaking -> state.isMicEnabled && state.isFullDuplex
             is VoiceSessionState.Paused -> false  // Mic disabled when paused (Requirements 2.3, 4.3)
             else -> false  // Idle, Connecting, Error
@@ -173,5 +171,30 @@ object VoiceUiStateMapper {
         return state !is VoiceSessionState.Idle &&
                state !is VoiceSessionState.Connecting &&
                state !is VoiceSessionState.Error
+    }
+    
+    /**
+     * Determines if the UI should show a "thinking" indicator.
+     * 
+     * The bot is considered to be "thinking" when:
+     * - The state is Listening (waiting for bot response)
+     * - The user has spoken (lastUserTranscript is not empty)
+     * - The bot has not yet responded (lastBotTranscript timestamp < lastUserTranscript timestamp)
+     * 
+     * This provides a UI "thinking" indicator without adding complexity to the Core state machine.
+     * 
+     * Requirements: 7.1, 7.2, 7.3
+     * 
+     * @param state Current voice session state
+     * @param transcripts Current transcript state with timestamps
+     * @return True if bot is processing user input
+     */
+    private fun isWaitingForBotResponse(
+        state: VoiceSessionState,
+        transcripts: TranscriptState
+    ): Boolean {
+        return state is VoiceSessionState.Listening &&
+               transcripts.lastUser.isNotEmpty() &&
+               transcripts.lastBotTime < transcripts.lastUserTime
     }
 }

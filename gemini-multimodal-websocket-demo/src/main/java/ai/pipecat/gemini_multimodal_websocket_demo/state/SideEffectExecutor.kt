@@ -16,7 +16,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Executes side effects returned by the state machine.
@@ -38,7 +37,6 @@ class SideEffectExecutor(
     private val toolExecutor: ToolExecutor,
     private val sessionManager: SessionManager?,
     private val errors: SnapshotStateList<Error>,
-    private val audioGenerationId: AtomicInteger,
     private val scope: CoroutineScope?,
     private val debugLogging: Boolean = false
 ) {
@@ -87,10 +85,13 @@ class SideEffectExecutor(
                 }
             }
             is SideEffect.PauseRecording -> {
+                // Half-duplex mode: pause recording when bot speaks
+                // This prevents AudioRecord from interfering with AudioTrack playback
                 if (debugLogging) Log.d(TAG, "🎤 Side effect: PauseRecording")
                 audioEngine.pauseRecording()
             }
             is SideEffect.ResumeRecording -> {
+                // Half-duplex mode: resume recording when bot stops speaking
                 if (debugLogging) Log.d(TAG, "🎤 Side effect: ResumeRecording")
                 audioEngine.resumeRecording()
             }
@@ -105,22 +106,29 @@ class SideEffectExecutor(
                 }
             }
             is SideEffect.ClearAudioQueue -> {
+                // NOTE: Do NOT increment audioGenerationId here!
+                // interruptPlayback() already increments its own currentGenerationId internally.
+                // Double incrementing would cause audio sync issues.
                 if (debugLogging) {
-                    val newGenId = audioGenerationId.incrementAndGet()
-                    Log.d(TAG, "🔊 Side effect: ClearAudioQueue - generation ID incremented to $newGenId")
-                } else {
-                    audioGenerationId.incrementAndGet()
+                    Log.d(TAG, "🔊 Side effect: ClearAudioQueue - calling interruptPlayback()")
                 }
                 withContext(NonCancellable) {
-                    audioEngine.clearAudioQueue()
+                    // CRITICAL FIX: Use interruptPlayback() instead of clearAudioQueue()
+                    // interruptPlayback() not only clears the queue but also flushes the AudioTrack buffer
+                    // This prevents "leftover" audio from playing after interruption
+                    // It also increments generation ID internally to invalidate in-flight packets
+                    audioEngine.interruptPlayback()
                 }
             }
             is SideEffect.QueueAudio -> {
                 if (debugLogging) {
                     Log.d(TAG, "🔊 Side effect: QueueAudio (${sideEffect.data.size} bytes)")
                 }
-                val currentGenId = audioGenerationId.get()
-                audioEngine.queueAudio(sideEffect.data, currentGenId)
+                audioEngine.queueAudio(sideEffect.data)
+                // CRITICAL FIX: Update bot audio time for silence detection
+                // Without this, ConversationMonitor thinks bot stopped speaking
+                // and triggers SilenceDetected prematurely, causing audio chopping
+                conversationMonitor?.updateBotAudioTime()
             }
             
             // Network side effects
@@ -145,6 +153,16 @@ class SideEffectExecutor(
                 if (debugLogging) Log.d(TAG, "🌐 Side effect: SendToolResponse (callId: ${sideEffect.callId})")
                 val responseJson = geminiProtocol.serializeToolResponse(sideEffect.callId, sideEffect.result)
                 webSocketClient.send(responseJson)
+            }
+            
+            // Conversation Monitor side effects
+            is SideEffect.NotifyBotStartedTalking -> {
+                if (debugLogging) Log.d(TAG, "🤖 Side effect: NotifyBotStartedTalking")
+                conversationMonitor?.setBotTalking(true)
+            }
+            is SideEffect.NotifyBotStoppedTalking -> {
+                if (debugLogging) Log.d(TAG, "🤖 Side effect: NotifyBotStoppedTalking")
+                conversationMonitor?.setBotTalking(false)
             }
             
             // Timer side effects
@@ -212,9 +230,14 @@ class SideEffectExecutor(
             // Tool side effects
             is SideEffect.ExecuteTool -> {
                 if (debugLogging) Log.d(TAG, "🔧 Side effect: ExecuteTool (${sideEffect.name})")
-                scope?.launch {
+                // CRITICAL FIX: Use kotlinx.coroutines.GlobalScope as fallback if scope is null
+                // This ensures tool execution always runs, even if VoiceClientManager scope is not yet initialized
+                val executionScope = scope ?: kotlinx.coroutines.GlobalScope
+                executionScope.launch {
                     try {
+                        Log.i(TAG, "🔧 Starting tool execution: ${sideEffect.name}")
                         val result = toolExecutor.executeTool(sideEffect.name, sideEffect.args)
+                        Log.i(TAG, "🔧 Tool execution complete: ${sideEffect.name} -> ${result.take(100)}...")
                         onProcessEvent?.invoke(VoiceEvent.ToolExecutionComplete(sideEffect.id, result))
                     } catch (e: Exception) {
                         Log.e(TAG, "Error executing tool: ${sideEffect.name}", e)

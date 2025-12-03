@@ -120,6 +120,22 @@ sealed class SideEffect {
     ) : SideEffect()
     
     // ============================================================================
+    // Conversation Monitor Side Effects
+    // ============================================================================
+    
+    /**
+     * Notify ConversationMonitor that bot started talking
+     * This resets the auto-pause timer while bot is speaking
+     */
+    object NotifyBotStartedTalking : SideEffect()
+    
+    /**
+     * Notify ConversationMonitor that bot stopped talking
+     * This allows the auto-pause timer to resume
+     */
+    object NotifyBotStoppedTalking : SideEffect()
+    
+    // ============================================================================
     // Timer Side Effects
     // ============================================================================
     

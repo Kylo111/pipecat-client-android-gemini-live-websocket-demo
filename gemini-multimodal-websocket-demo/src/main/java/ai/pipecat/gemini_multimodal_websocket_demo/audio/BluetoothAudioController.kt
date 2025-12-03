@@ -218,8 +218,24 @@ class BluetoothAudioController(
      * Requirements: 3.3
      */
     fun toggleSpeakerphone() {
+        // CRITICAL FIX: Initialize AudioManager if not already done
+        // This ensures speakerphone works even if clicked before WebSocket connection
+        if (audioManager == null) {
+            Log.i(TAG, "🔊 AudioManager not initialized, initializing now...")
+            audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+        }
+        
+        // CRITICAL FIX: Sync _isSpeakerphoneOn with actual AudioManager state
+        // This handles the case where speakerphone was changed externally or after pause/resume
+        val actualState = audioManager?.isSpeakerphoneOn ?: false
+        if (_isSpeakerphoneOn.value != actualState) {
+            Log.i(TAG, "🔊 Syncing speakerphone state: internal=${_isSpeakerphoneOn.value}, actual=$actualState")
+            _isSpeakerphoneOn.value = actualState
+        }
+        
         val newState = !_isSpeakerphoneOn.value
-        Log.i(TAG, "🔊 Toggle speakerphone - New state: ${if (newState) "ON" else "OFF"}")
+        Log.i(TAG, "🔊 Toggle speakerphone - Current: ${_isSpeakerphoneOn.value}, New: $newState")
         enableSpeakerphone(newState)
     }
     

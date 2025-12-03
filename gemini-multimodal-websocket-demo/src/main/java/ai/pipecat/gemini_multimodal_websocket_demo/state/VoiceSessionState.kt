@@ -71,24 +71,6 @@ sealed class VoiceSessionState {
     ) : VoiceSessionState()
     
     /**
-     * User finished speaking, waiting for bot response.
-     * Mic may still be active in full-duplex mode.
-     * 
-     * Valid transitions:
-     * - BotAudioReceived -> Thinking (self-transition)
-     * - BotStartedSpeaking -> Speaking
-     * - BotResponseTimeout -> Paused
-     * - StopRequested -> Idle
-     * 
-     * @property isMicEnabled Whether the microphone is currently enabled
-     * @property isFullDuplex Whether full-duplex mode is active
-     */
-    data class Thinking(
-        val isMicEnabled: Boolean = true,
-        val isFullDuplex: Boolean = false
-    ) : VoiceSessionState()
-    
-    /**
      * Bot is playing audio response.
      * In half-duplex: mic paused
      * In full-duplex: mic continues

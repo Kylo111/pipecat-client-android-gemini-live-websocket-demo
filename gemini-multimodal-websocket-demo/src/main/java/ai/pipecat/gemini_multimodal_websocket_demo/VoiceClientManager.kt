@@ -45,7 +45,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicInteger
 
 @Immutable
 data class Error(val message: String)
@@ -95,9 +94,6 @@ class VoiceClientManager internal constructor(
         toolExecutor = ToolExecutor(context),
         reconnectionManager = ReconnectionManager(context, CoroutineScope(Dispatchers.IO + SupervisorJob()))
     )
-
-    // Audio generation ID to handle interruption and discard pending chunks
-    private val audioGenerationId = AtomicInteger(0)
 
     private var scope: CoroutineScope? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -200,10 +196,14 @@ class VoiceClientManager internal constructor(
         )
         
         // Initialize ConversationMonitor
+        // INCREASED botSilenceThresholdMs from 1500ms to 3000ms
+        // Gemini can have natural pauses in speech up to 1.5-2 seconds
+        // 1500ms was too aggressive and caused premature silence detection
         conversationMonitor = ConversationMonitor(
             scope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
             autoPauseTimeoutSeconds = Preferences.autoPauseTimeoutSeconds.value,
-            botResponseTimeoutMinutes = Preferences.botResponseTimeoutMinutes.value
+            botResponseTimeoutMinutes = Preferences.botResponseTimeoutMinutes.value,
+            botSilenceThresholdMs = 3000L
         )
         
         // Wire ConversationMonitor
@@ -226,7 +226,6 @@ class VoiceClientManager internal constructor(
             toolExecutor = toolExecutor,
             sessionManager = sessionManager,
             errors = errors,
-            audioGenerationId = audioGenerationId,
             scope = scope,
             debugLogging = DEBUG_LOGGING
         ).apply {
@@ -967,8 +966,7 @@ class VoiceClientManager internal constructor(
                 resume()
             }
             is VoiceSessionState.Listening,
-            is VoiceSessionState.Speaking,
-            is VoiceSessionState.Thinking -> {
+            is VoiceSessionState.Speaking -> {
                 Log.i(TAG, "   Pausing active session")
                 pause()
             }
@@ -981,11 +979,15 @@ class VoiceClientManager internal constructor(
     /**
      * Toggle speakerphone on/off
      * Used by UI button during active session
-     * Delegates to BluetoothAudioController
+     * Delegates to BluetoothAudioController and updates UI state
      */
     fun toggleSpeakerphone() {
         Log.i(TAG, "🔊 Toggle speakerphone - delegating to BluetoothAudioController")
         bluetoothAudioController.toggleSpeakerphone()
+        
+        // CRITICAL FIX: Update UI state after toggling speakerphone
+        // Without this, UI won't reflect the new speakerphone state
+        updateUiState()
     }
 
     /**

@@ -34,6 +34,7 @@ data class VoiceUiState(
     
     // Bot state
     val isBotReady: Boolean = false,
+    val isWaitingForBotResponse: Boolean = false,
     
     // Timer state
     val secondsUntilAutoPause: Int = -1,

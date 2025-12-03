@@ -35,9 +35,6 @@ class VoiceSessionStatePropertyTest {
             VoiceSessionState.Listening(),
             VoiceSessionState.Listening(isMicEnabled = true, isFullDuplex = false),
             VoiceSessionState.Listening(isMicEnabled = false, isFullDuplex = true),
-            VoiceSessionState.Thinking(),
-            VoiceSessionState.Thinking(isMicEnabled = true, isFullDuplex = false),
-            VoiceSessionState.Thinking(isMicEnabled = false, isFullDuplex = true),
             VoiceSessionState.Speaking(),
             VoiceSessionState.Speaking(isMicEnabled = true, isFullDuplex = false),
             VoiceSessionState.Speaking(isMicEnabled = false, isFullDuplex = true),
@@ -55,7 +52,6 @@ class VoiceSessionStatePropertyTest {
                 state is VoiceSessionState.Idle,
                 state is VoiceSessionState.Connecting,
                 state is VoiceSessionState.Listening,
-                state is VoiceSessionState.Thinking,
                 state is VoiceSessionState.Speaking,
                 state is VoiceSessionState.Paused,
                 state is VoiceSessionState.Error
@@ -137,30 +133,6 @@ class VoiceSessionStatePropertyTest {
                 "Mic enabled should be $micEnabled")
             assertEquals(fullDuplex, listening.isFullDuplex,
                 "Full duplex should be $fullDuplex")
-        }
-    }
-    
-    /**
-     * Test that Thinking state preserves mic and duplex settings
-     */
-    @Test
-    fun `thinking_state_preserves_mic_and_duplex_settings`() {
-        val testCases = listOf(
-            Pair(true, false),
-            Pair(true, true),
-            Pair(false, false),
-            Pair(false, true)
-        )
-        
-        for ((micEnabled, fullDuplex) in testCases) {
-            val thinking = VoiceSessionState.Thinking(
-                isMicEnabled = micEnabled,
-                isFullDuplex = fullDuplex
-            )
-            
-            assertIs<VoiceSessionState.Thinking>(thinking)
-            assertEquals(micEnabled, thinking.isMicEnabled)
-            assertEquals(fullDuplex, thinking.isFullDuplex)
         }
     }
     
@@ -288,7 +260,6 @@ class VoiceSessionStatePropertyTest {
             VoiceSessionState.Idle,
             VoiceSessionState.Connecting(),
             VoiceSessionState.Listening(),
-            VoiceSessionState.Thinking(),
             VoiceSessionState.Speaking(),
             VoiceSessionState.Paused(),
             VoiceSessionState.Error("Test")
@@ -299,7 +270,6 @@ class VoiceSessionStatePropertyTest {
                 is VoiceSessionState.Idle -> "Idle"
                 is VoiceSessionState.Connecting -> "Connecting"
                 is VoiceSessionState.Listening -> "Listening"
-                is VoiceSessionState.Thinking -> "Thinking"
                 is VoiceSessionState.Speaking -> "Speaking"
                 is VoiceSessionState.Paused -> "Paused"
                 is VoiceSessionState.Error -> "Error"

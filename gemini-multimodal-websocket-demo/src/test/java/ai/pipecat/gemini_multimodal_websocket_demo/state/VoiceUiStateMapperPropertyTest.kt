@@ -43,12 +43,6 @@ class VoiceUiStateMapperPropertyTest {
             VoiceSessionState.Listening(isMicEnabled = true, isFullDuplex = true),
             VoiceSessionState.Listening(isMicEnabled = false, isFullDuplex = true),
             
-            // Thinking states
-            VoiceSessionState.Thinking(isMicEnabled = true, isFullDuplex = false),
-            VoiceSessionState.Thinking(isMicEnabled = false, isFullDuplex = false),
-            VoiceSessionState.Thinking(isMicEnabled = true, isFullDuplex = true),
-            VoiceSessionState.Thinking(isMicEnabled = false, isFullDuplex = true),
-            
             // Speaking states
             VoiceSessionState.Speaking(isMicEnabled = true, isFullDuplex = false),
             VoiceSessionState.Speaking(isMicEnabled = false, isFullDuplex = false),
@@ -90,9 +84,8 @@ class VoiceUiStateMapperPropertyTest {
                     "canResume should be false for non-Paused state")
             }
             
-            // Verify consistency: isConnected should be true for Listening, Thinking, Speaking
+            // Verify consistency: isConnected should be true for Listening, Speaking
             val expectedConnected = sessionState is VoiceSessionState.Listening ||
-                                   sessionState is VoiceSessionState.Thinking ||
                                    sessionState is VoiceSessionState.Speaking
             assertEquals(expectedConnected, uiState.isConnected,
                 "isConnected should be $expectedConnected for ${sessionState::class.simpleName}")
@@ -102,7 +95,6 @@ class VoiceUiStateMapperPropertyTest {
                 is VoiceSessionState.Idle -> ConnectionState.DISCONNECTED
                 is VoiceSessionState.Connecting -> ConnectionState.CONNECTING
                 is VoiceSessionState.Listening,
-                is VoiceSessionState.Thinking,
                 is VoiceSessionState.Speaking -> ConnectionState.CONNECTED
                 is VoiceSessionState.Paused -> ConnectionState.DISCONNECTED
                 is VoiceSessionState.Error -> ConnectionState.DISCONNECTED
@@ -136,40 +128,31 @@ class VoiceUiStateMapperPropertyTest {
         val uiState2 = VoiceUiStateMapper.map(listening2)
         assertFalse(uiState2.isMicEnabled, "Mic should be disabled for Listening with mic=false")
         
-        // Thinking state - mic enabled should match state
-        val thinking1 = VoiceSessionState.Thinking(isMicEnabled = true, isFullDuplex = false)
-        val uiState3 = VoiceUiStateMapper.map(thinking1)
-        assertTrue(uiState3.isMicEnabled, "Mic should be enabled for Thinking with mic=true")
-        
-        val thinking2 = VoiceSessionState.Thinking(isMicEnabled = false, isFullDuplex = false)
-        val uiState4 = VoiceUiStateMapper.map(thinking2)
-        assertFalse(uiState4.isMicEnabled, "Mic should be disabled for Thinking with mic=false")
-        
         // Speaking state - half-duplex - mic should be disabled
         val speaking1 = VoiceSessionState.Speaking(isMicEnabled = true, isFullDuplex = false)
-        val uiState5 = VoiceUiStateMapper.map(speaking1)
-        assertFalse(uiState5.isMicEnabled, 
+        val uiState3 = VoiceUiStateMapper.map(speaking1)
+        assertFalse(uiState3.isMicEnabled, 
             "Mic should be disabled for Speaking in half-duplex mode")
         
         // Speaking state - full-duplex - mic should match state
         val speaking2 = VoiceSessionState.Speaking(isMicEnabled = true, isFullDuplex = true)
-        val uiState6 = VoiceUiStateMapper.map(speaking2)
-        assertTrue(uiState6.isMicEnabled, 
+        val uiState4 = VoiceUiStateMapper.map(speaking2)
+        assertTrue(uiState4.isMicEnabled, 
             "Mic should be enabled for Speaking in full-duplex mode with mic=true")
         
         val speaking3 = VoiceSessionState.Speaking(isMicEnabled = false, isFullDuplex = true)
-        val uiState7 = VoiceUiStateMapper.map(speaking3)
-        assertFalse(uiState7.isMicEnabled, 
+        val uiState5 = VoiceUiStateMapper.map(speaking3)
+        assertFalse(uiState5.isMicEnabled, 
             "Mic should be disabled for Speaking in full-duplex mode with mic=false")
         
         // Other states - mic should be disabled
         val idle = VoiceSessionState.Idle
-        val uiState8 = VoiceUiStateMapper.map(idle)
-        assertFalse(uiState8.isMicEnabled, "Mic should be disabled for Idle")
+        val uiState6 = VoiceUiStateMapper.map(idle)
+        assertFalse(uiState6.isMicEnabled, "Mic should be disabled for Idle")
         
         val paused = VoiceSessionState.Paused()
-        val uiState9 = VoiceUiStateMapper.map(paused)
-        assertFalse(uiState9.isMicEnabled, "Mic should be disabled for Paused")
+        val uiState7 = VoiceUiStateMapper.map(paused)
+        assertFalse(uiState7.isMicEnabled, "Mic should be disabled for Paused")
     }
     
     /**

@@ -67,7 +67,6 @@ class VoiceSessionStateMachine {
             is VoiceSessionState.Idle -> reduceIdle(event)
             is VoiceSessionState.Connecting -> reduceConnecting(currentState, event)
             is VoiceSessionState.Listening -> reduceListening(currentState, event)
-            is VoiceSessionState.Thinking -> reduceThinking(currentState, event)
             is VoiceSessionState.Speaking -> reduceSpeaking(currentState, event)
             is VoiceSessionState.Paused -> reducePaused(currentState, event)
             is VoiceSessionState.Error -> reduceError(currentState, event)
@@ -92,6 +91,7 @@ class VoiceSessionStateMachine {
                     currentToolName = event.name
                 )
                 val sideEffects = listOf(
+                    SideEffect.StopBotResponseTimer, // Prevent timeout during tool execution
                     SideEffect.ExecuteTool(event.id, event.name, event.args)
                 )
                 Pair(newState, sideEffects)
@@ -104,7 +104,8 @@ class VoiceSessionStateMachine {
                     currentToolName = null
                 )
                 val sideEffects = listOf(
-                    SideEffect.SendToolResponse(event.id, event.result)
+                    SideEffect.SendToolResponse(event.id, event.result),
+                    SideEffect.StartBotResponseTimer // Resume normal timeout behavior
                 )
                 Pair(newState, sideEffects)
             }
@@ -266,16 +267,27 @@ class VoiceSessionStateMachine {
                 )
             }
             is VoiceEvent.BotAudioReceived -> {
-                // Transition to Thinking: bot is preparing response
+                // CRITICAL FIX: First audio chunk should transition directly to Speaking
+                // and start playback immediately. Previously we went to Thinking first,
+                // which caused audio to be queued without playback starting.
+                Log.d(TAG, "First bot audio chunk received in Listening state - transitioning to Speaking")
                 ReduceResult(
-                    newState = VoiceSessionState.Thinking(
+                    newState = VoiceSessionState.Speaking(
                         isMicEnabled = state.isMicEnabled,
                         isFullDuplex = state.isFullDuplex
                     ),
                     sideEffects = buildList {
+                        // Notify ConversationMonitor that bot started talking
+                        add(SideEffect.NotifyBotStartedTalking)
+                        // CRITICAL: Start playback BEFORE queueing audio
+                        add(SideEffect.StartPlayback)
                         add(SideEffect.QueueAudio(event.data))
-                        add(SideEffect.StartBotResponseTimer)
+                        add(SideEffect.StartSilenceDetection)
                         add(SideEffect.StopAutoPauseTimer)
+                        // In half-duplex mode, pause recording when bot speaks
+                        if (!state.isFullDuplex) {
+                            add(SideEffect.PauseRecording)
+                        }
                     }
                 )
             }
@@ -287,6 +299,8 @@ class VoiceSessionStateMachine {
                         isFullDuplex = state.isFullDuplex
                     ),
                     sideEffects = buildList {
+                        // Notify ConversationMonitor that bot started talking
+                        add(SideEffect.NotifyBotStartedTalking)
                         add(SideEffect.StartPlayback)
                         add(SideEffect.StartSilenceDetection)
                         add(SideEffect.StopAutoPauseTimer)
@@ -334,6 +348,22 @@ class VoiceSessionStateMachine {
                     )
                 )
             }
+            is VoiceEvent.BotResponseTimeout -> {
+                // Bot did not respond within timeout period - pause session for resumption
+                Log.w(TAG, "Bot response timeout in Listening state - pausing session")
+                ReduceResult(
+                    newState = VoiceSessionState.Paused(canResume = true),
+                    sideEffects = listOf(
+                        SideEffect.StopRecording,
+                        SideEffect.StopBotResponseTimer,
+                        SideEffect.Disconnect(code = 1000, reason = "Bot response timeout"),
+                        SideEffect.ShowError("No response from bot"),
+                        SideEffect.UpdateServiceNotification,
+                        SideEffect.UpdatePicovoiceState
+                        // Note: NOT emitting ClearSessionHandle - preserve for resumption
+                    )
+                )
+            }
             is VoiceEvent.UserTranscript -> {
                 // Self-transition: emit user transcript
                 ReduceResult(
@@ -372,111 +402,7 @@ class VoiceSessionStateMachine {
         }
     }
     
-    /**
-     * Reduce events in Thinking state.
-     * 
-     * Valid transitions:
-     * - BotAudioReceived -> Speaking (first chunk triggers playback)
-     * - BotStartedSpeaking -> Speaking (explicit event)
-     * - BotResponseTimeout -> Paused
-     * - PauseRequested -> Paused
-     * - StopRequested -> Idle
-     * 
-     * Note: The first BotAudioReceived in Thinking state automatically transitions to Speaking
-     * and starts playback. This is because Gemini doesn't send an explicit "started speaking"
-     * event - the first audio chunk IS the signal that bot started speaking.
-     */
-    private fun reduceThinking(
-        state: VoiceSessionState.Thinking,
-        event: VoiceEvent
-    ): ReduceResult {
-        return when (event) {
-            is VoiceEvent.BotAudioReceived -> {
-                // First audio chunk received - transition to Speaking and start playback
-                Log.d(TAG, "First bot audio chunk received in Thinking state - transitioning to Speaking")
-                ReduceResult(
-                    newState = VoiceSessionState.Speaking(
-                        isMicEnabled = state.isMicEnabled,
-                        isFullDuplex = state.isFullDuplex
-                    ),
-                    sideEffects = buildList {
-                        add(SideEffect.QueueAudio(event.data))
-                        add(SideEffect.StartPlayback)
-                        add(SideEffect.StartSilenceDetection)
-                        add(SideEffect.StopBotResponseTimer)
-                        // In half-duplex mode, pause recording when bot speaks
-                        if (!state.isFullDuplex) {
-                            add(SideEffect.PauseRecording)
-                        }
-                    }
-                )
-            }
-            is VoiceEvent.BotStartedSpeaking -> {
-                // Explicit event (kept for backward compatibility, though not used by Gemini)
-                ReduceResult(
-                    newState = VoiceSessionState.Speaking(
-                        isMicEnabled = state.isMicEnabled,
-                        isFullDuplex = state.isFullDuplex
-                    ),
-                    sideEffects = buildList {
-                        add(SideEffect.StartPlayback)
-                        add(SideEffect.StartSilenceDetection)
-                        add(SideEffect.StopBotResponseTimer)
-                        // In half-duplex mode, pause recording when bot speaks
-                        if (!state.isFullDuplex) {
-                            add(SideEffect.PauseRecording)
-                        }
-                    }
-                )
-            }
-            is VoiceEvent.BotResponseTimeout -> {
-                ReduceResult(
-                    newState = VoiceSessionState.Paused(canResume = true),
-                    sideEffects = listOf(
-                        SideEffect.StopRecording,
-                        SideEffect.StopBotResponseTimer,
-                        SideEffect.Disconnect(code = 1000, reason = "Bot response timeout"),
-                        SideEffect.ShowError("No response from bot"),
-                        SideEffect.UpdateServiceNotification,
-                        SideEffect.UpdatePicovoiceState
-                    )
-                )
-            }
-            is VoiceEvent.PauseRequested -> {
-                ReduceResult(
-                    newState = VoiceSessionState.Paused(canResume = true),
-                    sideEffects = listOf(
-                        SideEffect.StopBotResponseTimer,
-                        SideEffect.StopRecording,
-                        SideEffect.Disconnect(code = 1000, reason = "User paused"),
-                        SideEffect.UpdateServiceNotification,
-                        SideEffect.UpdatePicovoiceState
-                    )
-                )
-            }
-            is VoiceEvent.StopRequested -> {
-                ReduceResult(
-                    newState = VoiceSessionState.Idle,
-                    sideEffects = listOf(
-                        SideEffect.StopRecording,
-                        SideEffect.StopBotResponseTimer,
-                        SideEffect.Disconnect(),
-                        SideEffect.ClearSessionHandle,
-                        SideEffect.UpdateServiceNotification,
-                        SideEffect.UpdatePicovoiceState
-                    )
-                )
-            }
-            else -> {
-                Log.d(TAG, "reduceThinking: ignoring event ${event::class.simpleName}")
-                ReduceResult(
-                    newState = state,
-                    sideEffects = emptyList()
-                )
-            }
-        }
-    }
-    
+
     /**
      * Reduce events in Speaking state.
      * 
@@ -513,6 +439,8 @@ class VoiceSessionStateMachine {
                         isFullDuplex = state.isFullDuplex
                     ),
                     sideEffects = buildList {
+                        // Notify ConversationMonitor that bot stopped talking
+                        add(SideEffect.NotifyBotStoppedTalking)
                         add(SideEffect.StopPlayback)
                         add(SideEffect.StopSilenceDetection)
                         add(SideEffect.StartAutoPauseTimer)
@@ -526,14 +454,39 @@ class VoiceSessionStateMachine {
             is VoiceEvent.Interrupted -> {
                 // CRITICAL FIX: Interrupted event must clear audio queue to stop bot immediately
                 // This prevents old audio from continuing to play after user interrupts
-                Log.d(TAG, "Bot interrupted by user - clearing audio queue")
+                // Order is important: ClearAudioQueue first (flushes AudioTrack), then StopPlayback
+                Log.i(TAG, "🛑 Bot interrupted by user - clearing audio queue and stopping playback")
                 ReduceResult(
                     newState = VoiceSessionState.Listening(
                         isMicEnabled = state.isMicEnabled,
                         isFullDuplex = state.isFullDuplex
                     ),
                     sideEffects = buildList {
-                        add(SideEffect.ClearAudioQueue) // Clear pending audio first
+                        // Notify ConversationMonitor that bot stopped talking
+                        add(SideEffect.NotifyBotStoppedTalking)
+                        add(SideEffect.ClearAudioQueue) // Clear pending audio and flush AudioTrack buffer
+                        add(SideEffect.StopPlayback)
+                        add(SideEffect.StopSilenceDetection)
+                        add(SideEffect.StartAutoPauseTimer)
+                        add(SideEffect.UpdatePicovoiceState) // Update Picovoice since bot stopped
+                        // In half-duplex mode, resume recording after bot stops
+                        if (!state.isFullDuplex && state.isMicEnabled) {
+                            add(SideEffect.ResumeRecording)
+                        }
+                    }
+                )
+            }
+            is VoiceEvent.SilenceDetected -> {
+                // Bot silence detected - transition to Listening
+                // This is a fallback mechanism when turnComplete is not received
+                Log.i(TAG, "🔇 Bot silence detected - transitioning to Listening")
+                ReduceResult(
+                    newState = VoiceSessionState.Listening(
+                        isMicEnabled = state.isMicEnabled,
+                        isFullDuplex = state.isFullDuplex
+                    ),
+                    sideEffects = buildList {
+                        add(SideEffect.NotifyBotStoppedTalking)
                         add(SideEffect.StopPlayback)
                         add(SideEffect.StopSilenceDetection)
                         add(SideEffect.StartAutoPauseTimer)
@@ -548,6 +501,7 @@ class VoiceSessionStateMachine {
                 ReduceResult(
                     newState = VoiceSessionState.Paused(canResume = true),
                     sideEffects = listOf(
+                        SideEffect.NotifyBotStoppedTalking,
                         SideEffect.StopPlayback,
                         SideEffect.ClearAudioQueue,
                         SideEffect.StopRecording,
@@ -562,6 +516,7 @@ class VoiceSessionStateMachine {
                 ReduceResult(
                     newState = VoiceSessionState.Idle,
                     sideEffects = listOf(
+                        SideEffect.NotifyBotStoppedTalking,
                         SideEffect.StopRecording,
                         SideEffect.StopPlayback,
                         SideEffect.StopSilenceDetection,

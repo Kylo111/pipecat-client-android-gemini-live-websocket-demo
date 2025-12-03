@@ -153,7 +153,16 @@ class VoiceClientManagerListeners(
                 
                 onProcessEvent(VoiceEvent.WebSocketDisconnected(code, reason))
                 
-                // Check isPaused flag FIRST before checking state
+                // CRITICAL FIX: Check reason string FIRST to detect user-initiated pause
+                // This is more reliable than checking isPaused flag which may not be updated yet
+                // due to asynchronous state machine processing
+                if (reason == "User paused" || reason == "Auto-pause timeout") {
+                    Log.i(TAG, "✅ User-initiated pause detected (reason='$reason'), NOT reconnecting")
+                    Log.i(TAG, "   Session handle preserved for resumption")
+                    return
+                }
+                
+                // Also check isPaused flag as backup
                 if (uiState.value.isPaused) {
                     Log.i(TAG, "✅ User-initiated pause detected (isPaused=true), NOT reconnecting")
                     Log.i(TAG, "   Session handle preserved for resumption")

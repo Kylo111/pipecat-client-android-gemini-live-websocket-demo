@@ -5,6 +5,7 @@ import android.net.Uri
 import kotlinx.serialization.json.JsonObject
 import org.junit.Before
 import org.junit.Test
+import org.mockito.Mockito.mock
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -56,12 +57,6 @@ class VoiceSessionStateMachinePropertyTest {
             Pair(VoiceSessionState.Listening(), VoiceEvent.PauseRequested),
             Pair(VoiceSessionState.Listening(), VoiceEvent.StopRequested),
             Pair(VoiceSessionState.Listening(), VoiceEvent.AutoPauseTriggered),
-            
-            // Thinking state
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.BotAudioReceived(byteArrayOf(4, 5, 6))),
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.BotStartedSpeaking),
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.BotResponseTimeout),
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.StopRequested),
             
             // Speaking state
             Pair(VoiceSessionState.Speaking(), VoiceEvent.TurnComplete),
@@ -178,9 +173,6 @@ class VoiceSessionStateMachinePropertyTest {
             VoiceSessionState.Listening(),
             VoiceSessionState.Listening(isMicEnabled = true, isFullDuplex = false),
             VoiceSessionState.Listening(isMicEnabled = false, isFullDuplex = true),
-            VoiceSessionState.Thinking(),
-            VoiceSessionState.Thinking(isMicEnabled = true, isFullDuplex = false),
-            VoiceSessionState.Thinking(isMicEnabled = false, isFullDuplex = true),
             VoiceSessionState.Speaking(),
             VoiceSessionState.Speaking(isMicEnabled = true, isFullDuplex = false),
             VoiceSessionState.Speaking(isMicEnabled = false, isFullDuplex = true),
@@ -227,12 +219,7 @@ class VoiceSessionStateMachinePropertyTest {
             // Listening state - certain events should be ignored
             Pair(VoiceSessionState.Listening(), VoiceEvent.SetupComplete),
             Pair(VoiceSessionState.Listening(), VoiceEvent.TurnComplete),
-            Pair(VoiceSessionState.Listening(), VoiceEvent.BotResponseTimeout),
-            
-            // Thinking state - certain events should be ignored
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.SetupComplete),
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.TurnComplete),
-            // Note: PauseRequested is now valid from Thinking (task 3)
+            // Note: BotResponseTimeout is now valid in Listening state (task 9)
             
             // Speaking state - certain events should be ignored
             Pair(VoiceSessionState.Speaking(), VoiceEvent.SetupComplete),
@@ -302,17 +289,6 @@ class VoiceSessionStateMachinePropertyTest {
             // Listening -> Listening (self-transition with side effects)
             Triple(VoiceSessionState.Listening(), VoiceEvent.AudioInput(byteArrayOf(1), 0.5f), false),
             // Note: MicToggled event has been removed (task 6)
-            
-            // Thinking -> Speaking
-            Triple(VoiceSessionState.Thinking(), VoiceEvent.BotStartedSpeaking, true),
-            Triple(VoiceSessionState.Thinking(), VoiceEvent.BotAudioReceived(byteArrayOf(1)), true),  // Also transitions to Speaking
-            
-            // Thinking -> Paused (now valid - task 3)
-            Triple(VoiceSessionState.Thinking(), VoiceEvent.PauseRequested, true),
-            Triple(VoiceSessionState.Thinking(), VoiceEvent.BotResponseTimeout, true),
-            
-            // Thinking -> Idle
-            Triple(VoiceSessionState.Thinking(), VoiceEvent.StopRequested, true),
             
             // Speaking -> Listening
             Triple(VoiceSessionState.Speaking(), VoiceEvent.TurnComplete, true),
@@ -532,16 +508,22 @@ class VoiceSessionStateMachinePropertyTest {
             "Transition from Speaking to Listening should include StartAutoPauseTimer"
         )
         
-        // Test Thinking entry from Listening
-        val listeningToThinking = stateMachine.reduce(
+        // Test Speaking entry from Listening via BotAudioReceived
+        // CRITICAL FIX: First audio chunk now transitions directly to Speaking (not Thinking)
+        // to ensure playback starts immediately
+        val listeningToSpeaking = stateMachine.reduce(
             VoiceSessionState.Listening(),
             AuxiliaryState(),
             VoiceEvent.BotAudioReceived(byteArrayOf(1, 2, 3))
         )
-        assertIs<VoiceSessionState.Thinking>(listeningToThinking.newState)
+        assertIs<VoiceSessionState.Speaking>(listeningToSpeaking.newState)
         assertTrue(
-            listeningToThinking.sideEffects.any { it is SideEffect.StartBotResponseTimer },
-            "Transition to Thinking should include StartBotResponseTimer"
+            listeningToSpeaking.sideEffects.any { it is SideEffect.StartPlayback },
+            "Transition to Speaking should include StartPlayback"
+        )
+        assertTrue(
+            listeningToSpeaking.sideEffects.any { it is SideEffect.StartSilenceDetection },
+            "Transition to Speaking should include StartSilenceDetection"
         )
     }
     
@@ -635,30 +617,6 @@ class VoiceSessionStateMachinePropertyTest {
             speakingToIdle.sideEffects.any { it is SideEffect.StopSilenceDetection },
             "Transition from Speaking to Idle should include StopSilenceDetection"
         )
-        
-        // Test Thinking exit to Speaking (should stop bot response timer)
-        val thinkingToSpeaking = stateMachine.reduce(
-            VoiceSessionState.Thinking(),
-            AuxiliaryState(),
-            VoiceEvent.BotStartedSpeaking
-        )
-        assertIs<VoiceSessionState.Speaking>(thinkingToSpeaking.newState)
-        assertTrue(
-            thinkingToSpeaking.sideEffects.any { it is SideEffect.StopBotResponseTimer },
-            "Transition from Thinking to Speaking should include StopBotResponseTimer"
-        )
-        
-        // Test Thinking exit to Idle (should stop bot response timer)
-        val thinkingToIdle = stateMachine.reduce(
-            VoiceSessionState.Thinking(),
-            AuxiliaryState(),
-            VoiceEvent.StopRequested
-        )
-        assertIs<VoiceSessionState.Idle>(thinkingToIdle.newState)
-        assertTrue(
-            thinkingToIdle.sideEffects.any { it is SideEffect.StopBotResponseTimer },
-            "Transition from Thinking to Idle should include StopBotResponseTimer"
-        )
     }
     
     /**
@@ -683,7 +641,6 @@ class VoiceSessionStateMachinePropertyTest {
         // Test that active states only pause on explicit PauseRequested or timeout events
         val activeStates = listOf(
             VoiceSessionState.Listening(),
-            VoiceSessionState.Thinking(),
             VoiceSessionState.Speaking()
         )
         
@@ -738,15 +695,6 @@ class VoiceSessionStateMachinePropertyTest {
         )
         assertIs<VoiceSessionState.Paused>(listeningToPausedAuto.newState,
             "Listening should transition to Paused on AutoPauseTriggered")
-        
-        // Thinking can be paused by BotResponseTimeout
-        val thinkingToPaused = stateMachine.reduce(
-            VoiceSessionState.Thinking(),
-            AuxiliaryState(),
-            VoiceEvent.BotResponseTimeout
-        )
-        assertIs<VoiceSessionState.Paused>(thinkingToPaused.newState,
-            "Thinking should transition to Paused on BotResponseTimeout")
     }
     
     /**
@@ -772,42 +720,635 @@ class VoiceSessionStateMachinePropertyTest {
             "AutoPauseTriggered should include Disconnect side effect"
         )
         
-        // Test BotResponseTimeout from Thinking
-        val thinkingTimeout = stateMachine.reduce(
-            VoiceSessionState.Thinking(),
-            AuxiliaryState(),
-            VoiceEvent.BotResponseTimeout
-        )
-        assertIs<VoiceSessionState.Paused>(thinkingTimeout.newState,
-            "BotResponseTimeout from Thinking should transition to Paused")
-        assertTrue(
-            thinkingTimeout.sideEffects.any { it is SideEffect.Disconnect },
-            "BotResponseTimeout should include Disconnect side effect"
-        )
-        assertTrue(
-            thinkingTimeout.sideEffects.any { it is SideEffect.ShowError },
-            "BotResponseTimeout should include ShowError side effect"
-        )
-        
-        // Verify that timeout events from other states are handled appropriately
-        // (they may be ignored or handled differently depending on the state)
-        
-        // AutoPauseTriggered from Thinking should be ignored (Thinking has its own timeout)
-        val thinkingAutoPause = stateMachine.reduce(
-            VoiceSessionState.Thinking(),
-            AuxiliaryState(),
-            VoiceEvent.AutoPauseTriggered
-        )
-        assertIs<VoiceSessionState.Thinking>(thinkingAutoPause.newState,
-            "AutoPauseTriggered from Thinking should be ignored")
-        
-        // BotResponseTimeout from Listening should be ignored (not waiting for bot)
+        // BotResponseTimeout from Listening should now pause (task 9)
         val listeningBotTimeout = stateMachine.reduce(
             VoiceSessionState.Listening(),
             AuxiliaryState(),
             VoiceEvent.BotResponseTimeout
         )
-        assertIs<VoiceSessionState.Listening>(listeningBotTimeout.newState,
-            "BotResponseTimeout from Listening should be ignored")
+        assertIs<VoiceSessionState.Paused>(listeningBotTimeout.newState,
+            "BotResponseTimeout from Listening should transition to Paused")
+    }
+    
+    /**
+     * **Feature: core-audio-state-machine-fixes, Property 2: Bot talking notification on Speaking entry**
+     * 
+     * For any event that transitions the state machine to Speaking state, the side effects 
+     * SHALL include NotifyBotStartedTalking.
+     * 
+     * **Validates: Requirements 2.1, 2.4**
+     */
+    @Test
+    fun `property_2_bot_talking_notification_on_speaking_entry`() {
+        // Test all transitions to Speaking state
+        
+        // 1. Listening -> Speaking via BotAudioReceived
+        val listeningToSpeakingViaAudio = stateMachine.reduce(
+            VoiceSessionState.Listening(),
+            AuxiliaryState(),
+            VoiceEvent.BotAudioReceived(byteArrayOf(1, 2, 3))
+        )
+        assertIs<VoiceSessionState.Speaking>(listeningToSpeakingViaAudio.newState,
+            "BotAudioReceived should transition to Speaking")
+        assertTrue(
+            listeningToSpeakingViaAudio.sideEffects.any { it is SideEffect.NotifyBotStartedTalking },
+            "Transition to Speaking via BotAudioReceived should include NotifyBotStartedTalking"
+        )
+        
+        // 2. Listening -> Speaking via BotStartedSpeaking
+        val listeningToSpeakingViaEvent = stateMachine.reduce(
+            VoiceSessionState.Listening(),
+            AuxiliaryState(),
+            VoiceEvent.BotStartedSpeaking
+        )
+        assertIs<VoiceSessionState.Speaking>(listeningToSpeakingViaEvent.newState,
+            "BotStartedSpeaking should transition to Speaking")
+        assertTrue(
+            listeningToSpeakingViaEvent.sideEffects.any { it is SideEffect.NotifyBotStartedTalking },
+            "Transition to Speaking via BotStartedSpeaking should include NotifyBotStartedTalking"
+        )
+        
+        // Verify that NotifyBotStartedTalking appears exactly once in each transition
+        assertEquals(
+            1,
+            listeningToSpeakingViaAudio.sideEffects.count { it is SideEffect.NotifyBotStartedTalking },
+            "NotifyBotStartedTalking should appear exactly once"
+        )
+        assertEquals(
+            1,
+            listeningToSpeakingViaEvent.sideEffects.count { it is SideEffect.NotifyBotStartedTalking },
+            "NotifyBotStartedTalking should appear exactly once"
+        )
+    }
+    
+    /**
+     * **Feature: core-audio-state-machine-fixes, Property 3: Bot talking notification on Speaking exit**
+     * 
+     * For any event that transitions the state machine from Speaking state to another state, 
+     * the side effects SHALL include NotifyBotStoppedTalking.
+     * 
+     * **Validates: Requirements 2.2, 2.5**
+     */
+    @Test
+    fun `property_3_bot_talking_notification_on_speaking_exit`() {
+        // Test all transitions from Speaking state
+        
+        // 1. Speaking -> Listening via TurnComplete
+        val speakingToListeningViaTurnComplete = stateMachine.reduce(
+            VoiceSessionState.Speaking(),
+            AuxiliaryState(),
+            VoiceEvent.TurnComplete
+        )
+        assertIs<VoiceSessionState.Listening>(speakingToListeningViaTurnComplete.newState,
+            "TurnComplete should transition to Listening")
+        assertTrue(
+            speakingToListeningViaTurnComplete.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "Transition from Speaking via TurnComplete should include NotifyBotStoppedTalking"
+        )
+        
+        // 2. Speaking -> Listening via BotStoppedSpeaking
+        val speakingToListeningViaBotStopped = stateMachine.reduce(
+            VoiceSessionState.Speaking(),
+            AuxiliaryState(),
+            VoiceEvent.BotStoppedSpeaking
+        )
+        assertIs<VoiceSessionState.Listening>(speakingToListeningViaBotStopped.newState,
+            "BotStoppedSpeaking should transition to Listening")
+        assertTrue(
+            speakingToListeningViaBotStopped.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "Transition from Speaking via BotStoppedSpeaking should include NotifyBotStoppedTalking"
+        )
+        
+        // 3. Speaking -> Listening via Interrupted
+        val speakingToListeningViaInterrupted = stateMachine.reduce(
+            VoiceSessionState.Speaking(),
+            AuxiliaryState(),
+            VoiceEvent.Interrupted
+        )
+        assertIs<VoiceSessionState.Listening>(speakingToListeningViaInterrupted.newState,
+            "Interrupted should transition to Listening")
+        assertTrue(
+            speakingToListeningViaInterrupted.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "Transition from Speaking via Interrupted should include NotifyBotStoppedTalking"
+        )
+        
+        // 4. Speaking -> Paused via PauseRequested
+        val speakingToPaused = stateMachine.reduce(
+            VoiceSessionState.Speaking(),
+            AuxiliaryState(),
+            VoiceEvent.PauseRequested
+        )
+        assertIs<VoiceSessionState.Paused>(speakingToPaused.newState,
+            "PauseRequested should transition to Paused")
+        assertTrue(
+            speakingToPaused.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "Transition from Speaking via PauseRequested should include NotifyBotStoppedTalking"
+        )
+        
+        // 5. Speaking -> Idle via StopRequested
+        val speakingToIdle = stateMachine.reduce(
+            VoiceSessionState.Speaking(),
+            AuxiliaryState(),
+            VoiceEvent.StopRequested
+        )
+        assertIs<VoiceSessionState.Idle>(speakingToIdle.newState,
+            "StopRequested should transition to Idle")
+        assertTrue(
+            speakingToIdle.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "Transition from Speaking via StopRequested should include NotifyBotStoppedTalking"
+        )
+        
+        // Verify that NotifyBotStoppedTalking appears exactly once in each transition
+        assertEquals(
+            1,
+            speakingToListeningViaTurnComplete.sideEffects.count { it is SideEffect.NotifyBotStoppedTalking },
+            "NotifyBotStoppedTalking should appear exactly once"
+        )
+        assertEquals(
+            1,
+            speakingToListeningViaBotStopped.sideEffects.count { it is SideEffect.NotifyBotStoppedTalking },
+            "NotifyBotStoppedTalking should appear exactly once"
+        )
+        assertEquals(
+            1,
+            speakingToListeningViaInterrupted.sideEffects.count { it is SideEffect.NotifyBotStoppedTalking },
+            "NotifyBotStoppedTalking should appear exactly once"
+        )
+        assertEquals(
+            1,
+            speakingToPaused.sideEffects.count { it is SideEffect.NotifyBotStoppedTalking },
+            "NotifyBotStoppedTalking should appear exactly once"
+        )
+        assertEquals(
+            1,
+            speakingToIdle.sideEffects.count { it is SideEffect.NotifyBotStoppedTalking },
+            "NotifyBotStoppedTalking should appear exactly once"
+        )
+        
+        // Verify that self-transitions (staying in Speaking) do NOT include NotifyBotStoppedTalking
+        val speakingSelfTransition = stateMachine.reduce(
+            VoiceSessionState.Speaking(),
+            AuxiliaryState(),
+            VoiceEvent.BotAudioReceived(byteArrayOf(1, 2, 3))
+        )
+        assertIs<VoiceSessionState.Speaking>(speakingSelfTransition.newState,
+            "BotAudioReceived should stay in Speaking")
+        assertFalse(
+            speakingSelfTransition.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "Self-transition in Speaking should NOT include NotifyBotStoppedTalking"
+        )
+    }
+    
+    /**
+     * **Feature: core-audio-state-machine-fixes, Property 4: SilenceDetected handling in Speaking**
+     * 
+     * For any SilenceDetected event processed in Speaking state, the state machine SHALL 
+     * transition to Listening and emit StopPlayback, NotifyBotStoppedTalking, and 
+     * StartAutoPauseTimer side effects.
+     * 
+     * **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
+     */
+    @Test
+    fun `property_4_silence_detected_handling_in_speaking`() {
+        // Test SilenceDetected in Speaking state with various configurations
+        
+        // 1. Half-duplex mode with mic enabled
+        val speakingHalfDuplexMicEnabled = VoiceSessionState.Speaking(
+            isMicEnabled = true,
+            isFullDuplex = false
+        )
+        val resultHalfDuplex = stateMachine.reduce(
+            speakingHalfDuplexMicEnabled,
+            AuxiliaryState(),
+            VoiceEvent.SilenceDetected
+        )
+        
+        // Verify transition to Listening
+        assertIs<VoiceSessionState.Listening>(resultHalfDuplex.newState,
+            "SilenceDetected should transition from Speaking to Listening")
+        
+        // Verify required side effects are present
+        assertTrue(
+            resultHalfDuplex.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "SilenceDetected should include NotifyBotStoppedTalking side effect"
+        )
+        assertTrue(
+            resultHalfDuplex.sideEffects.any { it is SideEffect.StopPlayback },
+            "SilenceDetected should include StopPlayback side effect"
+        )
+        assertTrue(
+            resultHalfDuplex.sideEffects.any { it is SideEffect.StopSilenceDetection },
+            "SilenceDetected should include StopSilenceDetection side effect"
+        )
+        assertTrue(
+            resultHalfDuplex.sideEffects.any { it is SideEffect.StartAutoPauseTimer },
+            "SilenceDetected should include StartAutoPauseTimer side effect"
+        )
+        
+        // In half-duplex mode with mic enabled, should also resume recording
+        assertTrue(
+            resultHalfDuplex.sideEffects.any { it is SideEffect.ResumeRecording },
+            "SilenceDetected in half-duplex mode should include ResumeRecording side effect"
+        )
+        
+        // 2. Full-duplex mode
+        val speakingFullDuplex = VoiceSessionState.Speaking(
+            isMicEnabled = true,
+            isFullDuplex = true
+        )
+        val resultFullDuplex = stateMachine.reduce(
+            speakingFullDuplex,
+            AuxiliaryState(),
+            VoiceEvent.SilenceDetected
+        )
+        
+        // Verify transition to Listening
+        assertIs<VoiceSessionState.Listening>(resultFullDuplex.newState,
+            "SilenceDetected should transition from Speaking to Listening in full-duplex")
+        
+        // Verify required side effects
+        assertTrue(
+            resultFullDuplex.sideEffects.any { it is SideEffect.NotifyBotStoppedTalking },
+            "SilenceDetected should include NotifyBotStoppedTalking in full-duplex"
+        )
+        assertTrue(
+            resultFullDuplex.sideEffects.any { it is SideEffect.StopPlayback },
+            "SilenceDetected should include StopPlayback in full-duplex"
+        )
+        assertTrue(
+            resultFullDuplex.sideEffects.any { it is SideEffect.StopSilenceDetection },
+            "SilenceDetected should include StopSilenceDetection in full-duplex"
+        )
+        assertTrue(
+            resultFullDuplex.sideEffects.any { it is SideEffect.StartAutoPauseTimer },
+            "SilenceDetected should include StartAutoPauseTimer in full-duplex"
+        )
+        
+        // In full-duplex mode, should NOT resume recording (already recording)
+        assertFalse(
+            resultFullDuplex.sideEffects.any { it is SideEffect.ResumeRecording },
+            "SilenceDetected in full-duplex mode should NOT include ResumeRecording"
+        )
+        
+        // 3. Half-duplex mode with mic disabled
+        val speakingHalfDuplexMicDisabled = VoiceSessionState.Speaking(
+            isMicEnabled = false,
+            isFullDuplex = false
+        )
+        val resultMicDisabled = stateMachine.reduce(
+            speakingHalfDuplexMicDisabled,
+            AuxiliaryState(),
+            VoiceEvent.SilenceDetected
+        )
+        
+        // Verify transition to Listening
+        assertIs<VoiceSessionState.Listening>(resultMicDisabled.newState,
+            "SilenceDetected should transition from Speaking to Listening even with mic disabled")
+        
+        // Should NOT resume recording if mic is disabled
+        assertFalse(
+            resultMicDisabled.sideEffects.any { it is SideEffect.ResumeRecording },
+            "SilenceDetected with mic disabled should NOT include ResumeRecording"
+        )
+        
+        // 4. Verify that SilenceDetected from non-Speaking states is ignored
+        val listeningState = VoiceSessionState.Listening()
+        val resultFromListening = stateMachine.reduce(
+            listeningState,
+            AuxiliaryState(),
+            VoiceEvent.SilenceDetected
+        )
+        
+        // Should stay in Listening (ignored)
+        assertIs<VoiceSessionState.Listening>(resultFromListening.newState,
+            "SilenceDetected from Listening should be ignored")
+        assertEquals(
+            listeningState,
+            resultFromListening.newState,
+            "SilenceDetected from Listening should not change state"
+        )
+        assertTrue(
+            resultFromListening.sideEffects.isEmpty(),
+            "SilenceDetected from Listening should have no side effects"
+        )
+        
+        // 5. Verify that each required side effect appears exactly once
+        assertEquals(
+            1,
+            resultHalfDuplex.sideEffects.count { it is SideEffect.NotifyBotStoppedTalking },
+            "NotifyBotStoppedTalking should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultHalfDuplex.sideEffects.count { it is SideEffect.StopPlayback },
+            "StopPlayback should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultHalfDuplex.sideEffects.count { it is SideEffect.StopSilenceDetection },
+            "StopSilenceDetection should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultHalfDuplex.sideEffects.count { it is SideEffect.StartAutoPauseTimer },
+            "StartAutoPauseTimer should appear exactly once"
+        )
+    }
+    
+    /**
+     * **Feature: core-audio-state-machine-fixes, Property 5: BotResponseTimeout handling in Listening**
+     * 
+     * For any BotResponseTimeout event processed in Listening state, the state machine SHALL 
+     * transition to Paused with canResume=true and emit Disconnect with reason "Bot response timeout".
+     * 
+     * **Validates: Requirements 4.1, 4.2, 4.3**
+     */
+    @Test
+    fun `property_5_bot_response_timeout_handling_in_listening`() {
+        // Test BotResponseTimeout in Listening state with various configurations
+        
+        // 1. Basic Listening state
+        val listeningBasic = VoiceSessionState.Listening()
+        val resultBasic = stateMachine.reduce(
+            listeningBasic,
+            AuxiliaryState(),
+            VoiceEvent.BotResponseTimeout
+        )
+        
+        // Verify transition to Paused with canResume=true
+        assertIs<VoiceSessionState.Paused>(resultBasic.newState,
+            "BotResponseTimeout should transition from Listening to Paused")
+        assertTrue(
+            (resultBasic.newState as VoiceSessionState.Paused).canResume,
+            "BotResponseTimeout should set canResume=true for resumption"
+        )
+        
+        // Verify required side effects are present
+        assertTrue(
+            resultBasic.sideEffects.any { it is SideEffect.StopRecording },
+            "BotResponseTimeout should include StopRecording side effect"
+        )
+        assertTrue(
+            resultBasic.sideEffects.any { it is SideEffect.StopBotResponseTimer },
+            "BotResponseTimeout should include StopBotResponseTimer side effect"
+        )
+        
+        // Verify Disconnect side effect with correct reason
+        val disconnectEffect = resultBasic.sideEffects.find { it is SideEffect.Disconnect } as? SideEffect.Disconnect
+        assertTrue(
+            disconnectEffect != null,
+            "BotResponseTimeout should include Disconnect side effect"
+        )
+        assertEquals(
+            "Bot response timeout",
+            disconnectEffect?.reason,
+            "Disconnect reason should be 'Bot response timeout'"
+        )
+        assertEquals(
+            1000,
+            disconnectEffect?.code,
+            "Disconnect code should be 1000 (normal closure)"
+        )
+        
+        // Verify ShowError side effect
+        val showErrorEffect = resultBasic.sideEffects.find { it is SideEffect.ShowError } as? SideEffect.ShowError
+        assertTrue(
+            showErrorEffect != null,
+            "BotResponseTimeout should include ShowError side effect"
+        )
+        assertEquals(
+            "No response from bot",
+            showErrorEffect?.message,
+            "Error message should be 'No response from bot'"
+        )
+        
+        // Verify UpdateServiceNotification and UpdatePicovoiceState
+        assertTrue(
+            resultBasic.sideEffects.any { it is SideEffect.UpdateServiceNotification },
+            "BotResponseTimeout should include UpdateServiceNotification side effect"
+        )
+        assertTrue(
+            resultBasic.sideEffects.any { it is SideEffect.UpdatePicovoiceState },
+            "BotResponseTimeout should include UpdatePicovoiceState side effect"
+        )
+        
+        // CRITICAL: Verify that ClearSessionHandle is NOT emitted (preserve for resumption)
+        assertFalse(
+            resultBasic.sideEffects.any { it is SideEffect.ClearSessionHandle },
+            "BotResponseTimeout should NOT include ClearSessionHandle - session must be preserved for resumption"
+        )
+        
+        // 2. Listening state with mic disabled
+        val listeningMicDisabled = VoiceSessionState.Listening(isMicEnabled = false)
+        val resultMicDisabled = stateMachine.reduce(
+            listeningMicDisabled,
+            AuxiliaryState(),
+            VoiceEvent.BotResponseTimeout
+        )
+        
+        // Should still transition to Paused
+        assertIs<VoiceSessionState.Paused>(resultMicDisabled.newState,
+            "BotResponseTimeout should transition to Paused even with mic disabled")
+        assertTrue(
+            (resultMicDisabled.newState as VoiceSessionState.Paused).canResume,
+            "BotResponseTimeout should set canResume=true even with mic disabled"
+        )
+        
+        // 3. Listening state in full-duplex mode
+        val listeningFullDuplex = VoiceSessionState.Listening(
+            isMicEnabled = true,
+            isFullDuplex = true
+        )
+        val resultFullDuplex = stateMachine.reduce(
+            listeningFullDuplex,
+            AuxiliaryState(),
+            VoiceEvent.BotResponseTimeout
+        )
+        
+        // Should still transition to Paused
+        assertIs<VoiceSessionState.Paused>(resultFullDuplex.newState,
+            "BotResponseTimeout should transition to Paused in full-duplex mode")
+        assertTrue(
+            (resultFullDuplex.newState as VoiceSessionState.Paused).canResume,
+            "BotResponseTimeout should set canResume=true in full-duplex mode"
+        )
+        
+        // 4. Verify that BotResponseTimeout from non-Listening states behaves differently
+        // In Speaking state, it should be ignored (bot is already responding)
+        val speakingState = VoiceSessionState.Speaking()
+        val resultFromSpeaking = stateMachine.reduce(
+            speakingState,
+            AuxiliaryState(),
+            VoiceEvent.BotResponseTimeout
+        )
+        
+        assertIs<VoiceSessionState.Speaking>(resultFromSpeaking.newState,
+            "BotResponseTimeout from Speaking should be ignored")
+        assertEquals(
+            speakingState,
+            resultFromSpeaking.newState,
+            "BotResponseTimeout from Speaking should not change state"
+        )
+        assertTrue(
+            resultFromSpeaking.sideEffects.isEmpty(),
+            "BotResponseTimeout from Speaking should have no side effects"
+        )
+        
+        // 5. Verify that each required side effect appears exactly once
+        assertEquals(
+            1,
+            resultBasic.sideEffects.count { it is SideEffect.StopRecording },
+            "StopRecording should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultBasic.sideEffects.count { it is SideEffect.StopBotResponseTimer },
+            "StopBotResponseTimer should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultBasic.sideEffects.count { it is SideEffect.Disconnect },
+            "Disconnect should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultBasic.sideEffects.count { it is SideEffect.ShowError },
+            "ShowError should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultBasic.sideEffects.count { it is SideEffect.UpdateServiceNotification },
+            "UpdateServiceNotification should appear exactly once"
+        )
+        assertEquals(
+            1,
+            resultBasic.sideEffects.count { it is SideEffect.UpdatePicovoiceState },
+            "UpdatePicovoiceState should appear exactly once"
+        )
+        assertEquals(
+            0,
+            resultBasic.sideEffects.count { it is SideEffect.ClearSessionHandle },
+            "ClearSessionHandle should NOT appear (must preserve session for resumption)"
+        )
+    }
+    
+    /**
+     * **Feature: core-audio-state-machine-fixes, Property 6: All emitted events are handled**
+     * 
+     * For any event type that is ACTIVELY EMITTED by the system, there SHALL exist at least 
+     * one state that handles it (produces non-empty side effects or state transition).
+     * 
+     * Note: Deprecated events (MicToggled, SpeakerToggled, ImageSelected) are intentionally
+     * NOT handled - they are kept for backward compatibility but are no longer emitted.
+     * 
+     * **Validates: Requirements 6.3**
+     */
+    @Test
+    fun `property_6_all_emitted_events_are_handled`() {
+        // This property verifies that every ACTIVELY USED event type is handled
+        // by at least one state in the state machine.
+        
+        // List of all event types that ARE ACTIVELY EMITTED and should be handled
+        val activeEventTypes = listOf(
+            // Lifecycle Events
+            VoiceEvent.StartRequested(url = "wss://test.com", setupMessage = "{}"),
+            VoiceEvent.StopRequested,
+            VoiceEvent.PauseRequested,
+            // ResumeRequested is deprecated but still handled for backward compatibility
+            VoiceEvent.ResumeRequested(url = "wss://test.com", setupMessage = "{}"),
+            
+            // Connection Events
+            VoiceEvent.SetupComplete,
+            VoiceEvent.WebSocketError("test", true),
+            
+            // Audio Events
+            VoiceEvent.AudioInput(byteArrayOf(1), 0.5f),
+            VoiceEvent.BotAudioReceived(byteArrayOf(1)),
+            // BotStartedSpeaking is deprecated but still handled
+            VoiceEvent.BotStartedSpeaking,
+            // BotStoppedSpeaking is deprecated but still handled
+            VoiceEvent.BotStoppedSpeaking,
+            VoiceEvent.TurnComplete,
+            VoiceEvent.Interrupted,
+            
+            // Image Processing Events (handled via auxiliary state)
+            VoiceEvent.ImageProcessingStarted,
+            VoiceEvent.ImageProcessingCompleted,
+            VoiceEvent.ImageProcessingFailed("test"),
+            
+            // Timer Events
+            VoiceEvent.AutoPauseTriggered,
+            VoiceEvent.BotResponseTimeout,
+            VoiceEvent.SilenceDetected,
+            
+            // Transcript Events
+            VoiceEvent.UserTranscript("test"),
+            VoiceEvent.BotTranscript("test"),
+            
+            // Tool Events
+            VoiceEvent.ToolCallReceived("id", "name", JsonObject(emptyMap())),
+            VoiceEvent.ToolExecutionComplete("id", "result"),
+            
+            // Session Events
+            VoiceEvent.SessionHandleReceived("handle", true)
+        )
+        
+        // All possible states
+        val allStates = listOf(
+            VoiceSessionState.Idle,
+            VoiceSessionState.Connecting(),
+            VoiceSessionState.Listening(),
+            VoiceSessionState.Speaking(),
+            VoiceSessionState.Paused(),
+            VoiceSessionState.Error("test")
+        )
+        
+        // For each active event, verify that at least one state handles it
+        for (event in activeEventTypes) {
+            var isHandled = false
+            
+            for (state in allStates) {
+                val result = stateMachine.reduce(state, AuxiliaryState(), event)
+                
+                // Event is considered "handled" if:
+                // 1. State changes (not same instance), OR
+                // 2. Side effects are produced, OR
+                // 3. Auxiliary state changes (for tool/image events)
+                if (result.newState != state || 
+                    result.sideEffects.isNotEmpty() ||
+                    result.newAuxiliaryState != null) {
+                    isHandled = true
+                    break
+                }
+            }
+            
+            assertTrue(
+                isHandled,
+                "Event ${event::class.simpleName} is not handled by any state in the state machine. " +
+                "Every actively emitted event type should be handled by at least one state."
+            )
+        }
+        
+        // Verify that deprecated events don't crash (they are intentionally ignored)
+        val deprecatedIgnoredEvents = listOf(
+            VoiceEvent.MicToggled,
+            VoiceEvent.SpeakerToggled,
+            VoiceEvent.ImageSelected(mock(Uri::class.java)),
+            VoiceEvent.WebSocketConnected,
+            VoiceEvent.WebSocketDisconnected(1000, "test")
+        )
+        
+        for (event in deprecatedIgnoredEvents) {
+            // These events should NOT crash - they are safely ignored
+            for (state in allStates) {
+                // This should not throw any exception
+                val result = stateMachine.reduce(state, AuxiliaryState(), event)
+                // Result should be valid (state unchanged, no side effects)
+                assertTrue(
+                    result.newState != null,
+                    "Deprecated event ${event::class.simpleName} should not crash the state machine"
+                )
+            }
+        }
     }
 }
