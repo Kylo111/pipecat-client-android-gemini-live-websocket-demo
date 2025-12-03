@@ -296,12 +296,6 @@ class VoiceSessionStateMachine {
                     }
                 )
             }
-            is VoiceEvent.MicToggled -> {
-                ReduceResult(
-                    newState = state.copy(isMicEnabled = !state.isMicEnabled),
-                    sideEffects = emptyList()
-                )
-            }
             is VoiceEvent.PauseRequested -> {
                 ReduceResult(
                     newState = VoiceSessionState.Paused(canResume = true),
@@ -384,6 +378,7 @@ class VoiceSessionStateMachine {
      * - BotAudioReceived -> Speaking (first chunk triggers playback)
      * - BotStartedSpeaking -> Speaking (explicit event)
      * - BotResponseTimeout -> Paused
+     * - PauseRequested -> Paused
      * - StopRequested -> Idle
      * 
      * Note: The first BotAudioReceived in Thinking state automatically transitions to Speaking
@@ -446,6 +441,18 @@ class VoiceSessionStateMachine {
                     )
                 )
             }
+            is VoiceEvent.PauseRequested -> {
+                ReduceResult(
+                    newState = VoiceSessionState.Paused(canResume = true),
+                    sideEffects = listOf(
+                        SideEffect.StopBotResponseTimer,
+                        SideEffect.StopRecording,
+                        SideEffect.Disconnect(code = 1000, reason = "User paused"),
+                        SideEffect.UpdateServiceNotification,
+                        SideEffect.UpdatePicovoiceState
+                    )
+                )
+            }
             is VoiceEvent.StopRequested -> {
                 ReduceResult(
                     newState = VoiceSessionState.Idle,
@@ -478,6 +485,7 @@ class VoiceSessionStateMachine {
      * - BotStoppedSpeaking -> Listening
      * - Interrupted -> Listening
      * - MicToggled -> Speaking (self-transition with updated mic state)
+     * - PauseRequested -> Paused
      * - StopRequested -> Idle
      * - UserTranscript -> Speaking (self-transition, emit transcript)
      * - BotTranscript -> Speaking (self-transition, emit transcript)
@@ -535,10 +543,18 @@ class VoiceSessionStateMachine {
                     }
                 )
             }
-            is VoiceEvent.MicToggled -> {
+            is VoiceEvent.PauseRequested -> {
                 ReduceResult(
-                    newState = state.copy(isMicEnabled = !state.isMicEnabled),
-                    sideEffects = emptyList()
+                    newState = VoiceSessionState.Paused(canResume = true),
+                    sideEffects = listOf(
+                        SideEffect.StopPlayback,
+                        SideEffect.ClearAudioQueue,
+                        SideEffect.StopRecording,
+                        SideEffect.StopAutoPauseTimer,
+                        SideEffect.Disconnect(code = 1000, reason = "User paused"),
+                        SideEffect.UpdateServiceNotification,
+                        SideEffect.UpdatePicovoiceState
+                    )
                 )
             }
             is VoiceEvent.StopRequested -> {
@@ -598,6 +614,7 @@ class VoiceSessionStateMachine {
      * Reduce events in Paused state.
      * 
      * Valid transitions:
+     * - StartRequested -> Connecting (resume via start())
      * - ResumeRequested -> Connecting (if canResume)
      * - StopRequested -> Idle
      */
@@ -606,6 +623,27 @@ class VoiceSessionStateMachine {
         event: VoiceEvent
     ): ReduceResult {
         return when (event) {
+            is VoiceEvent.StartRequested -> {
+                // StartRequested is sent by start() which is called by resume()
+                // Treat it the same as ResumeRequested
+                if (state.canResume) {
+                    ReduceResult(
+                        newState = VoiceSessionState.Connecting(event.threadSettings),
+                        sideEffects = listOf(
+                            SideEffect.Connect(
+                                url = event.url,
+                                setupMessage = event.setupMessage
+                            )
+                        )
+                    )
+                } else {
+                    Log.w(TAG, "reducePaused: cannot resume, canResume=false")
+                    ReduceResult(
+                        newState = state,
+                        sideEffects = emptyList()
+                    )
+                }
+            }
             is VoiceEvent.ResumeRequested -> {
                 if (state.canResume) {
                     ReduceResult(

@@ -76,6 +76,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -147,8 +148,8 @@ class MainActivity : ComponentActivity() {
         
         // Set up connection state observer to manage VoiceService lifecycle
         lifecycleScope.launch {
-            snapshotFlow { voiceClientManager.state.value }.collectLatest { state ->
-                when (state) {
+            voiceClientManager.uiState.collect { uiState ->
+                when (uiState.connectionState) {
                     ConnectionState.CONNECTED -> {
                         // Start VoiceService when connection is established
                         startVoiceService()
@@ -309,6 +310,8 @@ class MainActivity : ComponentActivity() {
             }
             
             RTVIClientTheme {
+                val uiState by voiceClientManager.uiState.collectAsStateWithLifecycle()
+                
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(
                         Modifier
@@ -323,7 +326,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             PermissionScreen()
 
-                            val vcState = voiceClientManager.state.value
+                            val vcState = uiState.connectionState
                             val isConnected = vcState == ConnectionState.CONNECTED || 
                                             vcState == ConnectionState.CONNECTING || 
                                             vcState == ConnectionState.RECONNECTING
@@ -545,7 +548,7 @@ class MainActivity : ComponentActivity() {
                                     onLogout = {
                                         lifecycleScope.launch {
                                             // Stop any active voice session
-                                            if (voiceClientManager.state.value != ConnectionState.DISCONNECTED) {
+                                            if (voiceClientManager.uiState.value.connectionState != ConnectionState.DISCONNECTED) {
                                                 voiceClientManager.stop()
                                             }
                                             
@@ -584,8 +587,9 @@ class MainActivity : ComponentActivity() {
                                 // Always show InCallLayout regardless of connection state
                                 // This allows users to see reconnection status and stay in conversation
                                 InCallLayout(
-                                    voiceClientManager = voiceClientManager,
-                                    onSettingsClick = { currentScreen = Screen.SETTINGS },
+                                    uiState = uiState,
+                                    onToggleMic = voiceClientManager::togglePause,
+                                    onToggleSpeakerphone = voiceClientManager::toggleSpeakerphone,
                                     onEndSession = {
                                         // End session with summary generation
                                         lifecycleScope.launch {
@@ -595,7 +599,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                     },
                                     onCameraClick = onCameraClick,
-                                    onGalleryClick = onGalleryClick
+                                    onGalleryClick = onGalleryClick,
+                                    expiryTime = voiceClientManager.expiryTime.value,
+                                    maxReconnectionAttempts = voiceClientManager.maxReconnectionAttempts,
+                                    onSettingsClick = { currentScreen = Screen.SETTINGS }
                                 )
                             }
                             Screen.CONNECT -> {
@@ -699,7 +706,7 @@ class MainActivity : ComponentActivity() {
                         // Back press handler
                         BackPressHandler(
                             currentScreen = currentScreen,
-                            connectionState = voiceClientManager.state.value,
+                            connectionState = uiState.connectionState,
                             onEndSession = {
                                 lifecycleScope.launch {
                                     sessionManager.endSession()
@@ -829,7 +836,7 @@ class MainActivity : ComponentActivity() {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             Log.d(TAG, "[handlePause] Screen keep awake flag cleared (app in background)")
             
-            val connectionState = voiceClientManager.state.value
+            val connectionState = voiceClientManager.uiState.value.connectionState
             if (connectionState == ConnectionState.CONNECTED) {
                 Log.d(TAG, "[handlePause] Active connection - continuing in background via VoiceService")
                 // ✅ Do nothing - VoiceService maintains session active
@@ -854,7 +861,7 @@ class MainActivity : ComponentActivity() {
         // Update screen keep awake when returning to foreground
         updateScreenKeepAwake()
         
-        val connectionState = voiceClientManager.state.value
+        val connectionState = voiceClientManager.uiState.value.connectionState
         if (connectionState == ConnectionState.CONNECTED) {
             Log.d(TAG, "[handleResume] Active connection - already running normally")
             // ✅ Do nothing - session is already active
@@ -943,7 +950,7 @@ class MainActivity : ComponentActivity() {
         if (isFinishing) {
             try {
                 // Check if conversation is still active
-                val connectionState = voiceClientManager.state.value
+                val connectionState = voiceClientManager.uiState.value.connectionState
                 Log.d("MainActivity", "[MainActivity] onDestroy: Connection state check - state=$connectionState")
                 
                 if (connectionState == ConnectionState.CONNECTED || 
@@ -1077,7 +1084,7 @@ class MainActivity : ComponentActivity() {
                 // Low memory - pause session to reduce memory usage
                 Log.w("MainActivity", "[MainActivity] onTrimMemory: RUNNING_LOW action - pausing session to reduce memory usage")
                 try {
-                    val connectionState = voiceClientManager.state.value
+                    val connectionState = voiceClientManager.uiState.value.connectionState
                     if (connectionState == ConnectionState.CONNECTED ||
                         connectionState == ConnectionState.RECONNECTING) {
                         voiceClientManager.pause()
@@ -1159,16 +1166,16 @@ class MainActivity : ComponentActivity() {
     private fun registerWakeWordBroadcastReceivers() {
         val localBroadcastManager = LocalBroadcastManager.getInstance(this)
         
-        // Toggle microphone receiver
+        // Toggle pause receiver
         toggleMicrophoneReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                Log.d("MainActivity", "Toggle microphone broadcast received")
-                voiceClientManager.toggleMic()
+                Log.d("MainActivity", "Toggle pause broadcast received")
+                voiceClientManager.togglePause()
             }
         }
         localBroadcastManager.registerReceiver(
             toggleMicrophoneReceiver!!,
-            IntentFilter(WakeWordHandler.ACTION_TOGGLE_MICROPHONE)
+            IntentFilter(WakeWordHandler.ACTION_TOGGLE_PAUSE)
         )
         
         // Terminate app receiver
@@ -1202,9 +1209,9 @@ class MainActivity : ComponentActivity() {
         toggleMicrophoneReceiver?.let {
             try {
                 localBroadcastManager.unregisterReceiver(it)
-                Log.d("MainActivity", "Toggle microphone receiver unregistered")
+                Log.d("MainActivity", "Toggle pause receiver unregistered")
             } catch (e: Exception) {
-                Log.e("MainActivity", "Error unregistering toggle microphone receiver", e)
+                Log.e("MainActivity", "Error unregistering toggle pause receiver", e)
             }
         }
         

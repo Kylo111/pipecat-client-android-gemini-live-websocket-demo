@@ -519,8 +519,8 @@ class WakeWordHandler(private val context: Context) {
         
         when (command.lowercase()) {
             "alexa", "start", "stop" -> {
-                // Toggle microphone in active session
-                sendToggleMicrophoneBroadcast()
+                // Toggle pause in active session
+                sendTogglePauseBroadcast()
             }
             else -> {
                 Log.w(TAG, "Unknown system command: $command")
@@ -549,12 +549,12 @@ class WakeWordHandler(private val context: Context) {
     }
     
     /**
-     * Send broadcast to toggle microphone in active session.
+     * Send broadcast to toggle pause in active session.
      */
-    private fun sendToggleMicrophoneBroadcast() {
-        Log.d(TAG, "Sending toggle microphone broadcast")
+    private fun sendTogglePauseBroadcast() {
+        Log.d(TAG, "Sending toggle pause broadcast")
         
-        val intent = Intent(ACTION_TOGGLE_MICROPHONE)
+        val intent = Intent(ACTION_TOGGLE_PAUSE)
         androidx.localbroadcastmanager.content.LocalBroadcastManager
             .getInstance(context)
             .sendBroadcast(intent)
@@ -575,7 +575,7 @@ class WakeWordHandler(private val context: Context) {
     companion object {
         const val EXTRA_THREAD_ID = "thread_id"
         const val EXTRA_WAKE_WORD_TRIGGER = "wake_word_trigger"
-        const val ACTION_TOGGLE_MICROPHONE = "ai.pipecat.TOGGLE_MICROPHONE"
+        const val ACTION_TOGGLE_PAUSE = "ai.pipecat.TOGGLE_PAUSE"
         const val ACTION_TERMINATE_APP = "ai.pipecat.TERMINATE_APP"
     }
 }

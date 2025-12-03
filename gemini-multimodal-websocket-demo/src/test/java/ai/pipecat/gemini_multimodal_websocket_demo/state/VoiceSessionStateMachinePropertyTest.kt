@@ -232,12 +232,12 @@ class VoiceSessionStateMachinePropertyTest {
             // Thinking state - certain events should be ignored
             Pair(VoiceSessionState.Thinking(), VoiceEvent.SetupComplete),
             Pair(VoiceSessionState.Thinking(), VoiceEvent.TurnComplete),
-            Pair(VoiceSessionState.Thinking(), VoiceEvent.PauseRequested),
+            // Note: PauseRequested is now valid from Thinking (task 3)
             
             // Speaking state - certain events should be ignored
             Pair(VoiceSessionState.Speaking(), VoiceEvent.SetupComplete),
             Pair(VoiceSessionState.Speaking(), VoiceEvent.BotStartedSpeaking),
-            Pair(VoiceSessionState.Speaking(), VoiceEvent.PauseRequested),
+            // Note: PauseRequested is now valid from Speaking (task 2)
             
             // Paused state - only ResumeRequested and StopRequested are valid
             Pair(VoiceSessionState.Paused(), VoiceEvent.SetupComplete),
@@ -301,30 +301,31 @@ class VoiceSessionStateMachinePropertyTest {
             
             // Listening -> Listening (self-transition with side effects)
             Triple(VoiceSessionState.Listening(), VoiceEvent.AudioInput(byteArrayOf(1), 0.5f), false),
-            Triple(VoiceSessionState.Listening(), VoiceEvent.MicToggled, false),
+            // Note: MicToggled event has been removed (task 6)
             
             // Thinking -> Speaking
             Triple(VoiceSessionState.Thinking(), VoiceEvent.BotStartedSpeaking, true),
+            Triple(VoiceSessionState.Thinking(), VoiceEvent.BotAudioReceived(byteArrayOf(1)), true),  // Also transitions to Speaking
             
-            // Thinking -> Paused
+            // Thinking -> Paused (now valid - task 3)
+            Triple(VoiceSessionState.Thinking(), VoiceEvent.PauseRequested, true),
             Triple(VoiceSessionState.Thinking(), VoiceEvent.BotResponseTimeout, true),
             
             // Thinking -> Idle
             Triple(VoiceSessionState.Thinking(), VoiceEvent.StopRequested, true),
-            
-            // Thinking -> Thinking (self-transition with side effects)
-            Triple(VoiceSessionState.Thinking(), VoiceEvent.BotAudioReceived(byteArrayOf(1)), false),
             
             // Speaking -> Listening
             Triple(VoiceSessionState.Speaking(), VoiceEvent.TurnComplete, true),
             Triple(VoiceSessionState.Speaking(), VoiceEvent.BotStoppedSpeaking, true),
             Triple(VoiceSessionState.Speaking(), VoiceEvent.Interrupted, true),
             
+            // Speaking -> Paused (now valid - task 2)
+            Triple(VoiceSessionState.Speaking(), VoiceEvent.PauseRequested, true),
+            
             // Speaking -> Idle
             Triple(VoiceSessionState.Speaking(), VoiceEvent.StopRequested, true),
             
-            // Speaking -> Speaking (self-transition)
-            Triple(VoiceSessionState.Speaking(), VoiceEvent.MicToggled, false),
+            // Note: MicToggled event has been removed (task 6)
             
             // Paused -> Connecting
             Triple(VoiceSessionState.Paused(canResume = true), VoiceEvent.ResumeRequested(url = "wss://test.com", setupMessage = "{}"), true),
@@ -352,11 +353,9 @@ class VoiceSessionStateMachinePropertyTest {
                 assertEquals(state::class, result.newState::class,
                     "Self-transition from $state with event $event should keep same state type")
                 
-                // For self-transitions, we expect side effects (except MicToggled which just updates state)
-                if (event !is VoiceEvent.MicToggled) {
-                    assertTrue(result.sideEffects.isNotEmpty(),
-                        "Self-transition from $state with event $event should have side effects")
-                }
+                // For self-transitions, we expect side effects
+                assertTrue(result.sideEffects.isNotEmpty(),
+                    "Self-transition from $state with event $event should have side effects")
             }
         }
     }
@@ -397,22 +396,20 @@ class VoiceSessionStateMachinePropertyTest {
     }
     
     /**
-     * Test that MicToggled in Listening state toggles the mic state
+     * Test that PauseRequested in Speaking state transitions to Paused
+     * (MicToggled event has been removed - mic is always on during active session)
      */
     @Test
-    fun `mic_toggled_in_listening_toggles_mic_state`() {
-        // Start with mic enabled
-        val listeningEnabled = VoiceSessionState.Listening(isMicEnabled = true)
-        val result1 = stateMachine.reduce(listeningEnabled, AuxiliaryState(), VoiceEvent.MicToggled)
+    fun `pause_requested_in_speaking_transitions_to_paused`() {
+        val speaking = VoiceSessionState.Speaking()
+        val result = stateMachine.reduce(speaking, AuxiliaryState(), VoiceEvent.PauseRequested)
         
-        assertIs<VoiceSessionState.Listening>(result1.newState)
-        assertFalse((result1.newState as VoiceSessionState.Listening).isMicEnabled)
+        assertIs<VoiceSessionState.Paused>(result.newState)
+        assertTrue((result.newState as VoiceSessionState.Paused).canResume)
         
-        // Toggle again
-        val result2 = stateMachine.reduce(result1.newState, AuxiliaryState(), VoiceEvent.MicToggled)
-        
-        assertIs<VoiceSessionState.Listening>(result2.newState)
-        assertTrue((result2.newState as VoiceSessionState.Listening).isMicEnabled)
+        // Should have side effects including StopPlayback, Disconnect
+        assertTrue(result.sideEffects.any { it is SideEffect.StopPlayback })
+        assertTrue(result.sideEffects.any { it is SideEffect.Disconnect })
     }
     
     /**

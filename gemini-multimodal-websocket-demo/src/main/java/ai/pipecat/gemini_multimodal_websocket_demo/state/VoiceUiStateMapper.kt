@@ -146,6 +146,7 @@ object VoiceUiStateMapper {
      * 
      * In half-duplex mode, the mic is disabled during Speaking state.
      * In full-duplex mode, the mic remains enabled during Speaking state.
+     * When paused, the mic is always disabled.
      * 
      * @param state Current voice session state
      * @return True if microphone should be enabled
@@ -155,7 +156,8 @@ object VoiceUiStateMapper {
             is VoiceSessionState.Listening -> state.isMicEnabled
             is VoiceSessionState.Thinking -> state.isMicEnabled
             is VoiceSessionState.Speaking -> state.isMicEnabled && state.isFullDuplex
-            else -> false
+            is VoiceSessionState.Paused -> false  // Mic disabled when paused (Requirements 2.3, 4.3)
+            else -> false  // Idle, Connecting, Error
         }
     }
     

@@ -173,14 +173,12 @@ class VoiceClientManager internal constructor(
         // Wire AudioEngine callbacks
         audioEngine.listener = object : AudioEngineListener {
             override fun onAudioRecorded(data: ByteArray, level: Float) {
-                // Update user audio level for UI (already done by AudioEngine, but we keep this for consistency)
-                userAudioLevel.floatValue = level
-                
                 // Wrap in VoiceEvent and process through state machine
+                // State machine will update audio levels in VoiceUiState
                 processEvent(VoiceEvent.AudioInput(data, level))
                 
                 // Note: Activity time tracking removed - now handled by ConversationMonitor
-                userIsTalking.value = level > 0.05f
+                // Note: userAudioLevel and userIsTalking are now derived from VoiceUiState
             }
             
             override fun onPlaybackStarted() {
@@ -238,7 +236,7 @@ class VoiceClientManager internal constructor(
             
             override fun onDisconnected(code: Int, reason: String) {
                 Log.i(TAG, "WebSocketClient: Disconnected - code: $code, reason: $reason")
-                Log.i(TAG, "Current state: ${state.value}, isPaused: ${isPaused.value}")
+                Log.i(TAG, "Current state: ${connectionState}, isPaused: ${isPausedState}")
                 
                 // Wrap in VoiceEvent and process through state machine
                 processEvent(VoiceEvent.WebSocketDisconnected(code, reason))
@@ -246,7 +244,7 @@ class VoiceClientManager internal constructor(
                 // CRITICAL FIX: Check isPaused flag FIRST before checking state
                 // This handles race condition where state might already be DISCONNECTED
                 // when this callback is invoked asynchronously
-                if (isPaused.value) {
+                if (isPausedState) {
                     Log.i(TAG, "✅ User-initiated pause detected (isPaused=true), NOT reconnecting")
                     Log.i(TAG, "   Session handle preserved for resumption")
                     // Don't call handleDisconnect() here - it was already called by pause()
@@ -254,30 +252,33 @@ class VoiceClientManager internal constructor(
                 }
                 
                 // Check if this is a user-initiated disconnect (stop, not pause)
-                if (state.value == ConnectionState.DISCONNECTING) {
+                if (connectionState == ConnectionState.DISCONNECTING) {
                     Log.i(TAG, "User-initiated stop, ending session")
                     handleDisconnect(preserveSessionHandle = false)
                     return
                 }
                 
                 // Check if already disconnected (cleanup already done)
-                if (state.value == ConnectionState.DISCONNECTED) {
+                if (connectionState == ConnectionState.DISCONNECTED) {
                     Log.i(TAG, "Already DISCONNECTED, cleanup already done")
                     return
                 }
                 
                 // Check if already reconnecting
-                if (state.value == ConnectionState.RECONNECTING) {
+                if (connectionState == ConnectionState.RECONNECTING) {
                     Log.i(TAG, "Already in RECONNECTING state, skipping duplicate reconnection")
                     return
                 }
                 
                 // Unexpected closure - attempt reconnection
                 Log.w(TAG, "⚠️ Unexpected WebSocket closure, attempting reconnection")
-                // Note: state.value is now synced from VoiceUiState
-                // For reconnection, we need to set this directly as it's not part of VoiceSessionState
+                // Note: Reconnection state is not part of VoiceSessionState yet
                 // TODO: Consider adding reconnection to state machine
-                state.value = ConnectionState.RECONNECTING
+                // For now, we update _uiState directly
+                _uiState.value = _uiState.value.copy(
+                    connectionState = ConnectionState.RECONNECTING,
+                    isReconnecting = true
+                )
                 updateServiceNotification()
                 
                 // Create new scope if needed (old one might be cancelled)
@@ -315,11 +316,13 @@ class VoiceClientManager internal constructor(
                         errors.add(Error(userMessage))
                         
                         // Transition to RECONNECTING state
-                        if (state.value != ConnectionState.RECONNECTING) {
-                            // Note: state.value is now synced from VoiceUiState
-                            // For reconnection, we need to set this directly as it's not part of VoiceSessionState
+                        if (connectionState != ConnectionState.RECONNECTING) {
+                            // Note: Reconnection state is not part of VoiceSessionState yet
                             // TODO: Consider adding reconnection to state machine
-                            state.value = ConnectionState.RECONNECTING
+                            _uiState.value = _uiState.value.copy(
+                                connectionState = ConnectionState.RECONNECTING,
+                                isReconnecting = true
+                            )
                             updateServiceNotification()
                             scope?.launch {
                                 reconnectionManager.startReconnection()
@@ -342,24 +345,14 @@ class VoiceClientManager internal constructor(
             }
         }
         
-        // Observe AudioEngine audio levels and update UI states
-        // This is done in a separate coroutine to avoid blocking the init block
-        CoroutineScope(Dispatchers.Main).launch {
-            audioEngine.botAudioLevel.collect { level ->
-                botAudioLevel.floatValue = level
-            }
-        }
-        
-        // Observe BluetoothAudioController speakerphone state
-        CoroutineScope(Dispatchers.Main).launch {
-            bluetoothAudioController.isSpeakerphoneOn.collect { enabled ->
-                isSpeakerphoneOn.value = enabled
-            }
-        }
+        // Note: Audio levels and speakerphone state are now managed by state machine
+        // They are derived from AudioEngine and BluetoothAudioController StateFlows
+        // and mapped to VoiceUiState via VoiceUiStateMapper
         
         // Wire ReconnectionManager callbacks
         reconnectionManager.onReconnectionAttemptChanged = { attempt ->
-            reconnectionAttempt.value = attempt
+            // Update reconnection attempt in VoiceUiState
+            _uiState.value = _uiState.value.copy(reconnectionAttempt = attempt)
         }
         reconnectionManager.onMaxAttemptsReached = {
             // Add error message that will be displayed in UI
@@ -377,7 +370,7 @@ class VoiceClientManager internal constructor(
             doAutomaticRestart()
         }
         reconnectionManager.isPausedCheck = {
-            isPaused.value
+            isPausedState
         }
         
         // Initialize ConversationMonitor with current preferences
@@ -409,68 +402,12 @@ class VoiceClientManager internal constructor(
             }
         }
         
-        // Sync VoiceUiState to legacy mutableStateOf fields for backward compatibility
-        // This ensures MainActivity continues to work without changes (same MutableState references)
-        // Requirements: 4.6, 4.7, 6.4
-        CoroutineScope(Dispatchers.Main).launch {
-            _uiState.collect { newState ->
-                // Connection state
-                state.value = newState.connectionState
-                
-                // Session state
-                isPaused.value = newState.isPaused
-                
-                // Audio state
-                mic.value = newState.isMicEnabled
-                botIsTalking.value = newState.isBotTalking
-                userIsTalking.value = newState.isUserTalking
-                botAudioLevel.floatValue = newState.botAudioLevel
-                userAudioLevel.floatValue = newState.userAudioLevel
-                isSpeakerphoneOn.value = newState.isSpeakerphoneOn
-                
-                // Bot state
-                botReady.value = newState.isBotReady
-                
-                // Timer state
-                secondsUntilAutoPause.value = newState.secondsUntilAutoPause
-                minutesUntilBotTimeout.value = newState.minutesUntilBotTimeout
-                
-                // Tool execution state
-                isExecutingTool.value = newState.isExecutingTool
-                currentToolName.value = newState.currentToolName
-                
-                // Image processing state
-                isProcessingImage.value = newState.isProcessingImage
-                
-                // Transcript state
-                lastUserTranscript.value = newState.lastUserTranscript
-                lastBotTranscript.value = newState.lastBotTranscript
-                
-                // Reconnection state
-                reconnectionAttempt.value = newState.reconnectionAttempt
-                
-                // Note: errors list is not synced here as it's managed separately
-                // Note: expiryTime and camera are not part of VoiceUiState
-            }
-        }
     }
 
-    val state = mutableStateOf(ConnectionState.DISCONNECTED)
+    // Keep these fields - managed separately from VoiceUiState
     val errors = mutableStateListOf<Error>()
     val expiryTime = mutableStateOf<Timestamp?>(null)
-    val botReady = mutableStateOf(false)
-    val botIsTalking = mutableStateOf(false)
-    val userIsTalking = mutableStateOf(false)
-    val botAudioLevel = mutableFloatStateOf(0f)
-    val userAudioLevel = mutableFloatStateOf(0f)
-    val mic = mutableStateOf(false)
     val camera = mutableStateOf(false)
-    val isProcessingImage = mutableStateOf(false)
-    val isSpeakerphoneOn = mutableStateOf(false)
-    
-    // Timer state - synced from VoiceUiState (ConversationMonitor manages the actual timers)
-    val secondsUntilAutoPause = mutableStateOf(-1) // -1 = disabled, 0+ = seconds remaining
-    val minutesUntilBotTimeout = mutableStateOf(-1) // -1 = disabled, 0+ = minutes remaining
     
     // State machine components (Phase 2)
     private val _sessionState = MutableStateFlow<VoiceSessionState>(VoiceSessionState.Idle)
@@ -482,9 +419,44 @@ class VoiceClientManager internal constructor(
     // Mutex for synchronizing event processing to prevent race conditions
     private val eventProcessingMutex = Mutex()
     
-    // Tool execution state
-    val isExecutingTool = mutableStateOf(false)
-    val currentToolName = mutableStateOf<String?>(null)
+    // Deprecated getters for internal use only
+    // WARNING: These are NOT reactive! They provide one-time reads of current state.
+    // For reactive updates in Compose UI, use uiState.collectAsStateWithLifecycle()
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.connectionState"))
+    internal val connectionState: ConnectionState get() = _uiState.value.connectionState
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isPaused"))
+    internal val isPausedState: Boolean get() = _uiState.value.isPaused
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isMicEnabled"))
+    internal val isMicEnabled: Boolean get() = _uiState.value.isMicEnabled
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isBotTalking"))
+    internal val isBotTalkingState: Boolean get() = _uiState.value.isBotTalking
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isUserTalking"))
+    internal val isUserTalkingState: Boolean get() = _uiState.value.isUserTalking
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isBotReady"))
+    internal val isBotReadyState: Boolean get() = _uiState.value.isBotReady
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isSpeakerphoneOn"))
+    internal val isSpeakerphoneOnState: Boolean get() = _uiState.value.isSpeakerphoneOn
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isExecutingTool"))
+    internal val isExecutingToolState: Boolean get() = _uiState.value.isExecutingTool
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.isProcessingImage"))
+    internal val isProcessingImageState: Boolean get() = _uiState.value.isProcessingImage
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.reconnectionAttempt"))
+    internal val reconnectionAttemptCount: Int get() = _uiState.value.reconnectionAttempt
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.lastUserTranscript"))
+    internal val lastUserTranscriptText: String get() = _uiState.value.lastUserTranscript
+    
+    @Deprecated("Use uiState flow for reactive updates in Compose", ReplaceWith("uiState.value.lastBotTranscript"))
+    internal val lastBotTranscriptText: String get() = _uiState.value.lastBotTranscript
     
     /**
      * Process an event through the state machine.
@@ -576,10 +548,10 @@ class VoiceClientManager internal constructor(
         val sessionState = _sessionState.value
         val auxiliaryState = _auxiliaryState.value
         
-        // Collect audio levels
+        // Collect audio levels from AudioEngine StateFlows
         val audioLevels = AudioLevels(
-            userLevel = userAudioLevel.floatValue,
-            botLevel = botAudioLevel.floatValue
+            userLevel = audioEngine.userAudioLevel.value,
+            botLevel = audioEngine.botAudioLevel.value
         )
         
         // Collect timer state from ConversationMonitor
@@ -588,12 +560,14 @@ class VoiceClientManager internal constructor(
             minutesUntilBotTimeout = conversationMonitor?.minutesUntilBotTimeout?.value ?: -1
         )
         
-        // Collect transcript state
+        // Collect transcript state from current VoiceUiState
+        // Transcripts are updated via side effects (EmitUserTranscript, EmitBotTranscript)
+        val currentUiState = _uiState.value
         val transcripts = TranscriptState(
-            lastUser = lastUserTranscript.value,
-            lastBot = lastBotTranscript.value,
-            lastUserTime = lastUserTranscriptTime.value,
-            lastBotTime = lastBotTranscriptTime.value
+            lastUser = currentUiState.lastUserTranscript,
+            lastBot = currentUiState.lastBotTranscript,
+            lastUserTime = 0L, // Time tracking removed - not needed for UI
+            lastBotTime = 0L   // Time tracking removed - not needed for UI
         )
         
         // Map to UI state
@@ -603,9 +577,9 @@ class VoiceClientManager internal constructor(
             timerState = timerState,
             transcripts = transcripts,
             errors = errors.toList(),
-            isReconnecting = state.value == ConnectionState.RECONNECTING,
-            reconnectionAttempt = reconnectionAttempt.value,
-            isSpeakerphoneOn = isSpeakerphoneOn.value,
+            isReconnecting = currentUiState.isReconnecting,
+            reconnectionAttempt = currentUiState.reconnectionAttempt,
+            isSpeakerphoneOn = bluetoothAudioController.isSpeakerphoneOn.value,
             isExecutingTool = auxiliaryState.isExecutingTool,
             currentToolName = auxiliaryState.currentToolName,
             isProcessingImage = auxiliaryState.isProcessingImage
@@ -640,6 +614,10 @@ class VoiceClientManager internal constructor(
                         // Use NonCancellable to ensure cleanup completes
                         withContext(NonCancellable) {
                             audioEngine.stopRecording()
+                            // Wait for AudioRecord to be fully released before proceeding
+                            // This ensures Picovoice can acquire the microphone without conflicts
+                            // Requirements: 4.2, 4.3
+                            audioEngine.awaitRecordingReleased()
                         }
                     }
                     is SideEffect.PauseRecording -> {
@@ -791,15 +769,15 @@ class VoiceClientManager internal constructor(
                     // Transcript side effects
                     is SideEffect.EmitUserTranscript -> {
                         Log.d(TAG, "📝 Side effect: EmitUserTranscript")
-                        lastUserTranscript.value = sideEffect.text
-                        lastUserTranscriptTime.value = System.currentTimeMillis()
+                        // Update VoiceUiState with new transcript
+                        _uiState.value = _uiState.value.copy(lastUserTranscript = sideEffect.text)
                         sessionManager?.captureUserTranscript(sideEffect.text)
                         onUserTranscript?.invoke(sideEffect.text)
                     }
                     is SideEffect.EmitBotTranscript -> {
                         Log.d(TAG, "📝 Side effect: EmitBotTranscript")
-                        lastBotTranscript.value = sideEffect.text
-                        lastBotTranscriptTime.value = System.currentTimeMillis()
+                        // Update VoiceUiState with new transcript
+                        _uiState.value = _uiState.value.copy(lastBotTranscript = sideEffect.text)
                         sessionManager?.captureBotTranscript(sideEffect.text)
                         onBotTranscript?.invoke(sideEffect.text)
                     }
@@ -811,24 +789,14 @@ class VoiceClientManager internal constructor(
         }
     }
     
-    // Indicates if session is paused (disconnected but can be resumed)
-    val isPaused = mutableStateOf(false)
-    
     // Transcript callbacks
     var onUserTranscript: ((String) -> Unit)? = null
     var onBotTranscript: ((String) -> Unit)? = null
-    
-    // Live transcript display (for debug)
-    val lastUserTranscript = mutableStateOf("")
-    val lastBotTranscript = mutableStateOf("")
-    val lastUserTranscriptTime = mutableStateOf(0L)
-    val lastBotTranscriptTime = mutableStateOf(0L)
     
     // Reconnection callback - invoked when max reconnection attempts are reached
     var onMaxReconnectionAttemptsReached: (() -> Unit)? = null
     
     // Expose reconnection attempt count for UI
-    val reconnectionAttempt = mutableStateOf(0)
     val maxReconnectionAttempts = 5
     
     /**
@@ -881,7 +849,7 @@ class VoiceClientManager internal constructor(
      */
     private fun updatePicovoiceState() {
         try {
-            val shouldPorcupineBeActive = isPaused.value || botIsTalking.value
+            val shouldPorcupineBeActive = isPausedState || isBotTalkingState
             
             val action = if (shouldPorcupineBeActive) {
                 "ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE"
@@ -894,8 +862,8 @@ class VoiceClientManager internal constructor(
             context.sendBroadcast(intent)
             
             val reason = when {
-                isPaused.value -> "session paused"
-                botIsTalking.value -> "bot talking"
+                isPausedState -> "session paused"
+                isBotTalkingState -> "bot talking"
                 else -> "user can talk"
             }
             
@@ -922,12 +890,12 @@ class VoiceClientManager internal constructor(
      */
     fun start(threadSettings: ThreadSettings? = null) {
         // Allow start only if DISCONNECTED, RECONNECTING, or if we're stuck in CONNECTING
-        if (state.value == ConnectionState.CONNECTED) {
+        if (connectionState == ConnectionState.CONNECTED) {
             Log.w(TAG, "Already connected")
             return
         }
         
-        if (state.value == ConnectionState.DISCONNECTING) {
+        if (connectionState == ConnectionState.DISCONNECTING) {
             Log.w(TAG, "Currently disconnecting, cannot start")
             return
         }
@@ -939,7 +907,7 @@ class VoiceClientManager internal constructor(
         }
         
         // Start session tracking (or resume if paused)
-        if (isPaused.value) {
+        if (isPausedState) {
             sessionStateManager.resumeSession()
         } else {
             sessionStateManager.startSession()
@@ -1324,23 +1292,23 @@ class VoiceClientManager internal constructor(
      * Requirements: 6.2 - Public methods use events instead of direct state manipulation
      */
     fun enableMic(enabled: Boolean) {
-        Log.i(TAG, "enableMic called - enabled: $enabled, current state: ${state.value}, current mic: ${mic.value}")
+        Log.i(TAG, "enableMic called - enabled: $enabled, current state: ${connectionState}, current mic: ${isMicEnabled}")
         
         if (enabled) {
             // User wants to enable mic (resume session)
-            if (state.value == ConnectionState.DISCONNECTED) {
+            if (connectionState == ConnectionState.DISCONNECTED) {
                 Log.i(TAG, "Mic enabled - resuming session")
                 resume()
-            } else if (state.value == ConnectionState.CONNECTED) {
+            } else if (connectionState == ConnectionState.CONNECTED) {
                 // Already connected, toggle mic if it's currently disabled
-                if (!mic.value) {
+                if (!isMicEnabled) {
                     Log.i(TAG, "Mic enabled - toggling mic on")
                     processEvent(VoiceEvent.MicToggled)
                 } else {
                     Log.d(TAG, "Mic already enabled, no action needed")
                 }
             } else {
-                Log.w(TAG, "⚠️ Mic enable ignored - invalid state: ${state.value}")
+                Log.w(TAG, "⚠️ Mic enable ignored - invalid state: ${connectionState}")
             }
         } else {
             // User wants to disable mic (pause session)
@@ -1348,7 +1316,7 @@ class VoiceClientManager internal constructor(
             // CRITICAL FIX: Do NOT pause if already RECONNECTING!
             // Picovoice może fałszywie wykryć wake word podczas reconnection
             // Wywołanie pause() anuluje reconnection i powoduje utknięcie
-            if (state.value == ConnectionState.RECONNECTING) {
+            if (connectionState == ConnectionState.RECONNECTING) {
                 Log.w(TAG, "⚠️ Mic disabled during RECONNECTING - ignoring to allow reconnection to complete")
                 Log.w(TAG, "   This is likely a false wake word detection during reconnection")
                 return
@@ -1356,18 +1324,18 @@ class VoiceClientManager internal constructor(
             
             // CRITICAL FIX: Do NOT pause if already DISCONNECTED!
             // This prevents double-pause which causes issues
-            if (state.value == ConnectionState.DISCONNECTED) {
+            if (connectionState == ConnectionState.DISCONNECTED) {
                 Log.w(TAG, "⚠️ Mic disabled but already DISCONNECTED - ignoring")
                 return
             }
             
             // If connected or connecting, pause the session
-            if (state.value == ConnectionState.CONNECTED || 
-                state.value == ConnectionState.CONNECTING) {
+            if (connectionState == ConnectionState.CONNECTED || 
+                connectionState == ConnectionState.CONNECTING) {
                 Log.i(TAG, "Mic disabled - pausing session")
                 pause()
             } else {
-                Log.w(TAG, "⚠️ Mic disable ignored - unexpected state: ${state.value}")
+                Log.w(TAG, "⚠️ Mic disable ignored - unexpected state: ${connectionState}")
             }
         }
     }
@@ -1385,12 +1353,12 @@ class VoiceClientManager internal constructor(
      * Requirements: 3.3, 6.2 - Public methods use events instead of direct state manipulation
      */
     fun stop() {
-        if (state.value == ConnectionState.DISCONNECTED) {
+        if (connectionState == ConnectionState.DISCONNECTED) {
             Log.i(TAG, "Stop called but already DISCONNECTED, ignoring")
             return
         }
 
-        val previousState = state.value
+        val previousState = connectionState
         Log.i(TAG, "Stop requested - current state: $previousState")
         
         // Cancel any ongoing reconnection attempts
@@ -1454,12 +1422,12 @@ class VoiceClientManager internal constructor(
      * Requirements: 6.2 - Public methods use events instead of direct state manipulation
      */
     fun pause() {
-        if (state.value == ConnectionState.DISCONNECTED) {
+        if (connectionState == ConnectionState.DISCONNECTED) {
             Log.w(TAG, "Pause called but already DISCONNECTED, ignoring")
             return
         }
         
-        Log.i(TAG, "Pause requested - current state: ${state.value}")
+        Log.i(TAG, "Pause requested - current state: ${connectionState}")
         
         // Cancel any ongoing reconnection attempts
         reconnectionManager.cancelReconnection()
@@ -1483,7 +1451,7 @@ class VoiceClientManager internal constructor(
      * Requirements: 6.2 - Public methods use events instead of direct state manipulation
      */
     fun resume() {
-        if (!isPaused.value) {
+        if (!isPausedState) {
             Log.w(TAG, "Resume called but session is not paused, calling start() instead")
             start(currentThreadSettings)
             return
@@ -1497,32 +1465,31 @@ class VoiceClientManager internal constructor(
     }
     
     /**
-     * Toggle microphone on/off.
-     * Used by wake word detection and UI button.
+     * Toggle between paused and active state.
+     * Called by mic button - replaces toggleMic().
      * 
-     * This method now uses event-based processing through the state machine.
-     * The state machine will toggle the isMicEnabled flag in the current state.
+     * This method checks the current state and calls pause() if active
+     * (Listening, Speaking, Thinking) or resume() if Paused.
      * 
-     * Requirements: 6.2 - Public methods use events instead of direct state manipulation
+     * Requirements: 2.1, 2.2, 3.5
      */
-    fun toggleMic() {
-        Log.i(TAG, "🎤 Toggle microphone - Current state: ${if (mic.value) "ON" else "OFF"}")
-        
-        // Only toggle if we're in a state where mic control makes sense
+    fun togglePause() {
         val currentState = _sessionState.value
+        Log.i(TAG, "⏯️ Toggle pause - Current state: ${currentState::class.simpleName}")
+        
         when (currentState) {
-            is VoiceSessionState.Listening,
-            is VoiceSessionState.Speaking -> {
-                // Process MicToggled event through state machine
-                processEvent(VoiceEvent.MicToggled)
+            is VoiceSessionState.Paused -> {
+                Log.i(TAG, "   Resuming from paused state")
+                resume()
             }
-            is VoiceSessionState.Paused,
-            is VoiceSessionState.Idle -> {
-                // In paused/idle state, use enableMic to resume/start
-                enableMic(!mic.value)
+            is VoiceSessionState.Listening,
+            is VoiceSessionState.Speaking,
+            is VoiceSessionState.Thinking -> {
+                Log.i(TAG, "   Pausing active session")
+                pause()
             }
             else -> {
-                Log.w(TAG, "⚠️ Toggle mic ignored - invalid state: ${currentState::class.simpleName}")
+                Log.w(TAG, "   Cannot toggle pause in state: ${currentState::class.simpleName}")
             }
         }
     }
@@ -1538,7 +1505,7 @@ class VoiceClientManager internal constructor(
     }
 
     private fun handleDisconnect(preserveSessionHandle: Boolean = false) {
-        val currentState = state.value
+        val currentState = connectionState
         Log.i(TAG, "Handling disconnect - Current state: $currentState, Preserve session: $preserveSessionHandle")
         Log.i(TAG, "Starting resource cleanup...")
         
@@ -1589,7 +1556,7 @@ class VoiceClientManager internal constructor(
             bluetoothAudioController.release()
             Log.d(TAG, "BluetoothAudioController released (session ended)")
         } else {
-            Log.d(TAG, "BluetoothAudioController state preserved (session paused) - Speakerphone: ${isSpeakerphoneOn.value}")
+            Log.d(TAG, "BluetoothAudioController state preserved (session paused) - Speakerphone: ${isSpeakerphoneOnState}")
         }
         
         // Note: Timer monitoring (auto-pause, bot silence detection) is now handled by ConversationMonitor
@@ -1631,9 +1598,15 @@ class VoiceClientManager internal constructor(
             Log.d(TAG, "Thread settings preserved for session resumption")
         }
         
-        val previousState = state.value
-        // Note: State updates are now handled through VoiceUiState sync
+        val previousState = connectionState
+        // Note: State updates are now handled through VoiceUiState
         // The state machine should already be in Idle or appropriate state
+        // Update VoiceUiState to reflect disconnected state
+        _uiState.value = _uiState.value.copy(
+            connectionState = ConnectionState.DISCONNECTED,
+            isConnected = false,
+            isReconnecting = false
+        )
         Log.i(TAG, "State transition: $previousState -> DISCONNECTED (cleanup complete)")
         updateServiceNotification()
         
@@ -1649,8 +1622,8 @@ class VoiceClientManager internal constructor(
 
     fun sendImage(uri: Uri) {
         // Check if not connected - queue the image for retry after reconnection
-        if (state.value != ConnectionState.CONNECTED) {
-            Log.w(TAG, "Cannot send image - not connected (state: ${state.value})")
+        if (connectionState != ConnectionState.CONNECTED) {
+            Log.w(TAG, "Cannot send image - not connected (state: ${connectionState})")
             pendingImage = uri
             errors.add(Error(context.getString(R.string.error_image_queued_for_retry)))
             Log.i(TAG, "Image queued for retry after reconnection: $uri")
@@ -1690,7 +1663,7 @@ class VoiceClientManager internal constructor(
                     Log.i(TAG, "Image encoded to Base64 - Size: $base64Size chars (${base64Size / 1024} KB)")
                     
                     // Check if still connected before sending
-                    if (state.value != ConnectionState.CONNECTED) {
+                    if (connectionState != ConnectionState.CONNECTED) {
                         Log.w(TAG, "Connection lost during image processing, queuing for retry")
                         pendingImage = uri
                         withContext(Dispatchers.Main) {
@@ -1836,10 +1809,10 @@ class VoiceClientManager internal constructor(
                 return
             }
             
-            val statusText = when (state.value) {
+            val statusText = when (connectionState) {
                 ConnectionState.CONNECTED -> "Trwa rozmowa głosowa"
                 ConnectionState.RECONNECTING -> {
-                    val attempt = reconnectionAttempt.value
+                    val attempt = reconnectionAttemptCount
                     if (attempt > 0) {
                         "Ponowne łączenie... próba $attempt z $maxReconnectionAttempts"
                     } else {
@@ -1865,13 +1838,13 @@ class VoiceClientManager internal constructor(
      */
     private suspend fun doAutomaticRestart() {
         // Check if still in RECONNECTING state
-        if (state.value != ConnectionState.RECONNECTING) {
-            Log.i(TAG, "✅ State changed to ${state.value}, no auto-restart needed")
+        if (connectionState != ConnectionState.RECONNECTING) {
+            Log.i(TAG, "✅ State changed to ${connectionState}, no auto-restart needed")
             return
         }
         
         // CRITICAL FIX: Check if session was paused before automatic restart
-        if (isPaused.value) {
+        if (isPausedState) {
             Log.w(TAG, "⚠️ Automatic restart cancelled - session is paused")
             return
         }
@@ -1893,12 +1866,12 @@ class VoiceClientManager internal constructor(
         delay(500)
         
         // Check again after delay
-        if (isPaused.value) {
+        if (isPausedState) {
             Log.w(TAG, "⚠️ Automatic restart cancelled - session was paused during cleanup")
             return
         }
         
-        // Note: reconnectionAttempt is now synced from VoiceUiState
+        // Note: reconnectionAttempt is now managed in VoiceUiState
         // Reset is handled by reconnectionManager.reset()
         
         // Start fresh connection
@@ -1913,12 +1886,12 @@ class VoiceClientManager internal constructor(
             delay(500)
             waited += 500
             
-            if (state.value == ConnectionState.CONNECTED && botReady.value) {
+            if (connectionState == ConnectionState.CONNECTED && isBotReadyState) {
                 Log.i(TAG, "✅ Automatic restart successful after ${waited}ms")
                 return
             }
             
-            if (state.value == ConnectionState.DISCONNECTED) {
+            if (connectionState == ConnectionState.DISCONNECTED) {
                 Log.w(TAG, "❌ Automatic restart failed - disconnected after ${waited}ms")
                 // Try normal reconnection again
                 scope?.launch {
@@ -1942,7 +1915,7 @@ class VoiceClientManager internal constructor(
     private suspend fun attemptReconnect() {
         try {
             // CRITICAL FIX: Check if session was paused before attempting reconnect
-            if (isPaused.value) {
+            if (isPausedState) {
                 Log.w(TAG, "⚠️ Reconnection cancelled - session is paused")
                 return
             }
@@ -1950,7 +1923,7 @@ class VoiceClientManager internal constructor(
             val attemptCount = reconnectionManager.getAttemptCount()
             Log.i(TAG, "🔄 Attempting reconnection (attempt $attemptCount of $maxReconnectionAttempts)...")
             Log.i(TAG, "   Thread settings: ${currentThreadSettings?.conversationId ?: "none"}")
-            Log.i(TAG, "   Current state: ${state.value}")
+            Log.i(TAG, "   Current state: ${connectionState}")
             
             // Clean up old WebSocket connection COMPLETELY
             webSocketClient.disconnect(1000, "Reconnecting")
@@ -1961,17 +1934,19 @@ class VoiceClientManager internal constructor(
             delay(500)
             
             // Check again after delay
-            if (isPaused.value) {
+            if (isPausedState) {
                 Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during cleanup")
                 return
             }
             
             // Ensure we're in RECONNECTING state
-            if (state.value != ConnectionState.RECONNECTING) {
-                // Note: state.value is now synced from VoiceUiState
-                // For reconnection, we need to set this directly as it's not part of VoiceSessionState
+            if (connectionState != ConnectionState.RECONNECTING) {
+                // Note: Reconnection state is not part of VoiceSessionState yet
                 // TODO: Consider adding reconnection to state machine
-                state.value = ConnectionState.RECONNECTING
+                _uiState.value = _uiState.value.copy(
+                    connectionState = ConnectionState.RECONNECTING,
+                    isReconnecting = true
+                )
             }
             
             // Call start() to initiate NEW connection
@@ -1991,11 +1966,11 @@ class VoiceClientManager internal constructor(
                 
                 // Log state every 2 seconds for debugging
                 if (waited % 2000L == 0L) {
-                    Log.d(TAG, "   ${waited / 1000}s: state=${state.value}, botReady=${botReady.value}, wsState=${webSocketClient.connectionState.value}")
+                    Log.d(TAG, "   ${waited / 1000}s: state=${connectionState}, botReady=${isBotReadyState}, wsState=${webSocketClient.connectionState.value}")
                 }
                 
                 // Success: Connected AND received setupComplete
-                if (state.value == ConnectionState.CONNECTED && botReady.value) {
+                if (connectionState == ConnectionState.CONNECTED && isBotReadyState) {
                     Log.i(TAG, "✅ Reconnection successful after ${waited}ms")
                     Log.i(TAG, "   State: CONNECTED, botReady: true")
                     // Reset reconnection manager on success
@@ -2004,7 +1979,7 @@ class VoiceClientManager internal constructor(
                 }
                 
                 // Failure: Disconnected (connection failed)
-                if (state.value == ConnectionState.DISCONNECTED) {
+                if (connectionState == ConnectionState.DISCONNECTED) {
                     Log.w(TAG, "❌ Reconnection failed - disconnected after ${waited}ms")
                     return
                 }
@@ -2012,7 +1987,7 @@ class VoiceClientManager internal constructor(
             
             // Timeout
             Log.w(TAG, "⏱️ Reconnection timeout after ${waited}ms")
-            Log.w(TAG, "   Final state: ${state.value}, botReady: ${botReady.value}")
+            Log.w(TAG, "   Final state: ${connectionState}, botReady: ${isBotReadyState}")
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Reconnection attempt failed: ${e.message}", e)

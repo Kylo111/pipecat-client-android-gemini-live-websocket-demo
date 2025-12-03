@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.FloatState
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,16 +31,16 @@ fun UserMicButton(
     onClick: () -> Unit,
     micEnabled: Boolean,
     modifier: Modifier,
-    isTalking: State<Boolean>,
-    audioLevel: FloatState,
+    isTalking: Boolean,
+    audioLevel: Float,
 ) {
     Box(
         modifier = modifier.padding(15.dp),
         contentAlignment = Alignment.Center
     ) {
         val borderThickness by animateDpAsState(
-            if (isTalking.value) {
-                (24.dp * Math.pow(audioLevel.floatValue.toDouble(), 0.3).toFloat()) + 3.dp
+            if (isTalking) {
+                (24.dp * Math.pow(audioLevel.toDouble(), 0.3).toFloat()) + 3.dp
             } else {
                 6.dp
             }
@@ -51,7 +49,7 @@ fun UserMicButton(
         val color by animateColorAsState(
             if (!micEnabled) {
                 Colors.mutedMicBackground
-            } else if (isTalking.value) {
+            } else if (isTalking) {
                 Color.Black
             } else {
                 Colors.unmutedMicBackground
@@ -80,9 +78,9 @@ fun UserMicButton(
                 ),
                 tint = Color.White,
                 contentDescription = if (micEnabled) {
-                    "Mute microphone"
+                    "Pause session"
                 } else {
-                    "Unmute microphone"
+                    "Resume session"
                 },
             )
         }
@@ -96,8 +94,8 @@ fun PreviewUserMicButton() {
         onClick = {},
         micEnabled = true,
         modifier = Modifier,
-        isTalking = remember { mutableStateOf(false) },
-        audioLevel = remember { mutableFloatStateOf(1.0f) }
+        isTalking = false,
+        audioLevel = 1.0f
     )
 }
 
@@ -108,7 +106,7 @@ fun PreviewUserMicButtonMuted() {
         onClick = {},
         micEnabled = false,
         modifier = Modifier,
-        isTalking = remember { mutableStateOf(false) },
-        audioLevel = remember { mutableFloatStateOf(1.0f) }
+        isTalking = false,
+        audioLevel = 1.0f
     )
 }
