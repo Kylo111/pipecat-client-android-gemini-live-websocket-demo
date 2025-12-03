@@ -187,6 +187,7 @@ class VoiceSessionStateMachine {
                 ReduceResult(
                     newState = VoiceSessionState.Listening(),
                     sideEffects = listOf(
+                        SideEffect.PerformPostSetupOperations,
                         SideEffect.StartRecording,
                         SideEffect.StartAutoPauseTimer,
                         SideEffect.UpdateServiceNotification,

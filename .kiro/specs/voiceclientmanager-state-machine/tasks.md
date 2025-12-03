@@ -1,5 +1,27 @@
 # Implementation Plan
 
+**STATUS: PHASE 8 INCOMPLETE ⚠️**
+
+**Current Status:**
+- ✅ Phases 1-7 completed successfully
+- ⚠️ **Phase 8 NOT completed** - VoiceClientManager still has 1968 lines (target: 400-500 lines)
+
+**What's Working:**
+- ✅ State machine with sealed classes (VoiceSessionState, VoiceEvent, SideEffect)
+- ✅ ConversationMonitor for timer-based logic
+- ✅ Pure reducer function with comprehensive property tests
+- ✅ VoiceUiState and mapper for UI state derivation
+- ✅ Full integration with VoiceClientManager
+- ✅ Event-based architecture with side effect execution
+- ✅ Backward compatibility maintained
+
+**What's Missing (Phase 8):**
+- ❌ Dead code removal not completed
+- ❌ VoiceClientManager still ~1968 lines (should be 400-500)
+- ❌ Complex if/else trees may still exist
+- ❌ Inline logic not fully extracted
+- ❌ Final cleanup and verification not done
+
 ## Phase 1: Define States and Events (Lowest Risk)
 
 - [x] 1. Create VoiceSessionState sealed class
@@ -228,16 +250,152 @@
 
 ## Phase 8: Final Cleanup
 
-- [x] 28. Remove dead code
-  - [x] 28.1 Clean up VoiceClientManager
-    - Remove all code that was moved to state machine or ConversationMonitor
-    - Remove complex if/else trees replaced by reducer
-    - Remove handleTextMessage() inline logic (use GeminiProtocol events)
-    - Verify line count is approximately 400-500 lines
+**Current Status:** VoiceClientManager has **1968 lines** (target: 400-500 lines)
+
+**Analysis of what needs to be removed:**
+
+The file is still very large because it contains:
+1. ❌ Complex reconnection logic (doAutomaticRestart, attemptReconnect) - ~200 lines
+2. ❌ Extensive handleTextMessage() with inline event routing - should be minimal
+3. ❌ handleAudioMessage() with volume boost logic - could be simplified
+4. ❌ Large start() method with extensive setup logic - ~150 lines
+5. ❌ handleDisconnect() with complex cleanup logic - ~100 lines
+6. ❌ sendImage() with extensive processing logic - ~100 lines
+7. ❌ Deprecated internal getters that are no longer needed
+8. ❌ Extensive logging and debug code
+9. ❌ Complex state checks in enableMic(), stop(), pause(), resume()
+
+**Tasks:**
+
+- [x] 28. Simplify reconnection logic
+
+
+
+
+  - [x] 28.1 Move reconnection logic to ReconnectionManager
+
+
+    - Extract doAutomaticRestart() to ReconnectionManager
+    - Extract attemptReconnect() to ReconnectionManager
+    - VoiceClientManager should only call reconnectionManager methods
+    - Estimated reduction: ~200 lines
     - _Requirements: 6.1, 6.3_
-   
-- [x] 29. Verify backward compatibility
-  - [x] 29.1 Test all existing functionality
+
+- [x] 29. Simplify message handling
+
+
+
+
+  - [x] 29.1 Minimize handleTextMessage()
+
+
+    - Should only parse with GeminiProtocol and call processEvent()
+    - Remove any inline logic or state checks
+    - Estimated reduction: ~50 lines
+    - _Requirements: 6.1_
+  - [x] 29.2 Simplify handleAudioMessage()
+
+
+    - Move volume boost logic to AudioEngine or separate utility
+    - Should only call processEvent(VoiceEvent.BotAudioReceived)
+    - Estimated reduction: ~30 lines
+    - _Requirements: 6.1_
+
+- [x] 30. Simplify start() method
+
+
+
+  - [x] 30.1 Extract setup message building
+
+    - Move setup message construction to separate method or GeminiProtocol
+    - start() should only validate, build URL/setup, and call processEvent()
+    - Estimated reduction: ~100 lines
+    - _Requirements: 6.1, 6.2_
+
+- [x] 31. Simplify cleanup methods
+
+
+
+  - [x] 31.1 Minimize handleDisconnect()
+
+
+    - Most cleanup is now handled by state machine side effects
+    - Should only handle non-state-machine cleanup (scope, wake lock, Bluetooth)
+    - Estimated reduction: ~50 lines
+    - _Requirements: 6.1, 6.3_
+  - [x] 31.2 Simplify stop(), pause(), resume()
+
+
+    - Should only call processEvent() and minimal additional cleanup
+    - Remove redundant state checks (state machine handles this)
+    - Estimated reduction: ~50 lines
+    - _Requirements: 6.2_
+
+- [x] 32. Remove deprecated code
+
+
+
+
+
+  - [x] 32.1 Remove deprecated internal getters
+
+
+    - Remove @Deprecated internal val properties (connectionState, isPausedState, etc.)
+    - Replace internal usage with direct _uiState.value access
+    - Estimated reduction: ~50 lines
+    - _Requirements: 6.3_
+  - [x] 32.2 Remove excessive logging
+
+
+    - Keep essential logs (errors, state transitions)
+    - Remove verbose debug logs or put behind DEBUG_LOGGING flag
+    - Estimated reduction: ~100 lines
+    - _Requirements: 6.1_
+
+- [x] 33. Extract image processing
+
+
+
+
+  - [x] 33.1 Move sendImage() logic to ImageProcessor
+
+    - ImageProcessor should handle the entire flow
+    - VoiceClientManager should only call imageProcessor.sendImage()
+    - Estimated reduction: ~80 lines
+    - _Requirements: 6.1_
+- [x] 34. Verify line count reduction
+
+
+
+
+- [ ] 34. Verify line count reduction
+
+
+  - [x] 34.1 Check final line count
+
+
+    - Target: 400-500 lines (currently: 1968 lines)
+    - Expected reduction: ~660 lines minimum
+    - Final expected: ~1300 lines (still needs more work)
+    - _Requirements: 6.1_
+  - [x] 34.2 Identify remaining bloat
+
+
+    - If still > 500 lines, identify what else can be extracted
+    - Consider extracting more logic to helper classes
+    - _Requirements: 6.1_
+
+- [x] 35. Verify backward compatibility
+
+
+
+
+
+
+
+  - [x] 35.1 Test all existing functionality
+
+
     - Test start/stop lifecycle
     - Test pause/resume with session resumption
     - Test mic toggle
@@ -245,7 +403,10 @@
     - Test auto-pause timeout
     - Test bot response timeout
     - Test reconnection flow
+    - Test image sending
     - _Requirements: 6.4, 6.5_
 
-- [x] 30. Final Checkpoint - Ensure all tests pass
+- [ ] 36. Final Checkpoint - Ensure all tests pass
+
+
   - Ensure all tests pass, ask the user if questions arise.

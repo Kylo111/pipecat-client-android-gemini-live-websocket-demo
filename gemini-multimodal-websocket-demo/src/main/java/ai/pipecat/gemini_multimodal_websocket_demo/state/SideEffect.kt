@@ -192,6 +192,12 @@ sealed class SideEffect {
      */
     object UpdatePicovoiceState : SideEffect()
     
+    /**
+     * Perform post-setup operations after connection is established
+     * (reset reconnection manager, initialize Bluetooth, acquire wake lock, etc.)
+     */
+    object PerformPostSetupOperations : SideEffect()
+    
     // ============================================================================
     // Tool Side Effects
     // ============================================================================

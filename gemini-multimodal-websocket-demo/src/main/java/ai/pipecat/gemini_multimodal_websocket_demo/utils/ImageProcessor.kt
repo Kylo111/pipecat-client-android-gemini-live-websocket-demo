@@ -1,19 +1,34 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.utils
 
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import ai.pipecat.gemini_multimodal_websocket_demo.SessionManager
+import ai.pipecat.gemini_multimodal_websocket_demo.network.WebSocketClient
+import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceEvent
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 /**
  * Processes images for transmission over WebSocket connection.
- * Handles validation, resizing, and compression to ensure images meet size requirements.
+ * Handles validation, resizing, compression, encoding, and transmission.
  * Includes performance optimizations and detailed logging.
+ * 
+ * Requirements: 6.1 - Extract image processing logic from VoiceClientManager
  */
 class ImageProcessor(private val context: Context) {
     
@@ -23,10 +38,17 @@ class ImageProcessor(private val context: Context) {
         private const val MAX_DIMENSION_PX = 2300
         private const val COMPRESSION_QUALITY = 85
         private const val MAX_PROCESSED_SIZE_BYTES = 7 * 1024 * 1024 // 7MB after Base64
+        private const val IMAGE_PROCESSING_TIMEOUT_MS = 30000L // 30 seconds
         
         // Performance thresholds
         private const val TARGET_PROCESSING_TIME_MS = 2000L
         private const val WARNING_MEMORY_USAGE_KB = 10 * 1024 // 10MB
+    }
+    
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+        explicitNulls = false
     }
     
     /**
@@ -288,5 +310,162 @@ class ImageProcessor(private val context: Context) {
      */
     fun getPerformanceStats(): String {
         return "ImageProcessor performance stats available in logs"
+    }
+    
+    /**
+     * Result of image sending operation
+     */
+    sealed class SendImageResult {
+        data class Success(val imageDescription: String) : SendImageResult()
+        data class Queued(val uri: Uri) : SendImageResult()
+        data class Failure(val errorMessage: String) : SendImageResult()
+    }
+    
+    /**
+     * Sends an image through the WebSocket connection.
+     * Handles the entire flow: processing, encoding, transmission, and error handling.
+     * 
+     * This method:
+     * 1. Validates connection state
+     * 2. Processes the image (resize, compress)
+     * 3. Encodes to Base64
+     * 4. Builds and sends WebSocket message
+     * 5. Records in session manager
+     * 6. Handles errors and queuing for retry
+     * 
+     * Requirements: 6.1 - Extract image sending logic from VoiceClientManager
+     * 
+     * @param uri The URI of the image to send
+     * @param isConnected Whether the WebSocket is currently connected
+     * @param webSocketClient The WebSocket client to send through
+     * @param sessionManager Optional session manager to record the event
+     * @param onEvent Callback to emit VoiceEvents for state updates
+     * @return SendImageResult indicating success, queued, or failure
+     */
+    suspend fun sendImage(
+        uri: Uri,
+        isConnected: Boolean,
+        webSocketClient: WebSocketClient,
+        sessionManager: SessionManager?,
+        onEvent: (VoiceEvent) -> Unit
+    ): SendImageResult = withContext(Dispatchers.IO) {
+        // Check if not connected - queue the image for retry after reconnection
+        if (!isConnected) {
+            Log.w(TAG, "Cannot send image - not connected")
+            onEvent(VoiceEvent.ImageProcessingFailed(context.getString(R.string.error_image_queued_for_retry)))
+            return@withContext SendImageResult.Queued(uri)
+        }
+
+        Log.i(TAG, "Starting image send with processing - URI: $uri")
+        val startTime = System.currentTimeMillis()
+        
+        try {
+            // Emit ImageProcessingStarted event to update state
+            onEvent(VoiceEvent.ImageProcessingStarted)
+            
+            // Process image with timeout
+            val processingResult = withTimeout(IMAGE_PROCESSING_TIMEOUT_MS) {
+                processImage(uri)
+            }
+            
+            processingResult.onSuccess { processedImage ->
+                Log.i(TAG, "Image processed successfully:")
+                Log.i(TAG, "  Original size: ${processedImage.originalSize} bytes")
+                Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
+                Log.i(TAG, "  Dimensions: ${processedImage.dimensions.first}x${processedImage.dimensions.second}")
+                Log.i(TAG, "  MIME type: ${processedImage.mimeType}")
+                
+                // Encode to Base64
+                val base64Image = Base64.encodeToString(processedImage.data, Base64.NO_WRAP)
+                val base64Size = base64Image.length
+                
+                Log.i(TAG, "Image encoded to Base64 - Size: $base64Size chars (${base64Size / 1024} KB)")
+                
+                // Check if still connected before sending
+                if (!isConnected) {
+                    Log.w(TAG, "Connection lost during image processing, queuing for retry")
+                    onEvent(VoiceEvent.ImageProcessingFailed(context.getString(R.string.error_image_queued_for_retry)))
+                    onEvent(VoiceEvent.ImageProcessingCompleted)
+                    return@withContext SendImageResult.Queued(uri)
+                }
+                
+                // Build and send message
+                val message = buildJsonObject {
+                    putJsonObject("realtime_input") {
+                        putJsonArray("media_chunks") {
+                            add(buildJsonObject {
+                                put("mime_type", processedImage.mimeType)
+                                put("data", base64Image)
+                            })
+                        }
+                    }
+                }
+                
+                val messageJson = json.encodeToString(message)
+                val messageSent = webSocketClient.send(messageJson)
+                
+                val elapsedTime = System.currentTimeMillis() - startTime
+                
+                if (messageSent) {
+                    Log.i(TAG, "Image sent successfully in ${elapsedTime}ms")
+                    
+                    // Record image event in session
+                    val imageDescription = "Image sent: ${uri.lastPathSegment ?: "unknown"} " +
+                            "(${processedImage.processedSize} bytes, ${processedImage.dimensions.first}x${processedImage.dimensions.second})"
+                    sessionManager?.recordImageSent(imageDescription)
+                    
+                    // Emit completion event
+                    onEvent(VoiceEvent.ImageProcessingCompleted)
+                    
+                    return@withContext SendImageResult.Success(imageDescription)
+                } else {
+                    Log.e(TAG, "Failed to send image - WebSocket send returned false")
+                    val errorMessage = context.getString(R.string.error_image_send_failed, context.getString(R.string.error_image_send_connection_problem))
+                    onEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
+                    onEvent(VoiceEvent.ImageProcessingCompleted)
+                    return@withContext SendImageResult.Failure(errorMessage)
+                }
+                
+            }.onFailure { error ->
+                Log.e(TAG, "Image processing failed: ${error.message}", error)
+                
+                val errorMessage = when (error) {
+                    is OutOfMemoryError -> context.getString(R.string.error_image_too_large_memory)
+                    is kotlinx.coroutines.TimeoutCancellationException -> context.getString(R.string.error_image_processing_timeout)
+                    else -> context.getString(R.string.error_image_processing_failed_with_message, error.message ?: "")
+                }
+                
+                // Emit failure events
+                onEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
+                onEvent(VoiceEvent.ImageProcessingCompleted)
+                
+                return@withContext SendImageResult.Failure(errorMessage)
+            }
+            
+            // Emit completion event
+            onEvent(VoiceEvent.ImageProcessingCompleted)
+            
+            // Should not reach here, but return failure as fallback
+            SendImageResult.Failure("Unknown error")
+            
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            Log.e(TAG, "Image processing timeout after ${IMAGE_PROCESSING_TIMEOUT_MS}ms", e)
+            val errorMessage = context.getString(R.string.error_image_processing_timeout)
+            onEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
+            onEvent(VoiceEvent.ImageProcessingCompleted)
+            SendImageResult.Failure(errorMessage)
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "Out of memory while processing image", e)
+            val errorMessage = context.getString(R.string.error_image_too_large_memory)
+            onEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
+            onEvent(VoiceEvent.ImageProcessingCompleted)
+            SendImageResult.Failure(errorMessage)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending image: ${e.message}", e)
+            val errorMessage = context.getString(R.string.error_image_send_failed, e.message ?: "")
+            onEvent(VoiceEvent.ImageProcessingFailed(errorMessage))
+            onEvent(VoiceEvent.ImageProcessingCompleted)
+            SendImageResult.Failure(errorMessage)
+        }
     }
 }

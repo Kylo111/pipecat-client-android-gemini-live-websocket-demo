@@ -1,5 +1,8 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.navigation.ConversationLauncher
+import ai.pipecat.gemini_multimodal_websocket_demo.navigation.NavigationController
+import ai.pipecat.gemini_multimodal_websocket_demo.navigation.Screen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.BackPressHandler
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
@@ -94,15 +97,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
-enum class Screen {
-    LOGIN,
-    THREAD_LIST,
-    CONNECT,
-    IN_CALL,
-    SETTINGS,
-    THEME_SELECTION
-}
-
 class MainActivity : ComponentActivity() {
 
     companion object {
@@ -111,6 +105,8 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var voiceClientManager: VoiceClientManager
+    private lateinit var navigationController: NavigationController
+    private lateinit var conversationLauncher: ConversationLauncher
     
     // Broadcast receivers for wake word commands
     private var toggleMicrophoneReceiver: BroadcastReceiver? = null
@@ -133,6 +129,10 @@ class MainActivity : ComponentActivity() {
         
         // Set voiceClientManager reference in sessionManager (circular dependency resolution)
         sessionManager.voiceClientManager = voiceClientManager
+        
+        // Initialize navigation controller and conversation launcher
+        navigationController = NavigationController(authManager, sessionManager, voiceClientManager, lifecycleScope)
+        conversationLauncher = ConversationLauncher(authManager, sessionManager, voiceClientManager, navigationController, lifecycleScope)
         
         // Initialize network monitor
         networkMonitor = NetworkMonitor(this)
@@ -180,11 +180,12 @@ class MainActivity : ComponentActivity() {
         var currentScreenRef: Screen? = null
 
         setContent {
-            var currentScreen by remember { mutableStateOf(Screen.LOGIN) }
-            var isAutoLoginInProgress by remember { mutableStateOf(false) }
-            var autoLoginError by remember { mutableStateOf<String?>(null) }
+            // Observe navigation state from NavigationController
+            val currentScreen by navigationController.currentScreen.collectAsStateWithLifecycle()
+            val isAutoLoginInProgress by navigationController.isAutoLoginInProgress.collectAsStateWithLifecycle()
+            val autoLoginError by navigationController.autoLoginError.collectAsStateWithLifecycle()
+            
             var tempImageUri by remember { mutableStateOf<Uri?>(null) }
-            var selectedConversationId by remember { mutableStateOf<String?>(null) }
             var showPINEntryDialog by remember { mutableStateOf(false) }
             var showReconnectionDialog by remember { mutableStateOf(false) }
             
@@ -192,18 +193,10 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 voiceClientManager.setSessionTimeoutCallback {
                     // Session timed out - end session and stop VoiceService
-                    // This works both in foreground and background
                     lifecycleScope.launch {
                         Log.d(TAG, "Session timeout callback triggered")
-                        
-                        // Stop VoiceService (releases wake lock and stops notification)
                         stopVoiceService()
-                        
-                        // Generate and send summary
-                        sessionManager.endSession()
-                        
-                        // Don't navigate automatically - let user see timeout message
-                        // User will see disconnected state and can manually navigate back
+                        navigationController.endSessionAndNavigate()
                         Log.d(TAG, "Session ended due to timeout - VoiceService stopped")
                     }
                 }
@@ -216,42 +209,7 @@ class MainActivity : ComponentActivity() {
             
             // Handle automatic login on app launch
             LaunchedEffect(Unit) {
-                // Check if we have a valid token
-                if (authManager.isTokenValid()) {
-                    currentScreen = Screen.THREAD_LIST
-                    // Process offline queue on app start if logged in
-                    lifecycleScope.launch {
-                        val processed = sessionManager.processOfflineQueue()
-                        if (processed > 0) {
-                            Log.d(TAG, "Processed $processed offline items on app start")
-                        }
-                    }
-                } else if (authManager.hasStoredCredentials()) {
-                    // Token is invalid but we have stored credentials - attempt auto-login
-                    isAutoLoginInProgress = true
-                    val result = authManager.autoLogin()
-                    isAutoLoginInProgress = false
-                    
-                    result.onSuccess {
-                        // Auto-login successful, navigate to thread list
-                        currentScreen = Screen.THREAD_LIST
-                        autoLoginError = null
-                        // Process offline queue after successful login
-                        lifecycleScope.launch {
-                            val processed = sessionManager.processOfflineQueue()
-                            if (processed > 0) {
-                                Log.d(TAG, "Processed $processed offline items after auto-login")
-                            }
-                        }
-                    }.onFailure { error ->
-                        // Auto-login failed, show login screen with error
-                        currentScreen = Screen.LOGIN
-                        autoLoginError = "Session expired. Please log in again."
-                    }
-                } else {
-                    // No stored credentials, show login screen
-                    currentScreen = Screen.LOGIN
-                }
+                navigationController.checkInitialAuthState()
             }
             
             // Observe network connectivity
@@ -362,178 +320,23 @@ class MainActivity : ComponentActivity() {
                                         authManager = authManager,
                                         initialError = autoLoginError,
                                         onLoginSuccess = {
-                                            currentScreen = Screen.THREAD_LIST
-                                            autoLoginError = null
-                                            // Process offline queue after successful login
-                                            lifecycleScope.launch {
-                                                val processed = sessionManager.processOfflineQueue()
-                                                if (processed > 0) {
-                                                    Log.d(TAG, "Processed $processed offline items after manual login")
-                                                }
-                                            }
+                                            navigationController.onLoginSuccess()
                                         }
                                     )
                                 }
                             }
                             Screen.THREAD_LIST -> {
-                                // Monitor token validity and attempt auto-login if expired
-                                LaunchedEffect(Unit) {
-                                    if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
-                                        isAutoLoginInProgress = true
-                                        val result = authManager.autoLogin()
-                                        isAutoLoginInProgress = false
-                                        
-                                        result.onFailure {
-                                            // Auto-login failed, return to login screen
-                                            currentScreen = Screen.LOGIN
-                                            autoLoginError = "Session expired. Please log in again."
-                                        }
-                                    }
-                                }
-                                
                                 ConversationListScreen(
                                     libreChatService = libreChatService,
                                     authManager = authManager,
                                     onConversationSelected = { conversation ->
-                                        lifecycleScope.launch {
-                                            when (conversation) {
-                                                is ConversationItem.LibreChatThread -> {
-                                                    // LibreChat conversation - fetch context and send transcript
-                                                    selectedConversationId = conversation.conversationId
-                                                    
-                                                    // Block new conversations if transcript sync is in progress
-                                                    if (sessionManager.isSyncInProgress()) {
-                                                        voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
-                                                        return@launch
-                                                    }
-                                                    
-                                                    // Check token validity before starting session
-                                                    if (!authManager.isTokenValid() && authManager.hasStoredCredentials()) {
-                                                        val autoLoginResult = authManager.autoLogin()
-                                                        if (autoLoginResult.isFailure) {
-                                                            currentScreen = Screen.LOGIN
-                                                            autoLoginError = "Session expired. Please log in again."
-                                                            return@launch
-                                                        }
-                                                    }
-                                                    
-                                                    // Load thread-specific settings
-                                                    val threadSettings = ThreadSettingsManager.getSettings(conversation.conversationId)
-                                                    
-                                                    // Start session and get context
-                                                    val result = sessionManager.startSession(conversation.conversationId)
-                                                    result.onSuccess { sessionContext ->
-                                                        // Update system prompt in preferences
-                                                        Preferences.systemPrompt.value = sessionContext.systemPrompt
-                                                        // Start voice client with thread-specific settings
-                                                        voiceClientManager.start(threadSettings)
-                                                        currentScreen = Screen.IN_CALL
-                                                    }.onFailure { error ->
-                                                        // Check if error is due to authentication
-                                                        if (error.message?.contains("401") == true || 
-                                                            error.message?.contains("authentication") == true ||
-                                                            error.message?.contains("unauthorized") == true) {
-                                                            // Try auto-login once more
-                                                            if (authManager.hasStoredCredentials()) {
-                                                                val autoLoginResult = authManager.autoLogin()
-                                                                if (autoLoginResult.isSuccess) {
-                                                                    // Retry starting session
-                                                                    val retryResult = sessionManager.startSession(conversation.conversationId)
-                                                                    retryResult.onSuccess { sessionContext ->
-                                                                        Preferences.systemPrompt.value = sessionContext.systemPrompt
-                                                                        voiceClientManager.start(threadSettings)
-                                                                        currentScreen = Screen.IN_CALL
-                                                                    }.onFailure { retryError ->
-                                                                        voiceClientManager.errors.add(Error("Failed to start session: ${retryError.message}"))
-                                                                    }
-                                                                } else {
-                                                                    currentScreen = Screen.LOGIN
-                                                                    autoLoginError = "Session expired. Please log in again."
-                                                                }
-                                                            } else {
-                                                                currentScreen = Screen.LOGIN
-                                                                autoLoginError = "Session expired. Please log in again."
-                                                            }
-                                                        } else {
-                                                            // Show error and stay on thread list
-                                                            voiceClientManager.errors.add(Error("Failed to start session: ${error.message}"))
-                                                        }
-                                                    }
-                                                }
-                                                is ConversationItem.Offline -> {
-                                                    // Offline conversation - no LibreChat integration
-                                                    selectedConversationId = null // No LibreChat conversation ID
-                                                    
-                                                    // Get offline conversation details
-                                                    val offlineConv = OfflineConversationManager.getById(conversation.id)
-                                                    
-                                                    if (offlineConv != null) {
-                                                        // Start offline session in database
-                                                        lifecycleScope.launch {
-                                                            val sessionResult = sessionManager.startOfflineSession(offlineConv.id)
-                                                            sessionResult.onSuccess { conversationContext ->
-                                                                Log.d(TAG, "Started offline session with context: ${conversationContext.length} chars")
-                                                                
-                                                                // Build system prompt with conversation context
-                                                                val basePrompt = offlineConv.systemPrompt.ifBlank { 
-                                                                    "You are a helpful assistant" 
-                                                                }
-                                                                
-                                                                val fullPrompt = if (conversationContext.isNotBlank()) {
-                                                                    """
-                                                                    $basePrompt
-                                                                    
-                                                                    === CONVERSATION HISTORY ===
-                                                                    $conversationContext
-                                                                    
-                                                                    === INSTRUCTIONS ===
-                                                                    - Use the conversation history above to provide context-aware responses
-                                                                    - Reference previous discussions when relevant
-                                                                    - Maintain continuity with past conversations
-                                                                    - If user refers to something from history, acknowledge it
-                                                                    """.trimIndent()
-                                                                } else {
-                                                                    basePrompt
-                                                                }
-                                                                
-                                                                // Set system prompt with context
-                                                                Preferences.systemPrompt.value = fullPrompt
-                                                                
-                                                                Log.d(TAG, "System prompt with context: ${fullPrompt.length} chars")
-                                                                
-                                                                // Create ThreadSettings from offline conversation settings
-                                                                val offlineSettings = ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings(
-                                                                    conversationId = offlineConv.id,
-                                                                    voiceName = offlineConv.voiceName,
-                                                                    speechSpeed = offlineConv.speechSpeed,
-                                                                    volumeBoost = offlineConv.volumeBoost,
-                                                                    temperature = offlineConv.temperature
-                                                                )
-                                                                
-                                                                // Start voice client with offline settings (no LibreChat session)
-                                                                voiceClientManager.start(offlineSettings)
-                                                                currentScreen = Screen.IN_CALL
-                                                            }.onFailure { error ->
-                                                                Log.e(TAG, "Failed to start offline session", error)
-                                                                voiceClientManager.errors.add(Error("Failed to start offline session: ${error.message}"))
-                                                            }
-                                                        }
-                                                    } else {
-                                                        voiceClientManager.errors.add(Error("Nie znaleziono konwersacji offline"))
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        conversationLauncher.launch(conversation)
                                     },
                                     onSettingsClick = {
-                                        // Show PIN entry dialog before navigating to settings
                                         showPINEntryDialog = true
                                     },
                                     onLogout = {
-                                        lifecycleScope.launch {
-                                            authManager.logout()
-                                            currentScreen = Screen.LOGIN
-                                        }
+                                        navigationController.logout()
                                     }
                                 )
                             }
@@ -542,29 +345,16 @@ class MainActivity : ComponentActivity() {
                                 
                                 SettingsScreen(
                                     onClose = {
-                                        // Return to thread list when settings screen is closed
-                                        currentScreen = Screen.THREAD_LIST
+                                        navigationController.navigateTo(Screen.THREAD_LIST)
                                     },
                                     onLogout = {
-                                        lifecycleScope.launch {
-                                            // Stop any active voice session
-                                            if (voiceClientManager.uiState.value.connectionState != ConnectionState.DISCONNECTED) {
-                                                voiceClientManager.stop()
-                                            }
-                                            
-                                            // End any active session and clear session data
-                                            sessionManager.endSession()
-                                            
-                                            // Clear stored credentials and navigate to login
-                                            authManager.logout()
-                                            currentScreen = Screen.LOGIN
-                                        }
+                                        navigationController.logout()
                                     },
                                     onChangePIN = {
                                         showChangePINDialog = true
                                     },
                                     onThemeSelection = {
-                                        currentScreen = Screen.THEME_SELECTION
+                                        navigationController.navigateTo(Screen.THEME_SELECTION)
                                     }
                                 )
                                 
@@ -579,7 +369,7 @@ class MainActivity : ComponentActivity() {
                             Screen.THEME_SELECTION -> {
                                 ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen(
                                     onBack = {
-                                        currentScreen = Screen.SETTINGS
+                                        navigationController.navigateTo(Screen.SETTINGS)
                                     }
                                 )
                             }
@@ -591,27 +381,22 @@ class MainActivity : ComponentActivity() {
                                     onToggleMic = voiceClientManager::togglePause,
                                     onToggleSpeakerphone = voiceClientManager::toggleSpeakerphone,
                                     onEndSession = {
-                                        // End session with summary generation
-                                        lifecycleScope.launch {
-                                            sessionManager.endSession()
-                                            // Navigate to thread list after ending session
-                                            currentScreen = Screen.THREAD_LIST
-                                        }
+                                        navigationController.endSessionAndNavigate()
                                     },
                                     onCameraClick = onCameraClick,
                                     onGalleryClick = onGalleryClick,
                                     expiryTime = voiceClientManager.expiryTime.value,
                                     maxReconnectionAttempts = voiceClientManager.maxReconnectionAttempts,
-                                    onSettingsClick = { currentScreen = Screen.SETTINGS }
+                                    onSettingsClick = { navigationController.navigateTo(Screen.SETTINGS) }
                                 )
                             }
                             Screen.CONNECT -> {
                                 if (isConnected) {
-                                    currentScreen = Screen.IN_CALL
+                                    navigationController.navigateTo(Screen.IN_CALL)
                                 } else {
                                     ConnectSettings(
                                         voiceClientManager = voiceClientManager,
-                                        onSettingsClick = { currentScreen = Screen.SETTINGS }
+                                        onSettingsClick = { navigationController.navigateTo(Screen.SETTINGS) }
                                     )
                                 }
                             }
@@ -660,12 +445,10 @@ class MainActivity : ComponentActivity() {
                         if (showPINEntryDialog) {
                             PINEntryDialog(
                                 onPINValidated = {
-                                    // PIN validated successfully, navigate to settings
                                     showPINEntryDialog = false
-                                    currentScreen = Screen.SETTINGS
+                                    navigationController.navigateTo(Screen.SETTINGS)
                                 },
                                 onDismiss = {
-                                    // User cancelled PIN entry
                                     showPINEntryDialog = false
                                 }
                             )
@@ -675,19 +458,14 @@ class MainActivity : ComponentActivity() {
                         if (showReconnectionDialog) {
                             ReconnectionDialog(
                                 onContinue = {
-                                    // User wants to continue reconnection attempts
                                     showReconnectionDialog = false
                                     lifecycleScope.launch {
                                         voiceClientManager.continueReconnection()
                                     }
                                 },
                                 onEndConversation = {
-                                    // User wants to end the conversation
                                     showReconnectionDialog = false
-                                    lifecycleScope.launch {
-                                        sessionManager.endSession()
-                                        currentScreen = Screen.THREAD_LIST
-                                    }
+                                    navigationController.endSessionAndNavigate()
                                 }
                             )
                         }
@@ -708,13 +486,10 @@ class MainActivity : ComponentActivity() {
                             currentScreen = currentScreen,
                             connectionState = uiState.connectionState,
                             onEndSession = {
-                                lifecycleScope.launch {
-                                    sessionManager.endSession()
-                                    currentScreen = Screen.THREAD_LIST
-                                }
+                                navigationController.endSessionAndNavigate()
                             },
                             onNavigateBack = {
-                                currentScreen = Screen.THREAD_LIST
+                                navigationController.navigateBack()
                             }
                         )
                         }
@@ -910,9 +685,8 @@ class MainActivity : ComponentActivity() {
             val threadId = intent.getStringExtra(WakeWordHandler.EXTRA_THREAD_ID)
             if (threadId != null) {
                 Log.d("MainActivity", "Wake word trigger received for thread: $threadId")
-                // Auto-launch thread
                 lifecycleScope.launch {
-                    launchThreadFromWakeWord(threadId)
+                    conversationLauncher.launchFromWakeWord(threadId)
                 }
             }
             return
@@ -922,13 +696,7 @@ class MainActivity : ComponentActivity() {
         val action = intent.getStringExtra("action")
         if (action == "end_conversation") {
             Log.d("MainActivity", "End conversation action received from notification")
-            lifecycleScope.launch {
-                // End session and stop voice client
-                voiceClientManager.sessionManager?.endSession()
-                voiceClientManager.stop()
-                // Note: We don't navigate here as the activity might not be visible yet
-                // The UI will update automatically based on connection state
-            }
+            navigationController.endSessionAndNavigate()
         }
     }
 
@@ -1228,60 +996,6 @@ class MainActivity : ComponentActivity() {
         terminateAppReceiver = null
     }
     
-    /**
-     * Launch a thread from wake word trigger
-     * This handles the auto-launch logic when a custom wake word is detected
-     */
-    private suspend fun launchThreadFromWakeWord(threadId: String) {
-        try {
-            Log.d("MainActivity", "Launching thread from wake word: $threadId")
-            
-            // Get auth manager and check authentication
-            val authManager = AuthManager(this)
-            
-            // Check if we need to login
-            if (!authManager.isTokenValid()) {
-                if (authManager.hasStoredCredentials()) {
-                    val result = authManager.autoLogin()
-                    if (result.isFailure) {
-                        Log.e("MainActivity", "Auto-login failed for wake word launch")
-                        voiceClientManager.errors.add(Error("Nie można uruchomić rozmowy - wymagane logowanie"))
-                        return
-                    }
-                } else {
-                    Log.e("MainActivity", "No stored credentials for wake word launch")
-                    voiceClientManager.errors.add(Error("Nie można uruchomić rozmowy - wymagane logowanie"))
-                    return
-                }
-            }
-            
-            // Block if transcript sync is in progress
-            if (voiceClientManager.sessionManager?.isSyncInProgress() == true) {
-                Log.w("MainActivity", "Transcript sync in progress, blocking wake word launch")
-                voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
-                return
-            }
-            
-            // Load thread-specific settings
-            val threadSettings = ThreadSettingsManager.getSettings(threadId)
-            
-            // Start session and get context
-            val result = voiceClientManager.sessionManager?.startSession(threadId)
-            result?.onSuccess { sessionContext ->
-                // Update system prompt
-                Preferences.systemPrompt.value = sessionContext.systemPrompt
-                // Start voice client with thread-specific settings
-                voiceClientManager.start(threadSettings)
-                Log.d("MainActivity", "Thread launched successfully from wake word")
-            }?.onFailure { error ->
-                Log.e("MainActivity", "Failed to start session from wake word", error)
-                voiceClientManager.errors.add(Error("Nie udało się uruchomić rozmowy: ${error.message}"))
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error launching thread from wake word", e)
-            voiceClientManager.errors.add(Error("Błąd uruchamiania rozmowy: ${e.message}"))
-        }
-    }
 }
 
 @Composable

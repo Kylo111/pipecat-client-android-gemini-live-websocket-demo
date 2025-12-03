@@ -33,9 +33,12 @@ class ReconnectionManager(
     var onReconnectionAttemptChanged: ((Int) -> Unit)? = null
     var onMaxAttemptsReached: (() -> Unit)? = null
     var onUpdateNotification: (() -> Unit)? = null
-    var onAttemptReconnect: (suspend () -> Unit)? = null
-    var onAutomaticRestart: (suspend () -> Unit)? = null
     var isPausedCheck: (() -> Boolean)? = null
+    var onStartConnection: (suspend () -> Unit)? = null
+    var onDisconnectWebSocket: ((Int, String) -> Unit)? = null
+    var getConnectionState: (() -> String)? = null
+    var isBotReadyCheck: (() -> Boolean)? = null
+    var getWebSocketState: (() -> String)? = null
     
     /**
      * Start reconnection attempts with exponential backoff
@@ -65,7 +68,7 @@ class ReconnectionManager(
                 Log.i(TAG, "🔍 DEBUG: ${AUTO_RESTART_TIMEOUT / 1000}s passed, checking state...")
                 
                 // If still reconnecting after 5 seconds, do automatic restart
-                onAutomaticRestart?.invoke()
+                doAutomaticRestart()
             }
             Log.i(TAG, "🔍 DEBUG: Auto-restart job launched successfully")
             
@@ -105,7 +108,7 @@ class ReconnectionManager(
                 }
                 
                 // Attempt to reconnect
-                onAttemptReconnect?.invoke()
+                attemptReconnect()
                 
                 // Note: Success check is handled by the caller through reset()
                 
@@ -167,4 +170,166 @@ class ReconnectionManager(
      * Get current attempt count
      */
     fun getAttemptCount(): Int = attemptCount
+    
+    /**
+     * Automatic restart - mimics pause/resume behavior
+     * This is what user does manually when reconnection is stuck
+     * 
+     * Extracted from VoiceClientManager as part of Phase 8 cleanup
+     */
+    private suspend fun doAutomaticRestart() {
+        // Check if still in RECONNECTING state
+        val currentState = getConnectionState?.invoke() ?: "UNKNOWN"
+        if (currentState != "RECONNECTING") {
+            Log.i(TAG, "✅ State changed to $currentState, no auto-restart needed")
+            return
+        }
+        
+        // CRITICAL FIX: Check if session was paused before automatic restart
+        if (isPausedCheck?.invoke() == true) {
+            Log.w(TAG, "⚠️ Automatic restart cancelled - session is paused")
+            return
+        }
+        
+        Log.e(TAG, "🚨🚨🚨 AUTOMATIC RESTART TRIGGERED! 🚨🚨🚨")
+        Log.i(TAG, "🔄 AUTOMATIC RESTART - Doing what pause/resume does:")
+        Log.i(TAG, "   1. Cancel all reconnection attempts")
+        Log.i(TAG, "   2. Close WebSocket cleanly")
+        Log.i(TAG, "   3. Wait 500ms")
+        Log.i(TAG, "   4. Start fresh connection")
+        
+        // Cancel ongoing reconnection
+        cancelReconnection()
+        
+        // Close old WebSocket
+        onDisconnectWebSocket?.invoke(1000, "Automatic restart")
+        
+        // Wait for clean closure
+        delay(500)
+        
+        // Check again after delay
+        if (isPausedCheck?.invoke() == true) {
+            Log.w(TAG, "⚠️ Automatic restart cancelled - session was paused during cleanup")
+            return
+        }
+        
+        // Note: reconnectionAttempt is now managed in VoiceUiState
+        // Reset is handled by reconnectionManager.reset()
+        
+        // Start fresh connection
+        Log.i(TAG, "🆕 Starting fresh connection after automatic restart")
+        onStartConnection?.invoke()
+        
+        // Wait for connection (5 seconds)
+        var waited = 0L
+        val maxWait = 5000L
+        
+        while (waited < maxWait) {
+            delay(500)
+            waited += 500
+            
+            val state = getConnectionState?.invoke() ?: "UNKNOWN"
+            val botReady = isBotReadyCheck?.invoke() ?: false
+            
+            if (state == "CONNECTED" && botReady) {
+                Log.i(TAG, "✅ Automatic restart successful after ${waited}ms")
+                return
+            }
+            
+            if (state == "DISCONNECTED") {
+                Log.w(TAG, "❌ Automatic restart failed - disconnected after ${waited}ms")
+                // Try normal reconnection again
+                scope.launch {
+                    startReconnection()
+                }
+                return
+            }
+        }
+        
+        Log.w(TAG, "⏱️ Automatic restart timeout after ${waited}ms")
+        // Try normal reconnection again
+        scope.launch {
+            startReconnection()
+        }
+    }
+    
+    /**
+     * Attempt to reconnect by calling start()
+     * This mimics what pause/resume does: clean close + fresh start
+     * 
+     * Extracted from VoiceClientManager as part of Phase 8 cleanup
+     */
+    private suspend fun attemptReconnect() {
+        try {
+            // CRITICAL FIX: Check if session was paused before attempting reconnect
+            if (isPausedCheck?.invoke() == true) {
+                Log.w(TAG, "⚠️ Reconnection cancelled - session is paused")
+                return
+            }
+            
+            Log.i(TAG, "🔄 Attempting reconnection (attempt $attemptCount of $maxAttempts)...")
+            Log.i(TAG, "   Current state: ${getConnectionState?.invoke() ?: "UNKNOWN"}")
+            
+            // Clean up old WebSocket connection COMPLETELY
+            onDisconnectWebSocket?.invoke(1000, "Reconnecting")
+            
+            // CRITICAL: Wait 500ms to ensure old WebSocket is fully closed
+            // This is what makes pause/resume work - clean slate
+            Log.d(TAG, "   Waiting 500ms for clean WebSocket closure...")
+            delay(500)
+            
+            // Check again after delay
+            if (isPausedCheck?.invoke() == true) {
+                Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during cleanup")
+                return
+            }
+            
+            // Call start() to initiate NEW connection
+            // start() will handle the WebSocket connection setup
+            onStartConnection?.invoke()
+            
+            // Wait for connection to establish (5 seconds is enough for fresh connection)
+            // Check state every 500ms
+            var waited = 0L
+            val maxWait = 5000L // Reduced from 10s - fresh connections are fast
+            
+            Log.i(TAG, "⏳ Waiting for connection (max ${maxWait / 1000}s)...")
+            
+            while (waited < maxWait) {
+                delay(500)
+                waited += 500
+                
+                val state = getConnectionState?.invoke() ?: "UNKNOWN"
+                val botReady = isBotReadyCheck?.invoke() ?: false
+                val wsState = getWebSocketState?.invoke() ?: "UNKNOWN"
+                
+                // Log state every 2 seconds for debugging
+                if (waited % 2000L == 0L) {
+                    Log.d(TAG, "   ${waited / 1000}s: state=$state, botReady=$botReady, wsState=$wsState")
+                }
+                
+                // Success: Connected AND received setupComplete
+                if (state == "CONNECTED" && botReady) {
+                    Log.i(TAG, "✅ Reconnection successful after ${waited}ms")
+                    Log.i(TAG, "   State: CONNECTED, botReady: true")
+                    // Reset reconnection manager on success
+                    reset()
+                    return
+                }
+                
+                // Failure: Disconnected (connection failed)
+                if (state == "DISCONNECTED") {
+                    Log.w(TAG, "❌ Reconnection failed - disconnected after ${waited}ms")
+                    return
+                }
+            }
+            
+            // Timeout
+            Log.w(TAG, "⏱️ Reconnection timeout after ${waited}ms")
+            Log.w(TAG, "   Final state: ${getConnectionState?.invoke() ?: "UNKNOWN"}, botReady: ${isBotReadyCheck?.invoke() ?: false}")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Reconnection attempt failed: ${e.message}", e)
+        }
+    }
 }

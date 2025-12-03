@@ -244,6 +244,81 @@ class GeminiProtocol {
     }
 
     /**
+     * Build a setup message for the Gemini Live API.
+     * 
+     * This method constructs the complete setup message with all configuration:
+     * - Model selection
+     * - Voice configuration
+     * - System prompt
+     * - Session resumption
+     * - Tool declarations
+     * 
+     * @param model The model name (e.g., "gemini-2.5-flash-native-audio-preview-09-2025")
+     * @param voiceName The voice to use (e.g., "Puck", "Charon", "Kore", "Fenrir", "Aoede")
+     * @param systemPrompt The system instruction for the model
+     * @param temperature The temperature for generation (0.0-2.0)
+     * @param sessionHandle Optional session handle for resumption (null for new session)
+     * @param canResumeSession Whether session resumption is available
+     * @param toolDeclarations List of tool declarations for function calling
+     * @return SetupMessage ready to be serialized
+     */
+    fun buildSetupMessage(
+        model: String,
+        voiceName: String,
+        systemPrompt: String,
+        temperature: Float,
+        sessionHandle: String?,
+        canResumeSession: Boolean,
+        toolDeclarations: List<JsonElement>
+    ): SetupMessage {
+        // Ensure model name has correct format (add models/ prefix if not present)
+        val modelName = if (model.startsWith("models/")) model else "models/$model"
+        
+        return SetupMessage(
+            setup = Setup(
+                model = modelName,
+                generation_config = GenerationConfig(
+                    response_modalities = listOf("AUDIO"),
+                    speech_config = SpeechConfig(
+                        voice_config = VoiceConfig(
+                            prebuilt_voice_config = PrebuiltVoiceConfig(
+                                voice_name = voiceName
+                            )
+                        )
+                    ),
+                    temperature = temperature
+                ),
+                system_instruction = SystemInstruction(
+                    parts = listOf(Part(text = systemPrompt))
+                ),
+                // Re-enable Gemini transcription
+                // Android SpeechRecognizer cannot work simultaneously with AudioRecord
+                // Both need exclusive access to microphone
+                output_audio_transcription = OutputAudioTranscription(),
+                input_audio_transcription = InputAudioTranscription(),
+                // Session resumption configuration:
+                // - If we have a handle: use it to resume previous session
+                // - If no handle: send empty config {} to enable session resumption feature
+                //   (this tells Gemini to start sending sessionResumptionUpdate messages)
+                session_resumption = if (canResumeSession && sessionHandle != null) {
+                    Log.d(TAG, "Building setup with session resumption handle")
+                    SessionResumptionConfig(handle = sessionHandle)
+                } else {
+                    // Send empty config to enable session resumption feature
+                    Log.d(TAG, "Building setup with empty session_resumption {} to enable feature")
+                    SessionResumptionConfig(handle = null)
+                },
+                // Function calling tools
+                tools = if (toolDeclarations.isNotEmpty()) {
+                    listOf(Tool(function_declarations = toolDeclarations))
+                } else {
+                    null
+                }
+            )
+        )
+    }
+
+    /**
      * Serialize a setup message to JSON.
      * 
      * The setup message configures the Gemini Live API session with model,
