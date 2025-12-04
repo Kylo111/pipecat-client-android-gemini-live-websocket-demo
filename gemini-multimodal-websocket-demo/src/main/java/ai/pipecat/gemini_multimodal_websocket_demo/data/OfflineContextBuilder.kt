@@ -50,6 +50,14 @@ class OfflineContextBuilder(
         try {
             Log.d(TAG, "Building context for conversation: $conversationId")
             
+            // Skip context building for system conversations (e.g., help conversation)
+            // System conversations are stateless and rely only on their system prompt
+            val offlineConv = ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager.getById(conversationId)
+            if (offlineConv?.isSystemConversation == true) {
+                Log.d(TAG, "⏭️ Skipping context build for system conversation (stateless)")
+                return ""
+            }
+            
             // Get conversation
             val conversation = conversationRepository.getConversation(conversationId)
             if (conversation == null) {

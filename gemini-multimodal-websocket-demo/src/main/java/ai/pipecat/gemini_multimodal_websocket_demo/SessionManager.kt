@@ -597,6 +597,14 @@ class SessionManager(
                             currentConversationId?.let { convId ->
                                 scope.launch {
                                     try {
+                                        // Skip memory update for system conversations (e.g., help conversation)
+                                        // System conversations are stateless and don't need memory evolution
+                                        val offlineConv = OfflineConversationManager.getById(convId)
+                                        if (offlineConv?.isSystemConversation == true) {
+                                            Log.d(TAG, "⏭️ Skipping memory update for system conversation (stateless)")
+                                            return@launch
+                                        }
+                                        
                                         val conversation = conversationRepository.getConversation(convId)
                                         val source = conversation?.source ?: "gemini_live"
                                         
