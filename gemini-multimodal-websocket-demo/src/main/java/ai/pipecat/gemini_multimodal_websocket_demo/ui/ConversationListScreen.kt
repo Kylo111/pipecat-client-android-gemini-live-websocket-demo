@@ -50,9 +50,17 @@ fun ConversationListScreen(
     onLogout: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val app = context.applicationContext as ai.pipecat.gemini_multimodal_websocket_demo.RTVIApplication
+    val conversationRepository = app.conversationRepository
     
     var librechatThreads by remember { mutableStateOf<List<LibreChatService.ConversationThread>>(emptyList()) }
     var offlineConversations by remember { mutableStateOf(OfflineConversationManager.getAll()) }
+    
+    // Observe database conversations with Flow for automatic updates
+    val dbConversations by conversationRepository.getAllConversationsFlow()
+        .collectAsState(initial = emptyList())
+    
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<LibreChatError?>(null) }
     var selectedId by remember { mutableStateOf<String?>(null) }
@@ -89,26 +97,32 @@ fun ConversationListScreen(
     }
 
     // Combine both types into unified list
-    val allConversations = remember(librechatThreads, offlineConversations) {
+    val allConversations = remember(librechatThreads, offlineConversations, dbConversations) {
         val items = mutableListOf<ConversationItem>()
         
         // Add offline conversations first (highlighted), but exclude system conversations
         offlineConversations.forEach { offline ->
             if (!offline.isSystemConversation) {
+                // Check if conversation exists in database to get memoryUpdatePending status
+                val dbConv = dbConversations.find { it.id == offline.id }
                 items.add(ConversationItem.Offline(
                     id = offline.id,
                     title = offline.title,
-                    systemPrompt = offline.systemPrompt
+                    systemPrompt = offline.systemPrompt,
+                    memoryUpdatePending = dbConv?.memoryUpdatePending ?: false
                 ))
             }
         }
         
         // Add LibreChat threads
         librechatThreads.forEach { thread ->
+            // Check if conversation exists in database to get memoryUpdatePending status
+            val dbConv = dbConversations.find { it.id == thread.id }
             items.add(ConversationItem.LibreChatThread(
                 id = thread.id,
                 title = thread.title,
-                conversationId = thread.id // Use thread.id as conversationId
+                conversationId = thread.id, // Use thread.id as conversationId
+                memoryUpdatePending = dbConv?.memoryUpdatePending ?: false
             ))
         }
         
@@ -369,7 +383,7 @@ fun ConversationListScreen(
         if (showOfflineDialog) {
             OfflineConversationDialog(
                 conversation = editingOfflineConversation,
-                onSave = { title, systemPrompt, voiceName, speechSpeed, volumeBoost, temperature, customSummaryPrompt, copySummaryToClipboard ->
+                onSave = { title, systemPrompt, voiceName, speechSpeed, volumeBoost, temperature ->
                     if (editingOfflineConversation != null) {
                         // Update existing
                         val updated = editingOfflineConversation!!.copy(
@@ -378,9 +392,7 @@ fun ConversationListScreen(
                             voiceName = voiceName,
                             speechSpeed = speechSpeed,
                             volumeBoost = volumeBoost,
-                            temperature = temperature,
-                            customSummaryPrompt = customSummaryPrompt,
-                            copySummaryToClipboard = copySummaryToClipboard
+                            temperature = temperature
                         )
                         OfflineConversationManager.update(updated)
                     } else {
@@ -393,8 +405,6 @@ fun ConversationListScreen(
                             speechSpeed = speechSpeed,
                             volumeBoost = volumeBoost,
                             temperature = temperature,
-                            customSummaryPrompt = customSummaryPrompt,
-                            copySummaryToClipboard = copySummaryToClipboard,
                             isSystemConversation = false,
                             createdAt = System.currentTimeMillis(),
                             updatedAt = System.currentTimeMillis()
@@ -430,6 +440,7 @@ private fun ConversationButton(
     onLongPress: () -> Unit = {}
 ) {
     val isOffline = conversation.type == ConversationType.OFFLINE
+    val isLocked = conversation.memoryUpdatePending
     
     Box(
         modifier = Modifier
@@ -439,6 +450,7 @@ private fun ConversationButton(
             .clip(RoundedCornerShape(12.dp))
             .background(
                 when {
+                    isLocked -> Color.LightGray // Gray background when locked
                     isSelected -> Colors.buttonSection
                     isOffline -> Color(0xFFFFF3E0) // Light orange for offline
                     else -> Color.White
@@ -447,6 +459,7 @@ private fun ConversationButton(
             .border(
                 width = if (isSelected) 2.dp else if (isOffline) 2.dp else 0.dp,
                 color = when {
+                    isLocked -> Color.Gray // Gray border when locked
                     isSelected -> Colors.buttonNormal
                     isOffline -> Color(0xFFFF9800) // Orange border for offline
                     else -> Color.Transparent
@@ -455,8 +468,8 @@ private fun ConversationButton(
             )
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { onClick() },
-                    onLongPress = { onLongPress() }
+                    onTap = { if (!isLocked) onClick() },
+                    onLongPress = { if (!isLocked) onLongPress() }
                 )
             }
             .padding(horizontal = 20.dp, vertical = 16.dp)
@@ -465,8 +478,14 @@ private fun ConversationButton(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Offline indicator badge
-            if (isOffline) {
+            // Lock indicator or offline badge
+            if (isLocked) {
+                Text(
+                    text = "🔒",
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            } else if (isOffline) {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
@@ -476,17 +495,17 @@ private fun ConversationButton(
             }
             
             Text(
-                text = conversation.title,
+                text = if (isLocked) "Zapisuję wspomnienia..." else conversation.title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.W600,
-                color = Color.Black,
+                color = if (isLocked) Color.Gray else Color.Black,
                 style = TextStyles.base,
                 maxLines = 1,
                 modifier = Modifier.weight(1f)
             )
             
-            // Type indicator
-            if (isOffline) {
+            // Type indicator (only show when not locked)
+            if (!isLocked && isOffline) {
                 Text(
                     text = "OFFLINE",
                     fontSize = 10.sp,

@@ -52,6 +52,8 @@ android {
 
     kotlinOptions {
         jvmTarget = "1.8"
+        // Allow JVM 11 for tests to support mockito-kotlin
+        freeCompilerArgs += listOf("-Xjvm-default=all")
     }
 
     buildFeatures {
@@ -108,6 +110,9 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     
+    // DataStore for preferences
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    
     // WorkManager for background sync
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     
@@ -119,6 +124,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.3.1")
     testImplementation("org.mockito:mockito-inline:5.2.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     
     // Kotest for property-based testing

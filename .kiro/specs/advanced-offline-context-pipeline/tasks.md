@@ -1,22 +1,35 @@
 # Implementation Plan
 
-- [ ] 1. Set up domain models and data layer
-  - [ ] 1.1 Create domain model classes for memory structures
+- [x] 1. Set up domain models and data layer
+
+
+
+
+
+
+  - [x] 1.1 Create domain model classes for memory structures
+
     - Create `GlobalUserCard` data class with Kotlinx Serialization annotations
     - Create `LocalConversationCard` data class with Kotlinx Serialization annotations
     - Create `MemoryUpdateResult` data class for LLM response parsing
     - Place in `models/memory/` package
     - _Requirements: 1.4, 2.5_
-  - [ ]* 1.2 Write property tests for domain model serialization
+  - [x] 1.2 Write property tests for domain model serialization
+
+
     - **Property 1: Global User Card Round-Trip Serialization**
     - **Property 2: Local Conversation Card Round-Trip Serialization**
     - **Validates: Requirements 1.4, 2.5**
-  - [ ] 1.3 Create GlobalMemoryDataStore for Global User Card storage
+  - [x] 1.3 Create GlobalMemoryDataStore for Global User Card storage
+
+
     - Implement using Android Preferences DataStore
     - Add methods: `getGlobalUserCard()`, `saveGlobalUserCard()`, `observeGlobalUserCard()`
     - Handle empty/missing data gracefully (return default empty card)
     - _Requirements: 7.1_
-  - [ ] 1.4 Update ConversationEntity with new memory fields
+  - [x] 1.4 Update ConversationEntity with new memory fields
+
+
     - Add `localCardJson: String?` column
     - Add `lastUpdatedAt: Long` column
     - Add `memoryUpdatePending: Boolean` column
@@ -24,167 +37,294 @@
     - Remove `copySummaryToClipboard` column
     - Increment database version and use destructive migration
     - _Requirements: 7.2, 7.3, 7.4, 8.1, 8.2_
-  - [ ] 1.5 Update ConversationDao with new queries
+  - [x] 1.5 Update ConversationDao with new queries
+
+
     - Add `setMemoryUpdatePending(conversationId, pending)` method
     - Add `updateLocalCard(conversationId, localCardJson)` method
     - Add `updateMetaSummary(conversationId, metaSummary)` method
     - _Requirements: 6.5, 6.6_
 
-- [ ] 2. Checkpoint - Ensure all tests pass
+
+- [x] 2. Checkpoint - Ensure all tests pass
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. Implement SystemPrompts configuration
-  - [ ] 3.1 Create SystemPrompts object with centralized prompts
+- [x] 3. Implement SystemPrompts configuration
+
+
+
+
+  - [x] 3.1 Create SystemPrompts object with centralized prompts
+
+
     - Move `toolsInstruction` from Preferences to SystemPrompts
     - Add `libreChatSummaryPrompt` (copy from current `summaryPrompt`)
     - Add `memoryUpdateInstruction` with Meta-Summary limit (1000 words)
     - Add `defaultSystemPrompt`
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
-  - [ ]* 3.2 Write property test for SystemPrompts defaults
+  - [x] 3.2 Write property test for SystemPrompts defaults
+
+
     - **Property 10: SystemPrompts Provides Non-Null Defaults**
     - **Validates: Requirements 10.2, 10.3, 10.4, 10.5**
-  - [ ] 3.3 Update Preferences to use SystemPrompts as defaults
+  - [x] 3.3 Update Preferences to use SystemPrompts as defaults
+
+
     - Keep user-editable prompts in Preferences but use SystemPrompts for defaults
     - _Requirements: 10.5_
 
 - [ ] 4. Implement OfflineContextBuilder
-  - [ ] 4.1 Create new OfflineContextBuilder class
+
+
+
+
+  - [x] 4.1 Create new OfflineContextBuilder class
+
+
     - Inject dependencies: ConversationRepository, SessionRepository, GlobalMemoryDataStore, SystemPrompts
     - Implement `buildContext(conversationId)` method
     - Structure output with clear section delimiters
     - _Requirements: 5.1, 5.3, 5.4_
-  - [ ]* 4.2 Write property tests for context building
+  - [x] 4.2 Write property tests for context building
+
+
     - **Property 3: Context Builder Includes All Memory Components**
     - **Property 4: Context Builder Handles Null Fields Gracefully**
     - **Validates: Requirements 1.1, 2.1, 2.4, 3.1, 3.4, 5.1, 5.4**
-  - [ ] 4.3 Implement context truncation logic
+  - [x] 4.3 Implement context truncation logic
+
+
     - Set MAX_CONTEXT_LENGTH = 30000 characters
     - Set MAX_TRANSCRIPT_LENGTH = 15000 characters
     - Truncate Last Session Transcript when exceeding limits
     - Preserve Cards and Meta-Summary in full
     - _Requirements: 5.2_
-  - [ ]* 4.4 Write property test for truncation
+  - [x] 4.4 Write property test for truncation
+
+
     - **Property 5: Context Truncation Preserves Cards and Meta-Summary**
     - **Validates: Requirements 5.2**
 
-- [ ] 5. Checkpoint - Ensure all tests pass
+- [x] 5. Checkpoint - Ensure all tests pass
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
+
 - [ ] 6. Implement Clipboard Tool for Gemini Live
-  - [ ] 6.1 Add copyToClipboard tool definition to ToolDefinitions
+
+
+
+  - [x] 6.1 Add copyToClipboard tool definition to ToolDefinitions
+
+
     - Define tool with name "copy_to_clipboard"
     - Add parameter "text" (required string)
     - Add description for when to use (copy, save to clipboard)
     - _Requirements: 4.1_
-  - [ ] 6.2 Create ClipboardToolHandler class
+  - [x] 6.2 Create ClipboardToolHandler class
+
+
     - Implement `handleCopyToClipboard(text)` method
     - Use Android ClipboardManager to copy text
     - Return ToolResponse with success/error status
     - _Requirements: 4.2, 4.3_
-  - [ ] 6.3 Create ClipboardEvent and event emission
+  - [x] 6.3 Create ClipboardEvent and event emission
+
+
     - Create `ClipboardEvent` data class
     - Add StateFlow for clipboard events in VoiceClientManager
     - Emit event after successful clipboard operation
     - _Requirements: 4.4_
-  - [ ]* 6.4 Write property tests for clipboard tool
+  - [x] 6.4 Write property tests for clipboard tool
+
+
     - **Property 6: Clipboard Tool Response Format**
     - **Property 7: Clipboard Event Emission**
     - **Validates: Requirements 4.3, 4.4**
-  - [ ] 6.5 Integrate clipboard tool handler in VoiceClientManager
+  - [x] 6.5 Integrate clipboard tool handler in VoiceClientManager
+
+
     - Add tool to getAllTools() list
     - Handle tool call in tool execution callback
     - _Requirements: 4.1, 4.2_
 
-- [ ] 7. Implement MemoryUpdateService
-  - [ ] 7.1 Create MemoryUpdateService class
+
+- [x] 7. Implement MemoryUpdateService
+
+
+
+  - [x] 7.1 Create MemoryUpdateService class
+
+
     - Inject dependencies: GenerativeModel, ConversationRepository, GlobalMemoryDataStore, SystemPrompts
     - Use Gemini 2.5 Flash for memory updates
     - _Requirements: 8.3_
-  - [ ] 7.2 Implement updateMemoryAfterSession method
+  - [x] 7.2 Implement updateMemoryAfterSession method
+
     - Build prompt with current memory state and new transcript
     - Call Gemini API with JSON response format
     - Parse MemoryUpdateResult from response
     - _Requirements: 1.2, 2.2, 3.2_
-  - [ ] 7.3 Implement JSON parsing with error handling
+  - [x] 7.3 Implement JSON parsing with error handling
+
     - Add `cleanJsonBlock()` to remove markdown code fences
     - Use lenient JSON parsing for malformed responses
     - Return Result.failure() on parse errors without throwing
     - _Requirements: 6.1, 6.3, 6.4_
-  - [ ]* 7.4 Write property test for error handling
+  - [x] 7.4 Write property test for error handling
+
+
     - **Property 8: Memory Update Error Handling**
     - **Validates: Requirements 6.1, 6.3, 6.4**
-  - [ ] 7.5 Implement memory persistence after successful update
+  - [x] 7.5 Implement memory persistence after successful update
+
+
     - Save updated GlobalUserCard to DataStore
     - Save updated LocalConversationCard to database
     - Save updated MetaSummary to database
     - _Requirements: 1.2, 2.2, 3.2_
-  - [ ]* 7.6 Write property test for global instruction usage
+  - [x] 7.6 Write property test for global instruction usage
+
+
     - **Property 11: Memory Update Uses Global Instruction**
     - **Validates: Requirements 8.3**
 
-- [ ] 8. Checkpoint - Ensure all tests pass
+- [x] 8. Checkpoint - Ensure all tests pass
+
+
+
+
+
+
+
+
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Implement ConversationLockManager for race condition prevention
-  - [ ] 9.1 Create ConversationLockManager class
+
+
+- [x] 9. Implement ConversationLockManager for race condition prevention
+
+
+
+
+  - [x] 9.1 Create ConversationLockManager class
+
     - Implement `lockConversation(conversationId)` - sets memoryUpdatePending = true
     - Implement `unlockConversation(conversationId)` - sets memoryUpdatePending = false
     - Implement `canStartSession(conversationId)` - returns false if pending
     - _Requirements: 6.5, 6.6, 6.7_
-  - [ ]* 9.2 Write property test for memory update lock
+  - [x] 9.2 Write property test for memory update lock
+
+
     - **Property 13: Memory Update Lock Prevents Race Conditions**
     - **Validates: Requirements 6.5, 6.6, 6.7**
-  - [ ] 9.3 Update UI to show "Zapisuję wspomnienia..." when locked
+  - [x] 9.3 Update UI to show "Zapisuję wspomnienia..." when locked
+
+
     - Modify conversation list item to check memoryUpdatePending
     - Display lock message instead of title when pending
     - Disable start button when pending
     - _Requirements: 6.5_
 
-- [ ] 10. Implement Gemini Live session configuration with compression
-  - [ ] 10.1 Update VoiceClientManager session configuration
+
+- [x] 10. Implement Gemini Live session configuration with compression
+
+
+
+  - [x] 10.1 Update VoiceClientManager session configuration
+
+
     - Add contextWindowCompression to LiveServerConfig
     - Set triggerTokens = 100000
     - _Requirements: 5.5, 5.6_
-  - [ ]* 10.2 Write property test for compression configuration
+  - [x] 10.2 Write property test for compression configuration
+
+
     - **Property 12: Context Window Compression Configuration**
     - **Validates: Requirements 5.5, 5.6**
 
-- [ ] 11. Integrate components in SessionManager
-  - [ ] 11.1 Update SessionManager to use OfflineContextBuilder
+- [x] 11. Integrate components in SessionManager
+
+
+
+
+  - [x] 11.1 Update SessionManager to use OfflineContextBuilder
+
+
     - Replace old ContextBuilder with new OfflineContextBuilder
     - Build context at session start
     - _Requirements: 1.1, 2.1, 3.1, 5.1_
-  - [ ] 11.2 Implement source-based summary routing
+  - [x] 11.2 Implement source-based summary routing
+
+
     - Check conversation.source field
     - Route "gemini_live" to MemoryUpdateService
     - Route "librechat" to legacy summary generator
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
-  - [ ]* 11.3 Write property test for source-based routing
+  - [x] 11.3 Write property test for source-based routing
+
+
     - **Property 9: Conversation Source Determines Summary Approach**
     - **Validates: Requirements 9.1, 9.2, 9.3, 9.4**
-  - [ ] 11.4 Integrate ConversationLockManager in session lifecycle
+  - [x] 11.4 Integrate ConversationLockManager in session lifecycle
+
+
     - Lock conversation at session end (before memory update)
     - Unlock conversation after memory update completes
     - Check lock before starting new session
     - _Requirements: 6.5, 6.6, 6.7_
 
-- [ ] 12. Checkpoint - Ensure all tests pass
+- [x] 12. Checkpoint - Ensure all tests pass
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 13. Clean up and remove deprecated code
-  - [ ] 13.1 Remove old ContextBuilder class
+- [x] 13. Clean up and remove deprecated code
+
+
+
+
+
+  - [x] 13.1 Remove old ContextBuilder class
+
+
     - Delete `data/ContextBuilder.kt`
     - Update all imports to use OfflineContextBuilder
     - _Requirements: 5.1_
-  - [ ] 13.2 Remove per-conversation summary prompt UI
+  - [x] 13.2 Remove per-conversation summary prompt UI
+
+
     - Remove customSummaryPrompt field from ThreadConfigDialog
     - Remove copySummaryToClipboard toggle from ThreadConfigDialog
     - _Requirements: 8.1, 8.2_
-  - [ ] 13.3 Update Settings screen
+  - [x] 13.3 Update Settings screen
+
+
     - Keep summaryPrompt for LibreChat conversations only
     - Add note that it applies only to LibreChat mode
     - _Requirements: 9.1_
 
-- [ ] 14. Final Checkpoint - Ensure all tests pass
+- [x] 14. Final Checkpoint - Ensure all tests pass
+
+
+
+
+
   - Ensure all tests pass, ask the user if questions arise.
 

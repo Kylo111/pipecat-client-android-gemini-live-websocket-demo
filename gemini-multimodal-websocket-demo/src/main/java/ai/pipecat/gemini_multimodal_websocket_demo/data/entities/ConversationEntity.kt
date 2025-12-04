@@ -33,9 +33,22 @@ data class ConversationEntity(
     
     val metadata: String? = null, // JSON
     
+    // OLD: These will be removed in task 13.2
     @ColumnInfo(name = "custom_summary_prompt")
     val customSummaryPrompt: String? = null,
     
     @ColumnInfo(name = "copy_summary_to_clipboard")
-    val copySummaryToClipboard: Boolean = false
+    val copySummaryToClipboard: Boolean = false,
+    
+    // NEW: Local conversation card (JSON serialized LocalConversationCard)
+    @ColumnInfo(name = "local_card_json")
+    val localCardJson: String? = null,
+    
+    // NEW: Last updated timestamp for memory
+    @ColumnInfo(name = "last_updated_at")
+    val lastUpdatedAt: Long = System.currentTimeMillis(),
+    
+    // NEW: Memory update in progress flag
+    @ColumnInfo(name = "memory_update_pending")
+    val memoryUpdatePending: Boolean = false
 )

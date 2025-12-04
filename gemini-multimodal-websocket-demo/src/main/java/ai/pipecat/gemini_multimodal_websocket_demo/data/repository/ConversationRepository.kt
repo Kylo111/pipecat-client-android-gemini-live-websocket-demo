@@ -82,6 +82,16 @@ class ConversationRepository(
         conversationDao.updateMetaSummary(conversationId, metaSummary)
     }
     
+    // Update local card
+    suspend fun updateLocalCard(conversationId: String, localCardJson: String?) {
+        conversationDao.updateLocalCard(conversationId, localCardJson)
+    }
+    
+    // Set memory update pending flag
+    suspend fun setMemoryUpdatePending(conversationId: String, pending: Boolean) {
+        conversationDao.setMemoryUpdatePending(conversationId, pending)
+    }
+    
     // Get summary settings for a conversation
     suspend fun getSummarySettings(conversationId: String): Pair<String?, Boolean>? {
         val conversation = conversationDao.getById(conversationId)

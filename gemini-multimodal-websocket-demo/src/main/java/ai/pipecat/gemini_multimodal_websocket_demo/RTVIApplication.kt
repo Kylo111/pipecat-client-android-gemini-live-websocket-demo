@@ -5,6 +5,9 @@ import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConversationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.DocumentRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.SessionRepository
+import ai.pipecat.gemini_multimodal_websocket_demo.data.GlobalMemoryDataStore
+import ai.pipecat.gemini_multimodal_websocket_demo.data.OfflineContextBuilder
+import kotlinx.serialization.json.Json
 
 class RTVIApplication : Application() {
     
@@ -19,11 +22,31 @@ class RTVIApplication : Application() {
     val documentRepository by lazy { 
         DocumentRepository(database.documentDao()) 
     }
-    val contextBuilder by lazy {
-        ai.pipecat.gemini_multimodal_websocket_demo.data.ContextBuilder(
-            conversationRepository,
-            sessionRepository
+    
+    // Offline context builder for advanced memory pipeline
+    val offlineContextBuilder by lazy {
+        OfflineContextBuilder(
+            conversationRepository = conversationRepository,
+            sessionRepository = sessionRepository,
+            globalMemoryDataStore = GlobalMemoryDataStore(this),
+            systemPrompts = SystemPrompts,
+            json = Json { ignoreUnknownKeys = true; isLenient = true }
         )
+    }
+    
+    // Memory update service for Gemini Live conversations
+    val memoryUpdateService by lazy {
+        MemoryUpdateService(
+            context = this,
+            conversationRepository = conversationRepository,
+            globalMemoryDataStore = GlobalMemoryDataStore(this),
+            systemPrompts = SystemPrompts
+        )
+    }
+    
+    // Conversation lock manager for race condition prevention
+    val conversationLockManager by lazy {
+        ConversationLockManager(conversationRepository)
     }
 
     

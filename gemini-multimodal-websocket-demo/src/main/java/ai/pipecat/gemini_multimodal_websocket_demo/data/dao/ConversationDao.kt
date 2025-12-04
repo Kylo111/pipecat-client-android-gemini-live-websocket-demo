@@ -37,6 +37,7 @@ interface ConversationDao {
     @Query("UPDATE conversations SET total_duration_seconds = total_duration_seconds + :duration WHERE id = :conversationId")
     suspend fun addDuration(conversationId: String, duration: Int)
     
+    // OLD: These will be removed in task 13.2
     @Query("UPDATE conversations SET custom_summary_prompt = :prompt WHERE id = :conversationId")
     suspend fun updateCustomSummaryPrompt(conversationId: String, prompt: String?)
     
@@ -45,4 +46,12 @@ interface ConversationDao {
     
     @Query("SELECT COUNT(*) FROM conversations")
     suspend fun getCount(): Int
+    
+    // NEW: Memory update methods
+    
+    @Query("UPDATE conversations SET memory_update_pending = :pending WHERE id = :conversationId")
+    suspend fun setMemoryUpdatePending(conversationId: String, pending: Boolean)
+    
+    @Query("UPDATE conversations SET local_card_json = :localCardJson WHERE id = :conversationId")
+    suspend fun updateLocalCard(conversationId: String, localCardJson: String?)
 }

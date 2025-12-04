@@ -463,7 +463,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             
                             Text(
-                                text = "Transkrypcja zostanie dodana do tego prompta i wysłana do Gemini 2.5 Pro. Odpowiedź zostanie wysłana do LibreChat.",
+                                text = "Uwaga: Ten prompt jest używany tylko dla konwersacji LibreChat. Konwersacje Gemini Live używają zaawansowanego systemu pamięci z kartami użytkownika i meta-podsumowaniami.",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.W400,
                                 color = Color.Gray,

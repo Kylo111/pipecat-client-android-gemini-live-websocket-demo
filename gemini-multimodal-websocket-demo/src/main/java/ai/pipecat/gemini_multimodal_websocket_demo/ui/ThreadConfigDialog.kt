@@ -86,20 +86,6 @@ fun ThreadConfigDialog(
     var temperature by remember { mutableFloatStateOf(currentSettings.temperature) }
     var showVoiceDropdown by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    
-    // Summary settings
-    var customSummaryPrompt by remember { mutableStateOf("") }
-    var copySummaryToClipboard by remember { mutableStateOf(false) }
-    val globalPrompt = Preferences.summaryPrompt.value ?: ""
-    
-    // Load summary settings from database
-    LaunchedEffect(thread.id) {
-        val settings = conversationRepository.getSummarySettings(thread.id)
-        if (settings != null) {
-            customSummaryPrompt = settings.first ?: ""
-            copySummaryToClipboard = settings.second
-        }
-    }
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -288,113 +274,6 @@ fun ThreadConfigDialog(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Summary settings section
-                Text(
-                    text = "Ustawienia podsumowania",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.W700,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Custom summary prompt
-                Text(
-                    text = "Własny prompt podsumowania",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W600,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                OutlinedTextField(
-                    value = customSummaryPrompt,
-                    onValueChange = { newValue ->
-                        customSummaryPrompt = newValue
-                        scope.launch {
-                            conversationRepository.updateCustomSummaryPrompt(
-                                thread.id,
-                                newValue.ifBlank { null }
-                            )
-                        }
-                    },
-                    placeholder = { 
-                        Text(
-                            "Użyj globalnego promptu",
-                            style = TextStyles.base,
-                            fontSize = 14.sp
-                        ) 
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    maxLines = 5,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Colors.buttonNormal,
-                        unfocusedBorderColor = Colors.textFieldBorder,
-                        focusedTextColor = Color.Black,
-                        unfocusedTextColor = Color.Black
-                    ),
-                    textStyle = TextStyles.base.copy(fontSize = 14.sp)
-                )
-                
-                // Helper text showing global prompt when custom is empty
-                if (customSummaryPrompt.isBlank() && globalPrompt.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Aktualny globalny: ${globalPrompt.take(100)}${if (globalPrompt.length > 100) "..." else ""}",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.W400,
-                        color = Color.Gray,
-                        style = TextStyles.base
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Clipboard copy checkbox
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            copySummaryToClipboard = !copySummaryToClipboard
-                            scope.launch {
-                                conversationRepository.updateCopySummaryToClipboard(
-                                    thread.id,
-                                    copySummaryToClipboard
-                                )
-                            }
-                        }
-                        .padding(vertical = 4.dp)
-                ) {
-                    Checkbox(
-                        checked = copySummaryToClipboard,
-                        onCheckedChange = { newValue ->
-                            copySummaryToClipboard = newValue
-                            scope.launch {
-                                conversationRepository.updateCopySummaryToClipboard(
-                                    thread.id,
-                                    newValue
-                                )
-                            }
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Kopiuj podsumowanie do schowka",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.W400,
-                        color = Color.Black,
-                        style = TextStyles.base
-                    )
-                }
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 

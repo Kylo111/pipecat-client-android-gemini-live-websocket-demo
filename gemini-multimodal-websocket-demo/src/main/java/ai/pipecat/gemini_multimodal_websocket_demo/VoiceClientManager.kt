@@ -109,7 +109,11 @@ data class GenerationConfig(
     val response_modalities: List<String> = listOf("AUDIO", "TEXT"),
     val speech_config: SpeechConfig? = null,
     val temperature: Float? = null
+    // Note: context_window_compression removed - not supported by Gemini API
 )
+
+// Note: ContextWindowCompression removed - not supported by Gemini API
+// Compression is handled internally by OfflineContextBuilder
 
 @Serializable
 data class SpeechConfig(
@@ -191,6 +195,14 @@ class VoiceClientManager(
     
     // Tool executor for function calling
     private val toolExecutor = ToolExecutor(context)
+    
+    // Clipboard tool handler
+    private val clipboardToolHandler = ai.pipecat.gemini_multimodal_websocket_demo.tools.ClipboardToolHandler(
+        context = context,
+        onClipboardEvent = { event ->
+            clipboardEvent.value = event
+        }
+    )
 
     private var webSocket: WebSocket? = null
     private var audioRecord: AudioRecord? = null
@@ -275,6 +287,9 @@ class VoiceClientManager(
     // Tool execution state
     val isExecutingTool = mutableStateOf(false)
     val currentToolName = mutableStateOf<String?>(null)
+    
+    // Clipboard event state
+    val clipboardEvent = mutableStateOf<ai.pipecat.gemini_multimodal_websocket_demo.tools.ClipboardEvent?>(null)
     
     // Indicates if session is paused (disconnected but can be resumed)
     val isPaused = mutableStateOf(false)
@@ -692,14 +707,26 @@ class VoiceClientManager(
         
         val model = Preferences.modelName.value ?: "gemini-2.5-flash-native-audio-preview-09-2025"
         
-        // Get system prompt from current session context (from LibreChat) or fallback to preferences
+        // Get system prompt from current session context
+        // Priority: LibreChat session > Offline context > Preferences
         val currentSession = sessionManager?.getCurrentSession()
-        val baseSystemPrompt = if (currentSession != null) {
-            Log.i(TAG, "✅ Using system prompt from LibreChat session context")
-            currentSession.systemPrompt
-        } else {
-            Log.w(TAG, "⚠️ No active session context, using default system prompt from preferences")
-            Preferences.systemPrompt.value ?: "You are a helpful assistant"
+        val offlineContext = sessionManager?.getCurrentConversationContext()
+        val baseSystemPrompt = when {
+            // LibreChat session - use session prompt
+            currentSession != null -> {
+                Log.i(TAG, "✅ Using system prompt from LibreChat session context")
+                currentSession.systemPrompt
+            }
+            // Offline session - use context from OfflineContextBuilder
+            offlineContext != null -> {
+                Log.i(TAG, "✅ Using offline context from OfflineContextBuilder (${offlineContext.length} chars)")
+                offlineContext
+            }
+            // Fallback - use preferences
+            else -> {
+                Log.w(TAG, "⚠️ No active session context, using default system prompt from preferences")
+                Preferences.systemPrompt.value ?: "You are a helpful assistant"
+            }
         }
         
         // Enhance system prompt with tool information from preferences
@@ -798,6 +825,8 @@ class VoiceClientManager(
                                 )
                             ),
                             temperature = temperature
+                            // Note: context_window_compression is NOT supported by Gemini API
+                            // Compression is handled internally by our OfflineContextBuilder
                         ),
                         system_instruction = SystemInstruction(
                             parts = listOf(Part(text = systemPrompt))
@@ -1313,7 +1342,15 @@ class VoiceClientManager(
                     val startTime = System.currentTimeMillis()
                     val result = try {
                         Log.i(TAG, "⏳ Starting tool execution...")
-                        val res = toolExecutor.executeTool(name, args)
+                        
+                        // Handle clipboard tool directly (needs access to VoiceClientManager state)
+                        val res = if (name == "copy_to_clipboard") {
+                            val text = args["text"]?.jsonPrimitive?.content ?: ""
+                            clipboardToolHandler.handleCopyToClipboard(text)
+                        } else {
+                            toolExecutor.executeTool(name, args)
+                        }
+                        
                         val duration = System.currentTimeMillis() - startTime
                         Log.i(TAG, "✅ Tool execution completed in ${duration}ms")
                         res

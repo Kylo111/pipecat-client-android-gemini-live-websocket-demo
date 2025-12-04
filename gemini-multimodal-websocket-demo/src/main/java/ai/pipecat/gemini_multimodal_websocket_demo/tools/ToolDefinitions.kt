@@ -32,7 +32,8 @@ object ToolDefinitions {
             controlMediaTool(),
             searchNearbyTool(),
             createOfflineConversationTool(),
-            startNavigationTool()
+            startNavigationTool(),
+            copyToClipboardTool()
         )
         
         // Add Perplexity search if API key is configured
@@ -358,6 +359,27 @@ object ToolDefinitions {
             }
             put("required", buildJsonArray {
                 add(JsonPrimitive("query"))
+            })
+        }
+    }
+    
+    /**
+     * Copy text to clipboard
+     * Allows the AI to copy text to the system clipboard on user request
+     */
+    private fun copyToClipboardTool() = buildJsonObject {
+        put("name", "copy_to_clipboard")
+        put("description", "Copy text to the system clipboard. Use this when the user asks to copy, save to clipboard, or remember text, code snippets, summaries, or any information they want to paste later.")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("text") {
+                    put("type", "string")
+                    put("description", "The text content to copy to the clipboard")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("text"))
             })
         }
     }

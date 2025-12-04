@@ -37,11 +37,13 @@ sealed class ConversationItem {
     abstract val id: String
     abstract val title: String
     abstract val type: ConversationType
+    abstract val memoryUpdatePending: Boolean
     
     data class LibreChatThread(
         override val id: String,
         override val title: String,
-        val conversationId: String
+        val conversationId: String,
+        override val memoryUpdatePending: Boolean = false
     ) : ConversationItem() {
         override val type = ConversationType.LIBRECHAT
     }
@@ -49,7 +51,8 @@ sealed class ConversationItem {
     data class Offline(
         override val id: String,
         override val title: String,
-        val systemPrompt: String
+        val systemPrompt: String,
+        override val memoryUpdatePending: Boolean = false
     ) : ConversationItem() {
         override val type = ConversationType.OFFLINE
     }

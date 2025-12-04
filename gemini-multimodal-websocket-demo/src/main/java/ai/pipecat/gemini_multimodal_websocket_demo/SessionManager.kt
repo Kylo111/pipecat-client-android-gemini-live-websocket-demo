@@ -52,8 +52,16 @@ class SessionManager(
     private val conversationRepository by lazy {
         (context.applicationContext as RTVIApplication).conversationRepository
     }
-    private val contextBuilder by lazy {
-        (context.applicationContext as RTVIApplication).contextBuilder
+    
+    // Components for advanced memory pipeline
+    private val offlineContextBuilder by lazy {
+        (context.applicationContext as RTVIApplication).offlineContextBuilder
+    }
+    private val memoryUpdateService by lazy {
+        (context.applicationContext as RTVIApplication).memoryUpdateService
+    }
+    private val conversationLockManager by lazy {
+        (context.applicationContext as RTVIApplication).conversationLockManager
     }
     
     // Current database session ID
@@ -176,8 +184,14 @@ class SessionManager(
                 Log.d(TAG, "Created conversation in database: $conversationId")
             }
             
-            // Build context from previous sessions
-            currentConversationContext = contextBuilder.buildContext(conversationId)
+            // Check if conversation can start (not locked by memory update)
+            if (!conversationLockManager.canStartSession(conversationId)) {
+                Log.w(TAG, "Cannot start session - memory update in progress")
+                return@withContext Result.failure(Exception("Memory update in progress. Please wait."))
+            }
+            
+            // Build context from previous sessions using OfflineContextBuilder
+            currentConversationContext = offlineContextBuilder.buildContext(conversationId)
             
             if (currentConversationContext.isNullOrBlank()) {
                 Log.d(TAG, "No previous context found - this is a new conversation")
@@ -186,26 +200,10 @@ class SessionManager(
                 Log.d(TAG, "Context preview: ${currentConversationContext!!.take(200)}...")
             }
             
-            // Get context stats for debugging
-            val stats = contextBuilder.getContextStats(conversationId)
-            Log.d(TAG, "Context stats: $stats")
-            
             // Create session in Room database
             currentDbSessionId = sessionRepository.createSession(conversationId)
             currentConversationId = conversationId
             Log.d(TAG, "Created offline database session: $currentDbSessionId")
-            
-            // Cleanup old sessions in background
-            scope.launch {
-                try {
-                    val deleted = contextBuilder.cleanupOldSessions(conversationId)
-                    if (deleted > 0) {
-                        Log.d(TAG, "Cleaned up $deleted old sessions")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during cleanup", e)
-                }
-            }
             
             // No LibreChat session context for offline conversations
             currentSession = null
@@ -247,6 +245,27 @@ class SessionManager(
         // Fall back to global prompt
         Log.d(TAG, "Using global summary prompt")
         return Preferences.summaryPrompt.value ?: ""
+    }
+
+    /**
+     * Get the system prompt (persona) for a conversation
+     * This is used by MemoryUpdateService to understand the context of the conversation
+     * 
+     * Priority: offline conversation systemPrompt > default system prompt
+     * 
+     * @param conversationId The conversation ID
+     * @return The conversation system prompt, or null if not found
+     */
+    private fun getConversationSystemPrompt(conversationId: String): String? {
+        // Try offline conversation first
+        val offlineConv = OfflineConversationManager.getById(conversationId)
+        if (offlineConv != null && offlineConv.systemPrompt.isNotBlank()) {
+            Log.d(TAG, "Using system prompt from offline conversation")
+            return offlineConv.systemPrompt
+        }
+        
+        // No custom system prompt found
+        return null
     }
 
     /**
@@ -301,6 +320,12 @@ class SessionManager(
     suspend fun startSession(conversationId: String): Result<SessionContext> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting session for conversation: $conversationId")
+            
+            // Check if conversation can start (not locked by memory update)
+            if (!conversationLockManager.canStartSession(conversationId)) {
+                Log.w(TAG, "Cannot start session - memory update in progress")
+                return@withContext Result.failure(Exception("Memory update in progress. Please wait."))
+            }
             
             // Fetch learning context from LibreChat
             val contextResult = libreChatService.getLearningContext(conversationId)
@@ -556,7 +581,7 @@ class SessionManager(
                     val dbSession = sessionRepository.endSession(dbSessionId)
                     Log.d(TAG, "Ended offline database session: $dbSessionId")
                     
-                    // Generate summary for offline session if it meets minimum thresholds
+                    // Route summary generation based on conversation source
                     dbSession?.let { sess ->
                         val durationSecs = sess.durationSeconds ?: 0
                         val transcriptLength = sess.transcript.length
@@ -566,52 +591,113 @@ class SessionManager(
                             durationSecs >= MIN_SESSION_DURATION_SECONDS && 
                             transcriptLength >= MIN_TRANSCRIPT_LENGTH) {
                             
-                            Log.d(TAG, "📝 Session qualifies for summary (${durationSecs}s, ${transcriptLength} chars)")
+                            Log.d(TAG, "📝 Session qualifies for memory update (${durationSecs}s, ${transcriptLength} chars)")
                             
-                            // Generate summary in background with infinite retry
-                            scope.launch {
-                                try {
-                                    val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
-                                    val summaryPrompt = currentConversationId?.let { getEffectiveSummaryPrompt(it) } 
-                                        ?: ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryPrompt.value
-                                    val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
-                                    
-                                    if (apiKey.isNullOrBlank()) {
-                                        Log.w(TAG, "⚠️ No Gemini API key, skipping summary generation")
-                                        return@launch
-                                    }
-                                    
-                                    if (summaryPrompt.isNullOrBlank()) {
-                                        Log.w(TAG, "⚠️ No summary prompt configured, skipping summary generation")
-                                        return@launch
-                                    }
-                                    
-                                    Log.d(TAG, "🤖 Generating summary with $summaryModel (infinite retry)...")
-                                    val summaryResult = geminiSummaryService.generateSummaryWithRetry(
-                                        transcript = sess.transcript,
-                                        summaryPrompt = summaryPrompt,
-                                        modelName = summaryModel,
-                                        apiKey = apiKey
-                                    )
-                                    
-                                    summaryResult.onSuccess { summary ->
-                                        sessionRepository.updateSummary(dbSessionId, summary)
-                                        Log.d(TAG, "✅ Summary saved: ${summary.take(100)}...")
+                            // Get conversation to check source
+                            currentConversationId?.let { convId ->
+                                scope.launch {
+                                    try {
+                                        val conversation = conversationRepository.getConversation(convId)
+                                        val source = conversation?.source ?: "gemini_live"
                                         
-                                        // Handle clipboard copy if enabled
-                                        currentConversationId?.let { convId ->
-                                            handleSummaryGenerated(summary, convId)
+                                        Log.d(TAG, "🔀 Routing based on source: $source")
+                                        
+                                        when (source) {
+                                            "gemini_live", "offline" -> {
+                                                // Use MemoryUpdateService for Gemini Live conversations
+                                                Log.d(TAG, "🧠 Using MemoryUpdateService for memory evolution")
+                                                
+                                                // Get conversation system prompt (persona) for context
+                                                val conversationSystemPrompt = getConversationSystemPrompt(convId)
+                                                Log.d(TAG, "📋 Conversation persona: ${conversationSystemPrompt?.take(100) ?: "default"}...")
+                                                
+                                                // Lock conversation during memory update
+                                                conversationLockManager.lockConversation(convId)
+                                                
+                                                try {
+                                                    val memoryResult = memoryUpdateService.updateMemoryAfterSession(
+                                                        conversationId = convId,
+                                                        newTranscript = sess.transcript,
+                                                        conversationSystemPrompt = conversationSystemPrompt
+                                                    )
+                                                    
+                                                    memoryResult.onSuccess { result ->
+                                                        Log.d(TAG, "✅ Memory updated successfully")
+                                                        Log.d(TAG, "  Session summary: ${result.sessionSummary.take(100)}...")
+                                                        
+                                                        // CRITICAL: Persist the memory updates to storage
+                                                        val persistResult = memoryUpdateService.persistMemoryUpdate(
+                                                            conversationId = convId,
+                                                            memoryUpdateResult = result
+                                                        )
+                                                        
+                                                        persistResult.onSuccess {
+                                                            Log.d(TAG, "✅ Memory persisted to storage")
+                                                        }.onFailure { persistError ->
+                                                            Log.e(TAG, "❌ Failed to persist memory", persistError)
+                                                        }
+                                                    }.onFailure { error ->
+                                                        Log.e(TAG, "❌ Failed to update memory", error)
+                                                    }
+                                                } finally {
+                                                    // Always unlock conversation after memory update
+                                                    conversationLockManager.unlockConversation(convId)
+                                                }
+                                            }
+                                            
+                                            "librechat" -> {
+                                                // Use legacy summary generator for LibreChat conversations
+                                                Log.d(TAG, "📄 Using legacy summary generator for LibreChat")
+                                                
+                                                val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
+                                                val summaryPrompt = getEffectiveSummaryPrompt(convId)
+                                                val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
+                                                
+                                                if (apiKey.isNullOrBlank()) {
+                                                    Log.w(TAG, "⚠️ No Gemini API key, skipping summary generation")
+                                                    return@launch
+                                                }
+                                                
+                                                if (summaryPrompt.isNullOrBlank()) {
+                                                    Log.w(TAG, "⚠️ No summary prompt configured, skipping summary generation")
+                                                    return@launch
+                                                }
+                                                
+                                                val summaryResult = geminiSummaryService.generateSummaryWithRetry(
+                                                    transcript = sess.transcript,
+                                                    summaryPrompt = summaryPrompt,
+                                                    modelName = summaryModel,
+                                                    apiKey = apiKey
+                                                )
+                                                
+                                                summaryResult.onSuccess { summary ->
+                                                    sessionRepository.updateSummary(dbSessionId, summary)
+                                                    Log.d(TAG, "✅ Summary saved: ${summary.take(100)}...")
+                                                    
+                                                    // Handle clipboard copy if enabled
+                                                    handleSummaryGenerated(summary, convId)
+                                                }.onFailure { error ->
+                                                    Log.e(TAG, "❌ Failed to generate summary", error)
+                                                }
+                                            }
+                                            
+                                            else -> {
+                                                Log.w(TAG, "⚠️ Unknown conversation source: $source, skipping memory update")
+                                            }
                                         }
-                                    }.onFailure { error ->
-                                        Log.e(TAG, "❌ Failed to generate summary", error)
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "❌ Error during memory update routing", e)
+                                        // Ensure conversation is unlocked on error
+                                        try {
+                                            conversationLockManager.unlockConversation(convId)
+                                        } catch (unlockError: Exception) {
+                                            Log.e(TAG, "Failed to unlock conversation", unlockError)
+                                        }
                                     }
-                                    
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "❌ Error generating summary", e)
                                 }
                             }
                         } else {
-                            Log.d(TAG, "⏭️ Session too short for summary (${durationSecs}s, ${transcriptLength} chars) - skipping")
+                            Log.d(TAG, "⏭️ Session too short for memory update (${durationSecs}s, ${transcriptLength} chars) - skipping")
                         }
                     }
                 } catch (e: Exception) {

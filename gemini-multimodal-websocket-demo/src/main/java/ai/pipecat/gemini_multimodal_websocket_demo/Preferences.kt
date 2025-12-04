@@ -193,7 +193,7 @@ object Preferences {
 
     // Existing preferences
     val apiKey = StringPref(PREF_API_KEY)
-    val systemPrompt = StringPref(PREF_SYSTEM_PROMPT, "You are a helpful assistant")
+    val systemPrompt = StringPref(PREF_SYSTEM_PROMPT, SystemPrompts.defaultSystemPrompt)
     val selectedVoice = StringPref(PREF_SELECTED_VOICE, "Puck")
     val modelName = StringPref(PREF_MODEL_NAME, "models/gemini-2.5-flash-native-audio-preview-09-2025")
 
@@ -211,93 +211,12 @@ object Preferences {
     val defaultServerUrl = StringPref(PREF_DEFAULT_SERVER_URL, "www.kumpel-chat.fun")
     val isDarkTheme = BooleanPref(PREF_IS_DARK_THEME, false)
     val appTheme = StringPref(PREF_APP_THEME, "CLASSIC")
-    val toolsInstruction = StringPref(PREF_TOOLS_INSTRUCTION, """
-CRITICAL TOOL USAGE RULES:
-
-You have access to these tools - USE THEM IMMEDIATELY when needed, DO NOT ask for permission:
-
-1. search_web(query) - Search internet for current information (Serper API)
-2. search_perplexity(query) - Advanced search with citations for political events and news (Perplexity Sonar)
-3. get_weather(location, units) - Get weather forecast
-4. get_current_time(timezone) - Get current date/time
-5. get_location(include_address) - Get user's GPS location
-6. calculate(expression) - Perform calculations
-7. create_note(title, content, app) - Create notes
-8. control_media(action, query, app) - Control media playback
-9. search_nearby(query, radius, max_results) - Find nearby places
-10. start_navigation(destination, mode) - Start Google Maps navigation to destination
-
-SEARCH TOOL SELECTION:
-- For political news, current events, complex queries → USE search_perplexity (more accurate, with citations)
-- For general web search, quick facts → USE search_web
-- Perplexity is available only if API key is configured
-
-PERPLEXITY TIME FILTERS:
-- User asks about "today" or "latest" → USE recency_filter="day"
-- User asks about "this week" → USE recency_filter="week"
-- User asks about "this month" → USE recency_filter="month"
-- User asks about "last hour" → USE recency_filter="hour"
-- User asks about "this year" → USE recency_filter="year"
-- No time specified → omit recency_filter (search all time)
-
-NAVIGATION TOOL:
-- When user asks for directions/navigation → ASK for destination if not provided
-- Then EXECUTE start_navigation IMMEDIATELY with destination and mode
-- Modes: "driving" (default), "walking", "bicycling", "transit"
-- Examples:
-  * "Nawiguj do Warszawy" → start_navigation(destination="Warszawa", mode="driving")
-  * "Jak dojść do Placu Zamkowego?" → start_navigation(destination="Plac Zamkowy", mode="walking")
-  * "Chcę jechać rowerem do parku" → start_navigation(destination="park", mode="bicycling")
-
-EXAMPLES:
-- "Najnowsze wydarzenia w Polsce" → search_perplexity(query="wydarzenia w Polsce", recency_filter="day")
-- "Co się działo w tym tygodniu?" → search_perplexity(query="wydarzenia", recency_filter="week")
-- "Dywersja w Polsce ostatnio" → search_perplexity(query="dywersja w Polsce", recency_filter="week")
-
-MANDATORY BEHAVIOR:
-- When user asks for information → EXECUTE the tool IMMEDIATELY
-- When user asks to save/remember something → EXECUTE create_note IMMEDIATELY
-- When user asks about weather/time/location → EXECUTE the tool IMMEDIATELY
-- DO NOT ask "Do you want me to..." - just DO IT
-- DO NOT explain what you will do - just EXECUTE the tool
-- DO NOT have a conversation about using tools - USE THEM
-- After tool execution, provide the result naturally in conversation
-
-WRONG: "Czy chcesz żebym zapisał to w notatkach?"
-CORRECT: [Execute create_note immediately, then say "Zapisałem to w notatkach"]
-
-WRONG: "Mogę wyszukać to w internecie, czy chcesz?"
-CORRECT: [Execute search_perplexity or search_web immediately, then provide the information]
-    """.trimIndent())
+    val toolsInstruction = StringPref(PREF_TOOLS_INSTRUCTION, SystemPrompts.toolsInstruction)
     
     // Summary mode preferences
     val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, true) // Default: Podsumowanie (Summary mode)
     val summaryModel = StringPref(PREF_SUMMARY_MODEL, "gemini-2.5-flash")
-    val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, """
-Przeanalizuj poniższą transkrypcję rozmowy głosowej i stwórz zwięzłe podsumowanie.
-
-WAŻNE INFORMACJE O TRANSKRYPCJI:
-- To jest automatyczna transkrypcja rozmowy głosowej
-- Transkrypcja wypowiedzi UŻYTKOWNIKA może być BARDZO NIEDOKŁADNA i zawierać błędy rozpoznawania mowy
-- Transkrypcja odpowiedzi ASYSTENTA (modelu AI) jest dokładna
-- Język rozmowy jest taki sam jak język odpowiedzi asystenta
-- Użyj KONTEKSTU z odpowiedzi asystenta aby zrozumieć, co naprawdę mówił użytkownik
-- Zinterpretuj błędnie rozpoznane słowa użytkownika na podstawie logicznego kontekstu rozmowy
-
-ZADANIE:
-Stwórz podsumowanie zawierające:
-
-1. Główne tematy rozmowy (zinterpretowane poprawnie mimo błędów transkrypcji)
-2. Kluczowe informacje i wnioski
-3. Ewentualne pytania lub problemy wymagające dalszej uwagi
-4. Sugerowane następne kroki
-
-Podsumowanie powinno być:
-- Konkretne i rzeczowe
-- Napisane w tym samym języku co odpowiedzi asystenta
-- Pomocne dla kontynuacji rozmowy
-- Uwzględniające prawdziwe intencje użytkownika (nie literalnie błędną transkrypcję)
-    """.trimIndent())
+    val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, SystemPrompts.libreChatSummaryPrompt)
     
     // Parental lock
     val parentalLockEnabled = BooleanPref(PREF_PARENTAL_LOCK_ENABLED, false)
