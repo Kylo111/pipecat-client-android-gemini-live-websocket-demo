@@ -2,6 +2,8 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.LibreChatService
 import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
+import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import ai.pipecat.gemini_multimodal_websocket_demo.RTVIApplication
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AVAILABLE_VOICES
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
@@ -27,18 +29,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.launch
 
 /**
  * Dialog for configuring thread-specific settings
@@ -67,12 +75,31 @@ fun ThreadConfigDialog(
     onSave: (ThreadSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val app = context.applicationContext as RTVIApplication
+    val conversationRepository = app.conversationRepository
+    
     var selectedVoice by remember { mutableStateOf(currentSettings.voiceName) }
     var speechSpeed by remember { mutableFloatStateOf(currentSettings.speechSpeed) }
     var volumeBoost by remember { mutableFloatStateOf(currentSettings.volumeBoost) }
     var temperature by remember { mutableFloatStateOf(currentSettings.temperature) }
     var showVoiceDropdown by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    
+    // Summary settings
+    var customSummaryPrompt by remember { mutableStateOf("") }
+    var copySummaryToClipboard by remember { mutableStateOf(false) }
+    val globalPrompt = Preferences.summaryPrompt.value ?: ""
+    
+    // Load summary settings from database
+    LaunchedEffect(thread.id) {
+        val settings = conversationRepository.getSummarySettings(thread.id)
+        if (settings != null) {
+            customSummaryPrompt = settings.first ?: ""
+            copySummaryToClipboard = settings.second
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -261,6 +288,113 @@ fun ThreadConfigDialog(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Summary settings section
+                Text(
+                    text = "Ustawienia podsumowania",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Custom summary prompt
+                Text(
+                    text = "Własny prompt podsumowania",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = customSummaryPrompt,
+                    onValueChange = { newValue ->
+                        customSummaryPrompt = newValue
+                        scope.launch {
+                            conversationRepository.updateCustomSummaryPrompt(
+                                thread.id,
+                                newValue.ifBlank { null }
+                            )
+                        }
+                    },
+                    placeholder = { 
+                        Text(
+                            "Użyj globalnego promptu",
+                            style = TextStyles.base,
+                            fontSize = 14.sp
+                        ) 
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    maxLines = 5,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Colors.buttonNormal,
+                        unfocusedBorderColor = Colors.textFieldBorder,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    ),
+                    textStyle = TextStyles.base.copy(fontSize = 14.sp)
+                )
+                
+                // Helper text showing global prompt when custom is empty
+                if (customSummaryPrompt.isBlank() && globalPrompt.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Aktualny globalny: ${globalPrompt.take(100)}${if (globalPrompt.length > 100) "..." else ""}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Clipboard copy checkbox
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            copySummaryToClipboard = !copySummaryToClipboard
+                            scope.launch {
+                                conversationRepository.updateCopySummaryToClipboard(
+                                    thread.id,
+                                    copySummaryToClipboard
+                                )
+                            }
+                        }
+                        .padding(vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = copySummaryToClipboard,
+                        onCheckedChange = { newValue ->
+                            copySummaryToClipboard = newValue
+                            scope.launch {
+                                conversationRepository.updateCopySummaryToClipboard(
+                                    thread.id,
+                                    newValue
+                                )
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Kopiuj podsumowanie do schowka",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 

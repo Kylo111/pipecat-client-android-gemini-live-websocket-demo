@@ -82,6 +82,24 @@ class ConversationRepository(
         conversationDao.updateMetaSummary(conversationId, metaSummary)
     }
     
+    // Get summary settings for a conversation
+    suspend fun getSummarySettings(conversationId: String): Pair<String?, Boolean>? {
+        val conversation = conversationDao.getById(conversationId)
+        return conversation?.let { 
+            Pair(it.customSummaryPrompt, it.copySummaryToClipboard)
+        }
+    }
+    
+    // Update custom summary prompt
+    suspend fun updateCustomSummaryPrompt(conversationId: String, prompt: String?) {
+        conversationDao.updateCustomSummaryPrompt(conversationId, prompt)
+    }
+    
+    // Update copy summary to clipboard setting
+    suspend fun updateCopySummaryToClipboard(conversationId: String, enabled: Boolean) {
+        conversationDao.updateCopySummaryToClipboard(conversationId, enabled)
+    }
+    
     // Get sessions for conversation
     suspend fun getConversationSessions(conversationId: String): List<SessionEntity> {
         return sessionDao.getAllSessions(conversationId)

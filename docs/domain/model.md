@@ -427,5 +427,300 @@ classDiagram
 | AudioTrack setup | VoiceClientManager.kt | 1900-1950 |
 | SessionContext | SessionManager.kt | 60-80 |
 | TranscriptEntry | SessionManager.kt | 70-75 |
+| ContextBuilder | data/ContextBuilder.kt | 1-170 |
+| TranscriptSyncManager | SessionManager.kt | 870-1000 |
+| OfflineSummaryQueue | OfflineSummaryQueue.kt | 1-150 |
+| ContextStats | data/ContextBuilder.kt | 170-180 |
+| SyncStatus | SessionManager.kt | 850-870 |
 
-**Last Updated:** 2025-12-01
+**Last Updated:** 2025-12-04
+
+---
+
+## Related Documentation
+
+### Architecture & Design
+- [Architecture Overview](../project/architecture.md) - System architecture and components
+- [State Machines](state-machine.md) - State transitions and lifecycle
+
+### Implementation Details
+- [Components](../implementation/components.md) - Detailed component documentation
+- [Session Pipelines](session-pipelines.md) - Complete session lifecycle flows
+- [Context Builder](../implementation/context-builder.md) - Conversation context building
+- [Transcript Sync](../implementation/transcript-sync.md) - LibreChat synchronization
+- [Summary Generation](../implementation/summary-generation.md) - AI-powered summaries
+
+### Data & Persistence
+- [Database Schema](../operations/database-schema.md) - Database entities and schema
+
+
+---
+
+### ContextBuilder
+
+**Role:** Builds conversation context from database history using hybrid approach (last full transcript + summaries of previous sessions).
+
+**Location:** `data/ContextBuilder.kt:1`
+
+**Main Fields:**
+- `conversationRepository: ConversationRepository` - Database access for conversations
+- `sessionRepository: SessionRepository` - Database access for sessions
+- `MAX_RECENT_SESSIONS: Int = 10` - Maximum number of session summaries to include
+- `MAX_CONTEXT_LENGTH: Int = 30000` - Maximum context length in characters
+- `MAX_SESSIONS_TO_KEEP: Int = 50` - Session retention limit per conversation
+
+**Invariants:**
+- Context never exceeds MAX_CONTEXT_LENGTH characters
+- Only last session includes full transcript
+- Previous sessions include summaries only
+
+**Main Methods:**
+
+#### `buildContext(conversationId: String): String`
+**Role:** Builds formatted context string for Gemini system instructions
+**Preconditions:** None (returns empty string if conversation not found)
+**Parameters:**
+- `conversationId: String` - ID of conversation to build context for
+**Returns:** Formatted context string (max 30,000 characters)
+**Postconditions:**
+- Context built with up to 3 sections (overview, recent summaries, last transcript)
+- Context truncated if exceeds length limit
+**Side-effects:**
+- Database queries to fetch conversation, sessions, and transcripts
+**Errors:** Returns empty string on error, logs exception
+**Code Reference:** `data/ContextBuilder.kt:25`
+
+#### `getContextStats(conversationId: String): ContextStats`
+**Role:** Returns statistics about available context for debugging
+**Preconditions:** None
+**Parameters:**
+- `conversationId: String` - ID of conversation to analyze
+**Returns:** ContextStats data class with statistics
+**Postconditions:** None (read-only operation)
+**Side-effects:** Database queries
+**Code Reference:** `data/ContextBuilder.kt:110`
+
+#### `cleanupOldSessions(conversationId: String): Int`
+**Role:** Deletes old sessions to prevent database bloat
+**Preconditions:** None
+**Parameters:**
+- `conversationId: String` - ID of conversation to clean up
+**Returns:** Number of sessions deleted
+**Postconditions:**
+- Only last MAX_SESSIONS_TO_KEEP (50) sessions remain
+- Oldest sessions deleted first
+**Side-effects:**
+- Database DELETE operations
+- Logs cleanup activity
+**Errors:** Returns 0 on error, logs exception
+**Code Reference:** `data/ContextBuilder.kt:130`
+
+**Relationships:**
+- **Depends on:** ConversationRepository (aggregation), SessionRepository (aggregation)
+- **Used by:** SessionManager (calls buildContext on session start)
+
+**Lifecycle:**
+1. **Creation:** Instantiated by SessionManager with repository dependencies
+2. **Usage:** buildContext() called on each session start, cleanupOldSessions() called in background
+3. **Destruction:** Lives for app lifetime, no explicit cleanup
+
+**Testability:**
+- **Mocking:** Mock repositories for unit tests
+- **Edge cases:** Empty conversations, missing summaries, very long transcripts, context truncation
+
+---
+
+### TranscriptSyncManager
+
+**Role:** Handles reliable transcript/summary delivery to LibreChat with infinite retry and exponential backoff.
+
+**Location:** `SessionManager.kt:870` (inner class)
+
+**Main Fields:**
+- `syncStatus: MutableStateFlow<SyncStatus>` - Current sync state (Idle, Syncing, Success, Error)
+- `currentJob: Job?` - Active sync coroutine job
+- `BASE_DELAY: Long = 1000` - Initial retry delay (1 second)
+- `BACKOFF_FACTOR: Double = 2.0` - Exponential backoff multiplier
+- `MAX_DELAY: Long = 30000` - Maximum retry delay (30 seconds)
+
+**Invariants:**
+- Only one sync job active at a time
+- Content remains in OfflineSummaryQueue until successful sync
+- Backoff delay never exceeds MAX_DELAY
+
+**Main Methods:**
+
+#### `syncTranscripts(summaryRequest: SummaryRequest): Unit`
+**Role:** Initiates transcript/summary sync with infinite retry
+**Preconditions:** None (can be called multiple times, cancels previous job)
+**Parameters:**
+- `summaryRequest: SummaryRequest` - Content to sync (transcript or summary)
+**Postconditions:**
+- Content added to OfflineSummaryQueue
+- Sync job started with infinite retry
+- SyncStatus updated to Syncing
+**Side-effects:**
+- Enqueues content in OfflineSummaryQueue (persisted to SharedPreferences)
+- Starts coroutine job for retry loop
+- HTTP POST requests to LibreChat API
+- Updates syncStatus StateFlow
+**Errors:** Continues retrying on all errors except cancellation
+**Code Reference:** `SessionManager.kt:900`
+
+#### `calculateBackoff(attempt: Int): Long`
+**Role:** Calculates exponential backoff delay
+**Preconditions:** None
+**Parameters:**
+- `attempt: Int` - Current attempt number (1-based)
+**Returns:** Delay in milliseconds (1s, 2s, 4s, 8s, 16s, 30s max)
+**Postconditions:** None (pure function)
+**Side-effects:** None
+**Code Reference:** `SessionManager.kt:950`
+
+#### `cancelSync(): Unit`
+**Role:** Cancels active sync job
+**Preconditions:** None (safe to call when no job active)
+**Postconditions:**
+- Current job cancelled
+- SyncStatus reset to Idle
+- Content remains in queue for later retry
+**Side-effects:**
+- Cancels coroutine job
+- Updates syncStatus StateFlow
+**Code Reference:** `SessionManager.kt:980`
+
+**Relationships:**
+- **Depends on:** LibreChatService (aggregation), OfflineSummaryQueue (aggregation)
+- **Used by:** SessionManager (calls syncTranscripts on session end)
+
+**Lifecycle:**
+1. **Creation:** Created as inner class of SessionManager
+2. **Usage:** syncTranscripts() called on session end, retry loop continues until success or cancel
+3. **Destruction:** cancelSync() called on SessionManager cleanup
+
+**Testability:**
+- **Mocking:** Mock LibreChatService, OfflineSummaryQueue for unit tests
+- **Edge cases:** Network failures, API errors, cancellation during retry, queue persistence across app restart
+
+---
+
+### OfflineSummaryQueue
+
+**Role:** Persistent queue for transcripts/summaries awaiting synchronization to LibreChat.
+
+**Location:** `OfflineSummaryQueue.kt:1`
+
+**Main Fields:**
+- `prefs: SharedPreferences` - Persistent storage for queue
+- `json: Json` - Kotlinx serialization for JSON encoding/decoding
+- `MAX_QUEUE_SIZE: Int = 10` - Maximum queue capacity (FIFO eviction)
+
+**Invariants:**
+- Queue never exceeds MAX_QUEUE_SIZE items
+- Queue persists across app restarts (SharedPreferences)
+- FIFO ordering maintained
+
+**Main Methods:**
+
+#### `enqueue(summary: SummaryRequest): Unit`
+**Role:** Adds summary to persistent queue
+**Preconditions:** None
+**Parameters:**
+- `summary: SummaryRequest` - Content to enqueue
+**Postconditions:**
+- Summary added to queue
+- If queue full, oldest item removed (FIFO)
+- Queue persisted to SharedPreferences
+**Side-effects:**
+- Writes to SharedPreferences
+- Logs queue operations
+**Errors:** Logs exception, operation fails silently
+**Code Reference:** `OfflineSummaryQueue.kt:30`
+
+#### `dequeue(): SummaryRequest?`
+**Role:** Removes and returns oldest summary from queue
+**Preconditions:** None
+**Returns:** Oldest SummaryRequest or null if queue empty
+**Postconditions:**
+- Item removed from queue
+- Queue persisted to SharedPreferences
+**Side-effects:**
+- Writes to SharedPreferences
+- Logs queue operations
+**Code Reference:** `OfflineSummaryQueue.kt:50`
+
+#### `processQueue(libreChatService: LibreChatService): Int`
+**Role:** Processes all queued summaries by sending to LibreChat
+**Preconditions:** None
+**Parameters:**
+- `libreChatService: LibreChatService` - Service for sending summaries
+**Returns:** Number of successfully processed summaries
+**Postconditions:**
+- Successfully sent summaries removed from queue
+- Failed summary re-enqueued at front
+- Processing stops on first failure
+**Side-effects:**
+- HTTP POST requests to LibreChat API
+- Writes to SharedPreferences
+- Logs processing activity
+**Errors:** Stops processing on first failure, re-enqueues failed item
+**Code Reference:** `OfflineSummaryQueue.kt:80`
+
+#### `size(): Int`
+**Role:** Returns current queue size
+**Returns:** Number of items in queue
+**Code Reference:** `OfflineSummaryQueue.kt:65`
+
+#### `clear(): Unit`
+**Role:** Removes all items from queue
+**Postconditions:** Queue empty
+**Side-effects:** Writes to SharedPreferences
+**Code Reference:** `OfflineSummaryQueue.kt:75`
+
+**Relationships:**
+- **Depends on:** SharedPreferences (Android), Kotlinx Serialization
+- **Used by:** TranscriptSyncManager (enqueues/dequeues), SessionManager (processes queue on app start)
+
+**Lifecycle:**
+1. **Creation:** Instantiated by SessionManager with Context
+2. **Usage:** enqueue() on sync start, dequeue() on sync success, processQueue() on app start
+3. **Destruction:** Lives for app lifetime, data persists in SharedPreferences
+
+**Testability:**
+- **Mocking:** Mock SharedPreferences, LibreChatService for unit tests
+- **Edge cases:** Queue overflow, corrupted JSON, app restart with pending items, network failures during processing
+
+---
+
+### ContextStats
+
+**Role:** Data class containing statistics about available context for debugging.
+
+**Location:** `data/ContextBuilder.kt:170`
+
+**Fields:**
+- `conversationExists: Boolean` - Whether conversation found in database
+- `totalSessions: Int` - Total number of sessions for conversation
+- `sessionsWithSummaries: Int` - Number of sessions that have summaries
+- `lastSessionHasTranscript: Boolean` - Whether last session has transcript
+- `lastSessionLength: Int` - Length of last session transcript in characters
+- `hasMetaSummary: Boolean` - Whether conversation has meta-summary
+
+**Usage:** Returned by ContextBuilder.getContextStats() for debugging context building.
+
+---
+
+### SyncStatus
+
+**Role:** Sealed class representing transcript sync state.
+
+**Location:** `SessionManager.kt:850`
+
+**States:**
+- `Idle` - No active sync operation
+- `Syncing(attempt: Int)` - Sync in progress with attempt counter
+- `Success` - Sync completed successfully
+- `Error(message: String, willRetry: Boolean)` - Sync failed with error details
+
+**Usage:** Used by TranscriptSyncManager to track sync progress and communicate state to UI.
+

@@ -17,7 +17,9 @@ data class OfflineConversation(
     val temperature: Float = 1.0f,
     val isSystemConversation: Boolean = false, // True for system conversations like "Help"
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val customSummaryPrompt: String = "",
+    val copySummaryToClipboard: Boolean = false
 )
 
 /**

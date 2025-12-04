@@ -1,5 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
+import ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
+import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AVAILABLE_VOICES
 import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
@@ -30,7 +32,7 @@ import androidx.compose.ui.window.Dialog
 @Composable
 fun OfflineConversationDialog(
     conversation: OfflineConversation? = null, // null = create new, non-null = edit existing
-    onSave: (title: String, systemPrompt: String, voiceName: String, speechSpeed: Float, volumeBoost: Float, temperature: Float) -> Unit,
+    onSave: (title: String, systemPrompt: String, voiceName: String, speechSpeed: Float, volumeBoost: Float, temperature: Float, customSummaryPrompt: String, copySummaryToClipboard: Boolean) -> Unit,
     onDelete: (() -> Unit)? = null, // Only shown when editing existing conversation
     onDismiss: () -> Unit
 ) {
@@ -43,6 +45,11 @@ fun OfflineConversationDialog(
     var showVoiceDropdown by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     
+    // Summary settings
+    var customSummaryPrompt by remember { mutableStateOf(conversation?.customSummaryPrompt ?: "") }
+    var copySummaryToClipboard by remember { mutableStateOf(conversation?.copySummaryToClipboard ?: false) }
+    val globalPrompt = Preferences.summaryPrompt.value ?: ""
+    
     val isEditing = conversation != null
     val canSave = title.isNotBlank()
 
@@ -50,12 +57,15 @@ fun OfflineConversationDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.9f) // Limit dialog height to 90% of screen
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.White)
                 .padding(24.dp)
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()) // Make content scrollable
             ) {
                 // Title
                 Text(
@@ -296,6 +306,113 @@ fun OfflineConversationDialog(
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
+                
+                // Summary settings section
+                Text(
+                    text = "Ustawienia podsumowania",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Custom summary prompt
+                Text(
+                    text = "Własny prompt podsumowania",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = customSummaryPrompt,
+                    onValueChange = { newValue ->
+                        customSummaryPrompt = newValue
+                        // Auto-save for existing conversations
+                        if (isEditing && conversation != null) {
+                            OfflineConversationManager.update(
+                                conversation.copy(customSummaryPrompt = newValue)
+                            )
+                        }
+                    },
+                    placeholder = { 
+                        Text(
+                            "Użyj globalnego promptu",
+                            style = TextStyles.base,
+                            fontSize = 14.sp
+                        ) 
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    maxLines = 5,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Colors.buttonNormal,
+                        unfocusedBorderColor = Color.LightGray,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    ),
+                    textStyle = TextStyles.base.copy(fontSize = 14.sp)
+                )
+                
+                // Helper text showing global prompt when custom is empty
+                if (customSummaryPrompt.isBlank() && globalPrompt.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Aktualny globalny: ${globalPrompt.take(100)}${if (globalPrompt.length > 100) "..." else ""}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Clipboard copy checkbox
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            copySummaryToClipboard = !copySummaryToClipboard
+                            // Auto-save for existing conversations
+                            if (isEditing && conversation != null) {
+                                OfflineConversationManager.update(
+                                    conversation.copy(copySummaryToClipboard = copySummaryToClipboard)
+                                )
+                            }
+                        }
+                        .padding(vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = copySummaryToClipboard,
+                        onCheckedChange = { newValue ->
+                            copySummaryToClipboard = newValue
+                            // Auto-save for existing conversations
+                            if (isEditing && conversation != null) {
+                                OfflineConversationManager.update(
+                                    conversation.copy(copySummaryToClipboard = newValue)
+                                )
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Kopiuj podsumowanie do schowka",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Buttons
                 Row(
@@ -347,7 +464,9 @@ fun OfflineConversationDialog(
                                     selectedVoice,
                                     speechSpeed,
                                     volumeBoost,
-                                    temperature
+                                    temperature,
+                                    customSummaryPrompt,
+                                    copySummaryToClipboard
                                 )
                             }
                         },

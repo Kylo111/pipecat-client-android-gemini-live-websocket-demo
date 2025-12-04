@@ -7,12 +7,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +62,9 @@ class VoiceService : Service() {
     // Wake lock duration tracking
     private var wakeLockAcquiredAt: Long = 0
     private val MAX_WAKE_LOCK_DURATION = 4 * 60 * 60 * 1000L // 4 hours
+    
+    // Clipboard event observation
+    private var clipboardJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -116,8 +122,56 @@ class VoiceService : Service() {
         return null
     }
 
+    /**
+     * Observes clipboard events from SessionManager and copies summaries to clipboard.
+     * Must be called with SessionManager reference after service starts.
+     * 
+     * @param sessionManager The SessionManager instance to observe clipboard events from
+     */
+    fun observeClipboardEvents(sessionManager: SessionManager) {
+        clipboardJob = CoroutineScope(Dispatchers.Main).launch {
+            sessionManager.clipboardEvent.collect { text ->
+                copyToClipboard(text)
+            }
+        }
+        Log.d(TAG, "Clipboard event observation started")
+    }
+    
+    /**
+     * Copies text to the Android clipboard.
+     * Handles SecurityException gracefully and shows Toast only on Android < 12.
+     * 
+     * @param text The text to copy to clipboard
+     */
+    private fun copyToClipboard(text: String) {
+        try {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Podsumowanie sesji", text)
+            clipboard.setPrimaryClip(clip)
+            Log.d(TAG, "Summary copied to clipboard (${text.length} chars)")
+            
+            // Only show toast on Android < 12 (system shows its own on 12+)
+            // Note: No Handler needed - copyToClipboard is called from Dispatchers.Main
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                Toast.makeText(this, "Podsumowanie skopiowane", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Failed to copy to clipboard - SecurityException", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy to clipboard", e)
+        }
+    }
+
     override fun onDestroy() {
         Log.d(TAG, "VoiceService.onDestroy: Starting cleanup")
+        
+        // Cancel clipboard job
+        try {
+            clipboardJob?.cancel()
+            Log.d(TAG, "VoiceService.onDestroy: Clipboard job cancelled")
+        } catch (e: Exception) {
+            Log.e(TAG, "VoiceService.onDestroy: Error cancelling clipboard job", e)
+        }
         
         // Cancel timeout job and scope first
         try {

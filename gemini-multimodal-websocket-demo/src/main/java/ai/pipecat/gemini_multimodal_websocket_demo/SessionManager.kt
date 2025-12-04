@@ -12,6 +12,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -37,6 +40,10 @@ class SessionManager(
     
     // Transcript sync manager for reliable transcript synchronization
     private val transcriptSyncManager = TranscriptSyncManager()
+    
+    // Clipboard event for summary copying
+    private val _clipboardEvent = MutableSharedFlow<String>()
+    val clipboardEvent: SharedFlow<String> = _clipboardEvent.asSharedFlow()
     
     // Room database repositories
     private val sessionRepository by lazy {
@@ -214,6 +221,75 @@ class SessionManager(
      * Get current conversation context (for offline sessions)
      */
     fun getCurrentConversationContext(): String? = currentConversationContext
+
+    /**
+     * Get the effective summary prompt for a conversation
+     * Priority: custom prompt (offline) > custom prompt (Room) > global prompt
+     * 
+     * @param conversationId The conversation ID
+     * @return The effective summary prompt to use
+     */
+    private suspend fun getEffectiveSummaryPrompt(conversationId: String): String {
+        // Try offline conversation first
+        val offlineConv = OfflineConversationManager.getById(conversationId)
+        if (offlineConv != null && offlineConv.customSummaryPrompt.isNotBlank()) {
+            Log.d(TAG, "Using custom summary prompt from offline conversation")
+            return offlineConv.customSummaryPrompt
+        }
+        
+        // Try Room database
+        val dbConv = conversationRepository.getConversation(conversationId)
+        if (dbConv != null && !dbConv.customSummaryPrompt.isNullOrBlank()) {
+            Log.d(TAG, "Using custom summary prompt from Room database")
+            return dbConv.customSummaryPrompt
+        }
+        
+        // Fall back to global prompt
+        Log.d(TAG, "Using global summary prompt")
+        return Preferences.summaryPrompt.value ?: ""
+    }
+
+    /**
+     * Check if summary should be copied to clipboard for a conversation
+     * Priority: offline conversation setting > Room database setting > false (default)
+     * 
+     * @param conversationId The conversation ID
+     * @return true if summary should be copied to clipboard, false otherwise
+     */
+    private suspend fun shouldCopyToClipboard(conversationId: String): Boolean {
+        // Try offline conversation first
+        val offlineConv = OfflineConversationManager.getById(conversationId)
+        if (offlineConv != null) {
+            return offlineConv.copySummaryToClipboard
+        }
+        
+        // Try Room database
+        val dbConv = conversationRepository.getConversation(conversationId)
+        return dbConv?.copySummaryToClipboard ?: false
+    }
+
+    /**
+     * Handle summary generation completion
+     * Checks if summary should be copied to clipboard and emits event if needed
+     * 
+     * @param summary The generated summary text
+     * @param conversationId The conversation ID
+     */
+    private suspend fun handleSummaryGenerated(summary: String, conversationId: String) {
+        // Check if summary is non-empty
+        if (summary.isBlank()) {
+            Log.d(TAG, "Summary is empty, skipping clipboard copy")
+            return
+        }
+        
+        // Check if clipboard copy is enabled for this conversation
+        if (shouldCopyToClipboard(conversationId)) {
+            Log.d(TAG, "Emitting clipboard event for summary (${summary.length} chars)")
+            _clipboardEvent.emit(summary)
+        } else {
+            Log.d(TAG, "Clipboard copy not enabled for conversation $conversationId")
+        }
+    }
 
     /**
      * Start a new learning session for the given conversation
@@ -496,7 +572,8 @@ class SessionManager(
                             scope.launch {
                                 try {
                                     val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
-                                    val summaryPrompt = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryPrompt.value
+                                    val summaryPrompt = currentConversationId?.let { getEffectiveSummaryPrompt(it) } 
+                                        ?: ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryPrompt.value
                                     val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
                                     
                                     if (apiKey.isNullOrBlank()) {
@@ -520,6 +597,11 @@ class SessionManager(
                                     summaryResult.onSuccess { summary ->
                                         sessionRepository.updateSummary(dbSessionId, summary)
                                         Log.d(TAG, "✅ Summary saved: ${summary.take(100)}...")
+                                        
+                                        // Handle clipboard copy if enabled
+                                        currentConversationId?.let { convId ->
+                                            handleSummaryGenerated(summary, convId)
+                                        }
                                     }.onFailure { error ->
                                         Log.e(TAG, "❌ Failed to generate summary", error)
                                     }
@@ -616,7 +698,7 @@ class SessionManager(
                 Log.d(TAG, "🤖 Summary mode enabled - generating AI summary")
                 
                 // Get summary prompt and API key
-                val summaryPrompt = Preferences.summaryPrompt.value ?: ""
+                val summaryPrompt = getEffectiveSummaryPrompt(session.conversationId)
                 val apiKey = Preferences.geminiApiKey.value ?: ""
                 
                 if (summaryPrompt.isBlank()) {
@@ -642,6 +724,11 @@ class SessionManager(
                         Log.d(TAG, "  Summary length: ${summary.length} chars")
                         Log.d(TAG, "  Summary preview: ${summary.take(200)}...")
                         contentToSend = "## PODSUMOWANIE ##\n\n$summary"
+                        
+                        // Handle clipboard copy if enabled (non-blocking)
+                        scope.launch {
+                            handleSummaryGenerated(summary, session.conversationId)
+                        }
                     } else {
                         Log.e(TAG, "❌ Failed to generate summary: ${summaryResult.exceptionOrNull()?.message}")
                         Log.w(TAG, "⚠️ Falling back to transcript")

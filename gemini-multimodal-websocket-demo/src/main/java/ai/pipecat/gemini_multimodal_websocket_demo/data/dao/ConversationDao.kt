@@ -37,6 +37,12 @@ interface ConversationDao {
     @Query("UPDATE conversations SET total_duration_seconds = total_duration_seconds + :duration WHERE id = :conversationId")
     suspend fun addDuration(conversationId: String, duration: Int)
     
+    @Query("UPDATE conversations SET custom_summary_prompt = :prompt WHERE id = :conversationId")
+    suspend fun updateCustomSummaryPrompt(conversationId: String, prompt: String?)
+    
+    @Query("UPDATE conversations SET copy_summary_to_clipboard = :enabled WHERE id = :conversationId")
+    suspend fun updateCopySummaryToClipboard(conversationId: String, enabled: Boolean)
+    
     @Query("SELECT COUNT(*) FROM conversations")
     suspend fun getCount(): Int
 }

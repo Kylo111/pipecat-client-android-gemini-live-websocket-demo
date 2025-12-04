@@ -89,6 +89,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -731,6 +732,18 @@ class MainActivity : ComponentActivity() {
                 startService(intent)
             }
             Log.d(TAG, "VoiceService start requested")
+            
+            // Wire up clipboard observation after service starts
+            // Use a small delay to ensure service is initialized
+            lifecycleScope.launch {
+                delay(100) // Small delay to ensure service onCreate completes
+                VoiceService.getInstance()?.let { service ->
+                    voiceClientManager.sessionManager?.let { sessionManager ->
+                        service.observeClipboardEvents(sessionManager)
+                        Log.d(TAG, "Clipboard observation wired up to VoiceService")
+                    } ?: Log.w(TAG, "SessionManager not available for clipboard observation")
+                } ?: Log.w(TAG, "VoiceService instance not available for clipboard observation")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start VoiceService", e)
             // Show error to user if service fails to start

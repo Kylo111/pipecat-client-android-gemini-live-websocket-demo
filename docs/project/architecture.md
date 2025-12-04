@@ -348,6 +348,149 @@ Device Speakers
 
 ---
 
+### Offline Session Data Flow
+
+```mermaid
+flowchart TD
+    A[User Selects Offline Conversation] --> B[SessionManager.startOfflineSession]
+    B --> C{Conversation exists in DB?}
+    C -->|No| D[Create conversation in DB]
+    C -->|Yes| E[ContextBuilder.buildContext]
+    D --> E
+    
+    E --> F[Query last session]
+    E --> G[Query recent sessions - max 10]
+    E --> H[Query meta-summary]
+    
+    F --> I[Build hybrid context]
+    G --> I
+    H --> I
+    
+    I --> J[Format context sections]
+    J --> K{Length > 30,000 chars?}
+    K -->|Yes| L[Truncate context]
+    K -->|No| M[Return full context]
+    L --> M
+    
+    M --> N[Create database session]
+    N --> O[Start VoiceClientManager]
+    O --> P[Augment system prompt with context]
+    P --> Q[Connect to Gemini]
+    
+    Q --> R[Active Session]
+    R --> S[Capture transcripts]
+    S --> T[Persist to database]
+    
+    R --> U[User ends session]
+    U --> V[SessionManager.endSession]
+    V --> W{Meets thresholds?}
+    W -->|No| X[Mark session complete]
+    W -->|Yes| Y[Generate AI summary]
+    
+    Y --> Z[GeminiSummaryService]
+    Z --> AA[Save summary to DB]
+    AA --> AB{Clipboard copy enabled?}
+    AB -->|Yes| AC[Emit clipboard event]
+    AB -->|No| AD[Complete]
+    AC --> AD
+    X --> AD
+    
+    AD --> AE[Background: ContextBuilder.cleanupOldSessions]
+    AE --> AF[Keep last 50 sessions]
+```
+
+**Key Components:**
+- **ContextBuilder:** Builds hybrid context from database
+- **SessionManager:** Orchestrates session lifecycle
+- **GeminiSummaryService:** Generates AI summaries
+- **Database:** Stores conversations, sessions, transcripts, summaries
+
+**Data Storage:**
+- **SharedPreferences:** Conversation definitions (title, prompt, settings)
+- **Room Database:** Session history (transcripts, summaries, timestamps)
+
+**Context Strategy:**
+- Section 1: Conversation overview (meta-summary)
+- Section 2: Recent sessions (summaries only, max 10)
+- Section 3: Last session (full transcript)
+
+---
+
+### LibreChat Session Data Flow
+
+```mermaid
+flowchart TD
+    A[User Selects LibreChat Conversation] --> B[SessionManager.startSession]
+    B --> C[LibreChatService.getLearningContext]
+    C --> D{API Success?}
+    
+    D -->|Yes| E[Create SessionContext with API prompt]
+    D -->|No| F[Create SessionContext with default prompt]
+    
+    E --> G[Create database session]
+    F --> G
+    
+    G --> H[Start VoiceClientManager]
+    H --> I[Connect to Gemini]
+    I --> J[Active Session]
+    
+    J --> K[Capture transcripts]
+    K --> L[Store in memory - SessionContext]
+    K --> M[Persist to database]
+    
+    J --> N[User ends session]
+    N --> O[SessionManager.endSession]
+    O --> P{Meets thresholds?}
+    
+    P -->|No| Q[Skip sync]
+    P -->|Yes| R{Summary mode enabled?}
+    
+    R -->|Yes| S[GeminiSummaryService.generateSummary]
+    R -->|No| T[Format transcript as text]
+    
+    S --> U[Create SummaryRequest]
+    T --> U
+    
+    U --> V[TranscriptSyncManager.syncTranscripts]
+    V --> W[OfflineSummaryQueue.enqueue]
+    W --> X[Persist to SharedPreferences]
+    
+    X --> Y[Start infinite retry loop]
+    Y --> Z[LibreChatService.sendSessionSummary]
+    Z --> AA{API Success?}
+    
+    AA -->|Yes| AB[OfflineSummaryQueue.dequeue]
+    AA -->|No| AC[Calculate exponential backoff]
+    
+    AB --> AD[SyncStatus = Success]
+    AC --> AE[Delay - 1s, 2s, 4s, 8s, 16s, 30s max]
+    AE --> Y
+    
+    AD --> AF[Mark session complete]
+    Q --> AF
+    
+    AF --> AG[Clear session state]
+```
+
+**Key Components:**
+- **LibreChatService:** API client for LibreChat integration
+- **TranscriptSyncManager:** Handles reliable delivery with infinite retry
+- **OfflineSummaryQueue:** Persistent queue surviving app restart
+- **GeminiSummaryService:** Generates AI summaries
+
+**Sync Strategy:**
+- **Infinite Retry:** Never gives up until success or user cancels
+- **Exponential Backoff:** 1s, 2s, 4s, 8s, 16s, 30s (max)
+- **Persistence:** Queue stored in SharedPreferences
+- **Recovery:** Queue processed on app start
+
+**Thresholds:**
+- Minimum duration: 30 seconds
+- Minimum entries: 2 (user + bot)
+- Minimum length: 50 characters
+
+---
+
 ### Image Processing Flow
 
 ```
@@ -491,6 +634,186 @@ MainActivity.onDestroy()
 
 ---
 
+## Error Handling
+
+### Gemini API Error Handling
+
+The application handles various error types from the Gemini API with different strategies:
+
+#### Error Classification
+
+**RECOVERABLE ERRORS** (Trigger automatic retry):
+
+| Error Type | HTTP Code | Handling Strategy | Retry? |
+|------------|-----------|-------------------|--------|
+| Network timeout | - | Exponential backoff reconnection | Yes |
+| Connection refused | - | Exponential backoff reconnection | Yes |
+| DNS failure | - | Exponential backoff reconnection | Yes |
+| WebSocket close (unexpected) | - | Automatic reconnection | Yes |
+| Rate limit exceeded | 429 | Longer backoff (30s), then retry | Yes |
+| Server error | 500, 502, 503 | Exponential backoff, then retry | Yes |
+| Service unavailable | 503 | Exponential backoff, then retry | Yes |
+
+**PERMANENT FAILURES** (No retry, user notification):
+
+| Error Type | HTTP Code | Handling Strategy | Retry? |
+|------------|-----------|-------------------|--------|
+| Invalid API key | 401 | Show error, prompt for valid key | No |
+| Quota exceeded | 429 (quota) | Show error, inform user of quota limit | No |
+| Safety ratings block | - | Log content, skip generation, continue | No |
+| Invalid request format | 400 | Log error, show user message | No |
+| SSL/Certificate error | - | Show error, check system time | No |
+| Protocol error | - | Show error, update app | No |
+
+#### Safety Ratings Handling
+
+When Gemini blocks content due to safety ratings:
+
+```kotlin
+// In VoiceClientManager.handleTextMessage()
+if (message.contains("\"finishReason\":\"SAFETY\"")) {
+    Log.w(TAG, "Content blocked by safety ratings")
+    // Don't retry - this is expected behavior
+    // Continue conversation normally
+    // User sees no response for this turn
+}
+```
+
+**Behavior:**
+- Content blocked silently (no error shown to user)
+- Conversation continues normally
+- Logged for debugging
+- No retry attempted (safety decision is final)
+
+#### Quota Exceeded Handling
+
+When API quota is exhausted:
+
+```kotlin
+// In GeminiSummaryService
+if (response.code == 429 && response.message.contains("quota")) {
+    Log.e(TAG, "Gemini API quota exceeded")
+    // Don't retry - quota won't reset immediately
+    // Show user-friendly error
+    return Result.failure(QuotaExceededException())
+}
+```
+
+**Behavior:**
+- Permanent failure (no retry)
+- User notified with clear message
+- Suggest waiting or upgrading quota
+- Session continues without summary
+
+#### Network Error Handling
+
+**Transient Network Errors:**
+- Handled by ReconnectionManager
+- Exponential backoff: 1s, 2s, 4s, 8s, 16s
+- Max 5 attempts, then user dialog
+- User can choose to continue or end session
+
+**WebSocket Errors:**
+- Classified by WebSocketErrorClassifier
+- Recoverable errors trigger reconnection
+- Fatal errors show error message
+- Connection state updated in UI
+
+#### Summary Generation Errors
+
+**Infinite Retry Strategy:**
+```kotlin
+// In GeminiSummaryService.generateSummaryWithRetry()
+suspend fun generateSummaryWithRetry(transcript: String): Result<String> {
+    var attempt = 0
+    while (true) {
+        attempt++
+        val result = generateSummary(transcript)
+        
+        if (result.isSuccess) {
+            return result
+        }
+        
+        // Check if permanent failure
+        if (isPermanentFailure(result)) {
+            return result // Don't retry
+        }
+        
+        // Exponential backoff for transient failures
+        val delay = calculateBackoff(attempt)
+        delay(delay)
+    }
+}
+```
+
+**Permanent Failures:**
+- Invalid API key
+- Quota exceeded
+- Invalid request format
+
+**Transient Failures:**
+- Network timeout
+- Server error (500, 502, 503)
+- Rate limit (429, non-quota)
+
+#### Error Logging
+
+**Production Logging:**
+- Error type and message
+- Timestamp
+- Conversation ID (if applicable)
+- Retry attempt number
+- No sensitive data (API keys, user content)
+
+**Debug Logging:**
+- Full error stack traces
+- Request/response details
+- WebSocket message content
+- Audio processing metrics
+
+#### User-Facing Error Messages
+
+**Network Errors:**
+- "Connection lost. Reconnecting..." (with attempt counter)
+- "Unable to connect. Check your internet connection."
+
+**API Errors:**
+- "Invalid API key. Please check your settings."
+- "API quota exceeded. Please try again later."
+- "Service temporarily unavailable. Retrying..."
+
+**Audio Errors:**
+- "Microphone access denied. Please grant permission."
+- "Audio device conflict. Close other apps using microphone."
+
+#### Error Recovery
+
+**Automatic Recovery:**
+- Network errors: Automatic reconnection
+- Transient API errors: Exponential backoff retry
+- Audio device conflicts: Release and reacquire
+
+**Manual Recovery:**
+- Invalid API key: User must update in settings
+- Quota exceeded: User must wait or upgrade
+- Permission denied: User must grant in system settings
+
+#### Error Metrics
+
+**Tracked Metrics:**
+- Reconnection success rate
+- Average reconnection time
+- Error frequency by type
+- Quota usage
+- Safety rating blocks
+
+**Performance Targets:**
+- Reconnection success rate: > 95%
+- Average reconnection time: < 5 seconds
+- Crash rate: < 0.5%
+
+---
+
 ## Security Architecture
 
 ### Authentication Flow
@@ -606,6 +929,167 @@ Performance metrics logged automatically:
 - Service uptime
 
 **Source:** README.md - Performance Metrics, REFACTORING_PLAN.md
+
+---
+
+## Threading Model
+
+### Overview
+
+The application uses Kotlin Coroutines for asynchronous operations with structured concurrency. All I/O operations (database, network, file) are executed on background threads to prevent Main Thread blocking.
+
+### Coroutine Dispatchers
+
+| Operation Type | Dispatcher | Rationale |
+|----------------|------------|-----------|
+| Database reads/writes | Dispatchers.IO | Blocking I/O operations |
+| Network calls (LibreChat API) | Dispatchers.IO | Blocking I/O operations |
+| Network calls (Gemini WebSocket) | Dispatchers.IO | WebSocket connection and message handling |
+| Context building | Dispatchers.IO | Multiple database queries |
+| Summary generation | Dispatchers.IO | Network call to Gemini API |
+| File operations (image processing) | Dispatchers.IO | Blocking file I/O |
+| UI state updates | Dispatchers.Main | Compose state mutations |
+| Audio processing | Dedicated thread | Real-time requirements, low latency |
+
+### Suspend Functions
+
+All I/O operations in SessionManager and repositories are suspend functions to enable non-blocking execution:
+
+**SessionManager:**
+- `suspend fun startSession(conversationId: String): Result<SessionContext>`
+- `suspend fun startOfflineSession(conversationId: String): Result<String>`
+- `suspend fun endSession(): Result<Unit>`
+- `suspend fun captureUserTranscript(text: String)` - Database write
+- `suspend fun captureBotTranscript(text: String)` - Database write
+
+**ContextBuilder:**
+- `suspend fun buildContext(conversationId: String): String` - Multiple DB queries
+- `suspend fun getContextStats(conversationId: String): ContextStats` - DB queries
+- `suspend fun cleanupOldSessions(conversationId: String): Int` - DB deletes
+
+**TranscriptSyncManager:**
+- `suspend fun syncTranscripts(summaryRequest: SummaryRequest)` - Network + DB
+- Uses infinite retry loop with delay() for exponential backoff
+
+**Repositories:**
+- All repository methods are suspend functions
+- Room automatically handles threading for suspend functions
+- No explicit Dispatchers.IO needed in repository layer
+
+### Coroutine Scopes
+
+| Component | Scope | Lifecycle | Cancellation |
+|-----------|-------|-----------|--------------|
+| VoiceClientManager | `scope: CoroutineScope?` | Created on start(), cancelled on stop() | Cancels all audio and monitoring jobs |
+| SessionManager | Passed from MainActivity | Lives for app lifetime | Cancelled on app destroy |
+| OfflineConversationManager | `SupervisorJob() + Dispatchers.IO` | Lives for app lifetime | Never cancelled (singleton) |
+| TranscriptSyncManager | Uses SessionManager scope | Lives for app lifetime | Cancelled on sync cancel or app destroy |
+
+### Thread Safety
+
+**Compose State:**
+- All UI state is Compose mutable state
+- Updates must occur on Main thread
+- StateFlow used for reactive updates (e.g., syncStatus)
+
+**Concurrent Access:**
+- `currentSession: SessionContext?` - Accessed from single coroutine scope (SessionManager)
+- `transcripts: MutableList<TranscriptEntry>` - Accessed sequentially, no concurrent modification
+- `syncStatus: StateFlow<SyncStatus>` - Thread-safe by design
+- `OfflineSummaryQueue` - SharedPreferences is thread-safe
+- `audioQueue: MutableList<Pair<Int, ByteArray>>` - Protected by Mutex in VoiceClientManager
+
+**Database Access:**
+- Room handles threading automatically for suspend functions
+- All database operations use Dispatchers.IO
+- No explicit synchronization needed
+
+### Audio Threading
+
+**AudioRecord Thread:**
+- Dedicated thread created by AudioRecord.startRecording()
+- Reads audio data in tight loop
+- Minimal processing on audio thread (just read and queue)
+- Base64 encoding happens on IO thread
+
+**AudioTrack Thread:**
+- Dedicated thread created by AudioTrack.play()
+- Writes audio data from queue
+- Playback managed by Android AudioTrack
+- Queue operations protected by Mutex
+
+**Coordination:**
+- Audio threads coordinate via shared state (botIsTalking)
+- Half-duplex mode prevents simultaneous recording/playback
+- No explicit synchronization needed due to half-duplex design
+
+### Memory Management
+
+**Transcript Limits:**
+- Hard limit: 10,000 TranscriptEntry objects per session
+- Enforced during active recording via FIFO pruning
+- Prevents memory overflow during long sessions
+- Oldest entries removed when limit exceeded
+
+**Audio Queue:**
+- Limited size to prevent memory buildup
+- Generation ID used to invalidate old chunks
+- Queue cleared on bot interruption
+
+**Context Building:**
+- Max context length: 30,000 characters
+- Truncation applied if exceeded
+- Prevents excessive memory usage in system prompt
+
+### Blocking Operations
+
+**Avoided on Main Thread:**
+- ❌ Database queries
+- ❌ Network calls
+- ❌ File I/O
+- ❌ Image processing
+- ❌ JSON serialization/deserialization
+
+**Allowed on Main Thread:**
+- ✅ UI rendering (Compose)
+- ✅ State updates (Compose state)
+- ✅ Event handling (button clicks)
+- ✅ Navigation
+
+### Error Handling in Coroutines
+
+**Structured Concurrency:**
+- Child coroutines inherit parent scope
+- Cancellation propagates to children
+- Exceptions propagate to parent (unless SupervisorJob)
+
+**Exception Handling:**
+- Network errors caught and logged
+- Database errors caught and logged
+- Retry logic for transient failures
+- User notified of permanent failures
+
+**Cancellation:**
+- Cooperative cancellation via isActive checks
+- Cleanup in finally blocks
+- Resources released on cancellation
+
+### Performance Considerations
+
+**Dispatcher Selection:**
+- Dispatchers.IO for I/O-bound operations (database, network, file)
+- Dispatchers.Default for CPU-bound operations (not used currently)
+- Dispatchers.Main for UI updates only
+
+**Coroutine Overhead:**
+- Minimal overhead for suspend functions
+- No thread creation per operation
+- Thread pool managed by Dispatchers.IO
+
+**Optimization:**
+- Batch database operations where possible
+- Async operations don't block UI
+- Background cleanup (old sessions) doesn't impact UX
 
 ---
 
@@ -811,6 +1295,30 @@ Performance metrics logged automatically:
 - [Picovoice Porcupine](https://picovoice.ai/platform/porcupine/)
 - [Android Foreground Services](https://developer.android.com/develop/background-work/services/foreground-services)
 - [OkHttp WebSocket](https://square.github.io/okhttp/features/websockets/)
+
+---
+
+---
+
+## Related Documentation
+
+### Core Architecture
+- [Domain Model](../domain/model.md) - Core domain objects and relationships
+- [State Machines](../domain/state-machine.md) - State transitions and lifecycle
+- [Components](../implementation/components.md) - Detailed component documentation
+
+### Session Management
+- [Session Pipelines](../domain/session-pipelines.md) - Complete session lifecycle flows
+- [Context Builder](../implementation/context-builder.md) - Conversation context building
+- [Transcript Sync](../implementation/transcript-sync.md) - LibreChat synchronization
+- [Summary Generation](../implementation/summary-generation.md) - AI-powered summaries
+
+### Data & Persistence
+- [Database Schema](../operations/database-schema.md) - Database entities and schema
+
+### Implementation Details
+- [Interactions](../implementation/interactions.md) - Component interaction sequences
+- [Lifecycle Management](../implementation/lifecycle.md) - Activity and service lifecycle
 
 ---
 

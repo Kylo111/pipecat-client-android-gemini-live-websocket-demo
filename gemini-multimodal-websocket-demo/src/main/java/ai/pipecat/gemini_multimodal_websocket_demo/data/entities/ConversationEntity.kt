@@ -31,5 +31,11 @@ data class ConversationEntity(
     
     val source: String = "gemini_live", // 'gemini_live' | 'librechat'
     
-    val metadata: String? = null // JSON
+    val metadata: String? = null, // JSON
+    
+    @ColumnInfo(name = "custom_summary_prompt")
+    val customSummaryPrompt: String? = null,
+    
+    @ColumnInfo(name = "copy_summary_to_clipboard")
+    val copySummaryToClipboard: Boolean = false
 )

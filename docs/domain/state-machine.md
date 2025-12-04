@@ -640,4 +640,498 @@ stateDiagram-v2
 
 ---
 
-**Last Updated:** 2025-12-01
+## Session State Machine
+
+### Overview
+
+The Session State Machine tracks the lifecycle of a conversation session from creation through archiving. This state machine applies to both LibreChat and offline sessions, managing the flow from initial recording through summary generation and final storage.
+
+### States
+
+**Created**
+- **Description:** Session initialized but not yet recording
+- **Characteristics:**
+  - Session ID assigned
+  - Conversation ID linked
+  - Start time recorded
+  - Database entry created
+- **Entry Actions:**
+  - `sessionRepository.createSession()` called
+  - Session context initialized
+- **Code Reference:** `SessionManager.kt:150`
+
+**Recording**
+- **Description:** Active conversation, capturing transcripts
+- **Characteristics:**
+  - WebSocket connected
+  - Transcripts being captured
+  - Audio streaming active
+  - Transcript limit enforced (10,000 entries max)
+- **Entry Actions:**
+  - Start transcript capture
+  - Begin FIFO pruning if limit exceeded
+- **Code Reference:** `SessionManager.kt:250`
+
+**Paused**
+- **Description:** Session temporarily suspended
+- **Characteristics:**
+  - WebSocket disconnected
+  - Session handle preserved
+  - Transcript capture stopped
+  - Can be resumed within 2 hours
+- **Entry Actions:**
+  - Store session resumption handle
+  - Stop audio capture
+  - Maintain session context
+- **Code Reference:** `VoiceClientManager.kt:2850`
+
+**Finalizing**
+- **Description:** Session ended, checking thresholds
+- **Characteristics:**
+  - WebSocket closed
+  - Duration calculated
+  - Transcript count verified
+  - Threshold checks performed
+- **Entry Actions:**
+  - `sessionRepository.endSession()` called
+  - Calculate duration and content length
+  - Check minimum thresholds
+- **Thresholds:**
+  - Minimum duration: 30 seconds
+  - Minimum entries: 2 (one exchange)
+  - Minimum length: 50 characters
+- **Code Reference:** `SessionManager.kt:400`
+
+**Summarizing**
+- **Description:** Generating AI summary of session
+- **Characteristics:**
+  - Summary prompt selected (priority: offline > Room > global)
+  - Gemini API called
+  - Infinite retry with exponential backoff
+  - Summary saved to database
+- **Entry Actions:**
+  - `geminiSummaryService.generateSummaryWithRetry()` called
+  - Summary stored in SessionEntity
+  - Clipboard event emitted if enabled
+- **Code Reference:** `SessionManager.kt:450`, `GeminiSummaryService.kt:50`
+
+**Syncing**
+- **Description:** Sending transcript/summary to LibreChat (LibreChat sessions only)
+- **Characteristics:**
+  - TranscriptSyncManager active
+  - OfflineSummaryQueue persistence
+  - Infinite retry mechanism
+  - Exponential backoff (1s, 2s, 4s, 8s, 16s, 30s max)
+- **Entry Actions:**
+  - `transcriptSyncManager.syncTranscripts()` called
+  - Content enqueued in OfflineSummaryQueue
+  - Retry loop started
+- **Code Reference:** `SessionManager.kt:870`
+
+**Archived**
+- **Description:** Session complete and stored
+- **Characteristics:**
+  - Database entry finalized
+  - Summary saved (if generated)
+  - Session context cleared
+  - Ready for context building in future sessions
+- **Entry Actions:**
+  - Clear session context
+  - Reset state flags
+  - Session available for retrieval
+- **Code Reference:** `SessionManager.kt:550`
+
+### State Transition Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: startSession() / startOfflineSession()
+    
+    Created --> Recording: WebSocket connected
+    Recording --> Recording: captureTranscript()
+    
+    Recording --> Paused: pause()
+    Paused --> Recording: resume()
+    
+    Recording --> Finalizing: stop() / endSession()
+    Paused --> Finalizing: stop() / endSession()
+    
+    Finalizing --> Summarizing: meets thresholds
+    Finalizing --> Archived: below thresholds
+    
+    Summarizing --> Syncing: summary generated (LibreChat)
+    Summarizing --> Archived: summary saved (Offline)
+    
+    Syncing --> Archived: sync success
+    Syncing --> Syncing: retry on failure
+    
+    Archived --> [*]
+    
+    note right of Recording
+        Transcripts captured
+        to memory and database
+        FIFO pruning at 10,000 entries
+    end note
+    
+    note right of Summarizing
+        AI summary generated
+        via GeminiSummaryService
+        Infinite retry
+    end note
+    
+    note right of Syncing
+        Infinite retry with
+        exponential backoff
+        OfflineSummaryQueue persistence
+    end note
+```
+
+### Transition Triggers and Conditions
+
+#### Created → Recording
+**Trigger:** WebSocket connection established
+**Conditions:**
+- Session created in database
+- WebSocket setupComplete received
+**Actions:**
+- Begin transcript capture
+- Start monitoring transcript limit
+**Code Reference:** `SessionManager.kt:150`
+
+#### Recording → Paused
+**Trigger:** `VoiceClientManager.pause()` called
+**Conditions:**
+- User manually pauses
+- OR wake word "stop" detected
+**Actions:**
+- Store session resumption handle
+- Stop transcript capture
+- Preserve session context
+**Code Reference:** `VoiceClientManager.kt:2850`
+
+#### Paused → Recording
+**Trigger:** `VoiceClientManager.resume()` called
+**Conditions:**
+- Session handle valid (< 2 hours old)
+- User resumes session
+**Actions:**
+- Reconnect with session handle
+- Resume transcript capture
+**Code Reference:** `VoiceClientManager.kt:2900`
+
+#### Recording → Finalizing
+**Trigger:** `SessionManager.endSession()` called
+**Conditions:**
+- User ends conversation
+- OR session timeout
+- OR critical memory pressure
+**Actions:**
+- Close WebSocket
+- Calculate session duration
+- End database session
+**Code Reference:** `SessionManager.kt:400`
+
+#### Finalizing → Summarizing
+**Trigger:** Threshold checks pass
+**Conditions:**
+- Duration >= 30 seconds
+- Entries >= 2
+- Length >= 50 characters
+**Actions:**
+- Select summary prompt (priority chain)
+- Call GeminiSummaryService
+**Code Reference:** `SessionManager.kt:450`
+
+#### Finalizing → Archived
+**Trigger:** Threshold checks fail
+**Conditions:**
+- Session too short
+- OR insufficient content
+**Actions:**
+- Skip summary generation
+- Clear session context
+- Mark as archived
+**Code Reference:** `SessionManager.kt:480`
+
+#### Summarizing → Syncing
+**Trigger:** Summary generated successfully (LibreChat sessions)
+**Conditions:**
+- Summary text received from Gemini
+- Active LibreChat session
+**Actions:**
+- Enqueue in OfflineSummaryQueue
+- Start TranscriptSyncManager
+**Code Reference:** `SessionManager.kt:870`
+
+#### Summarizing → Archived
+**Trigger:** Summary generated successfully (Offline sessions)
+**Conditions:**
+- Summary text received from Gemini
+- Offline session (no LibreChat)
+**Actions:**
+- Save summary to database
+- Emit clipboard event if enabled
+- Clear session context
+**Code Reference:** `SessionManager.kt:500`
+
+#### Syncing → Archived
+**Trigger:** Sync successful
+**Conditions:**
+- LibreChat API returns 200 OK
+- Content delivered successfully
+**Actions:**
+- Dequeue from OfflineSummaryQueue
+- Update sync status to Success
+- Clear session context
+**Code Reference:** `SessionManager.kt:950`
+
+#### Syncing → Syncing
+**Trigger:** Sync failure
+**Conditions:**
+- Network error
+- OR API error (non-fatal)
+**Actions:**
+- Calculate exponential backoff
+- Delay and retry
+- Increment attempt counter
+**Code Reference:** `SessionManager.kt:920`
+
+---
+
+## SyncStatus State Machine
+
+### Overview
+
+The SyncStatus State Machine manages the reliable delivery of transcripts and summaries to LibreChat with infinite retry and exponential backoff. This state machine is used by the TranscriptSyncManager to ensure no data is lost even during network failures or app restarts.
+
+### States
+
+**Idle**
+- **Description:** No sync operation in progress
+- **Characteristics:**
+  - No active sync job
+  - OfflineSummaryQueue may contain pending items
+  - Ready to start new sync
+- **Code Reference:** `SessionManager.kt:870`
+
+**Syncing**
+- **Description:** Actively attempting to sync content
+- **Characteristics:**
+  - HTTP request in flight to LibreChat API
+  - Attempt counter tracked
+  - UI shows progress indicator
+  - Exponential backoff between retries
+- **Data:**
+  - `attempt: Int` - Current attempt number (1, 2, 3, ...)
+- **Code Reference:** `SessionManager.kt:900`
+
+**Success**
+- **Description:** Sync completed successfully
+- **Characteristics:**
+  - Content delivered to LibreChat
+  - Item removed from OfflineSummaryQueue
+  - Ready to process next item or return to Idle
+- **Code Reference:** `SessionManager.kt:950`
+
+**Error**
+- **Description:** Sync attempt failed, will retry
+- **Characteristics:**
+  - Error message captured
+  - Content remains in OfflineSummaryQueue
+  - Backoff delay calculated
+  - Will automatically retry
+- **Data:**
+  - `message: String` - Error description
+  - `willRetry: Boolean` - Always true (infinite retry)
+- **Code Reference:** `SessionManager.kt:920`
+
+### State Transition Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    
+    Idle --> Syncing: syncTranscripts()
+    
+    Syncing --> Success: API returns 200
+    Syncing --> Error: API returns error
+    
+    Error --> Syncing: after backoff delay
+    Error --> Idle: cancelSync()
+    
+    Success --> Idle: reset()
+    
+    note right of Syncing
+        attempt counter incremented
+        UI shows progress
+        HTTP request in flight
+    end note
+    
+    note right of Error
+        willRetry = true
+        content in OfflineSummaryQueue
+        exponential backoff calculated
+    end note
+```
+
+### Transition Triggers and Conditions
+
+#### Idle → Syncing
+**Trigger:** `syncTranscripts()` called
+**Conditions:**
+- Content available to sync
+- Not already syncing
+**Actions:**
+- Enqueue content in OfflineSummaryQueue
+- Set attempt counter to 1
+- Start HTTP request
+- Update UI state
+**Code Reference:** `SessionManager.kt:900`
+
+#### Syncing → Success
+**Trigger:** LibreChat API returns 200 OK
+**Conditions:**
+- HTTP request successful
+- Content accepted by server
+**Actions:**
+- Dequeue from OfflineSummaryQueue
+- Update sync status to Success
+- Log success
+**Code Reference:** `SessionManager.kt:950`
+
+#### Syncing → Error
+**Trigger:** LibreChat API returns error
+**Conditions:**
+- Network timeout
+- OR HTTP error (4xx, 5xx)
+- OR connection failure
+**Actions:**
+- Capture error message
+- Keep content in OfflineSummaryQueue
+- Calculate backoff delay
+- Update sync status to Error
+**Code Reference:** `SessionManager.kt:920`
+
+#### Error → Syncing
+**Trigger:** Backoff delay expires
+**Conditions:**
+- Automatic retry (infinite)
+- Content still in queue
+**Actions:**
+- Increment attempt counter
+- Calculate new backoff delay
+- Start new HTTP request
+**Backoff Formula:**
+```kotlin
+delay = min(BASE_DELAY * 2^(attempt-1), MAX_DELAY)
+// BASE_DELAY = 1000ms, MAX_DELAY = 30000ms
+// Results: 1s, 2s, 4s, 8s, 16s, 30s, 30s, 30s...
+```
+**Code Reference:** `SessionManager.kt:930`
+
+#### Error → Idle
+**Trigger:** `cancelSync()` called
+**Conditions:**
+- User cancels sync
+- OR app shutdown
+**Actions:**
+- Cancel retry job
+- Keep content in OfflineSummaryQueue (for next app start)
+- Reset sync status
+**Code Reference:** `SessionManager.kt:980`
+
+#### Success → Idle
+**Trigger:** Sync complete, no more items
+**Conditions:**
+- OfflineSummaryQueue empty
+- OR processing complete
+**Actions:**
+- Reset sync status
+- Ready for next sync operation
+**Code Reference:** `SessionManager.kt:960`
+
+### Exponential Backoff Algorithm
+
+**Configuration:**
+- `BASE_DELAY = 1000ms` (1 second)
+- `BACKOFF_FACTOR = 2.0` (double each time)
+- `MAX_DELAY = 30000ms` (30 seconds)
+
+**Backoff Sequence:**
+| Attempt | Delay (seconds) | Calculation |
+|---------|----------------|-------------|
+| 1       | 1              | 1 * 2^0 = 1 |
+| 2       | 2              | 1 * 2^1 = 2 |
+| 3       | 4              | 1 * 2^2 = 4 |
+| 4       | 8              | 1 * 2^3 = 8 |
+| 5       | 16             | 1 * 2^4 = 16 |
+| 6       | 30             | min(32, 30) = 30 |
+| 7+      | 30             | capped at MAX_DELAY |
+
+**Code Reference:** `SessionManager.kt:930`
+
+### OfflineSummaryQueue Persistence
+
+**Storage:**
+- Persisted to SharedPreferences as JSON
+- Survives app process kill/restart
+- Processed on app start via `processOfflineQueue()`
+
+**Queue Operations:**
+- `enqueue()` - Add item and persist
+- `dequeue()` - Remove item and persist
+- `peek()` - View next item without removing
+- `isEmpty()` - Check if queue has items
+
+**Persistence Format:**
+```json
+{
+  "queue": [
+    {
+      "conversationId": "thread_abc123",
+      "content": "User: Hello\nBot: Hi there!",
+      "timestamp": 1234567890,
+      "isSummary": true
+    }
+  ]
+}
+```
+
+**Code Reference:** `OfflineSummaryQueue.kt:1-100`
+
+### Sync Status Observability
+
+**StateFlow Exposure:**
+```kotlin
+val syncStatus: StateFlow<SyncStatus>
+```
+
+**UI Integration:**
+- Observe `syncStatus` in Compose UI
+- Show progress indicator during Syncing
+- Display error message during Error
+- Show success confirmation on Success
+
+**Example Usage:**
+```kotlin
+val syncStatus by sessionManager.syncStatus.collectAsState()
+
+when (syncStatus) {
+    is SyncStatus.Idle -> { /* No indicator */ }
+    is SyncStatus.Syncing -> { 
+        Text("Syncing... (attempt ${syncStatus.attempt})")
+    }
+    is SyncStatus.Success -> { 
+        Text("✓ Synced successfully")
+    }
+    is SyncStatus.Error -> { 
+        Text("⚠ ${syncStatus.message} (retrying...)")
+    }
+}
+```
+
+**Code Reference:** `SessionManager.kt:90`
+
+---
+
+**Last Updated:** 2025-12-04

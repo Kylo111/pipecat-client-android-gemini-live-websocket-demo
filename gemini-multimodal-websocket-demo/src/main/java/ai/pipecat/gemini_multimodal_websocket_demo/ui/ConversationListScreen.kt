@@ -9,6 +9,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.R
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationType
 import ai.pipecat.gemini_multimodal_websocket_demo.models.LibreChatError
+import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
@@ -368,7 +369,7 @@ fun ConversationListScreen(
         if (showOfflineDialog) {
             OfflineConversationDialog(
                 conversation = editingOfflineConversation,
-                onSave = { title, systemPrompt, voiceName, speechSpeed, volumeBoost, temperature ->
+                onSave = { title, systemPrompt, voiceName, speechSpeed, volumeBoost, temperature, customSummaryPrompt, copySummaryToClipboard ->
                     if (editingOfflineConversation != null) {
                         // Update existing
                         val updated = editingOfflineConversation!!.copy(
@@ -377,19 +378,28 @@ fun ConversationListScreen(
                             voiceName = voiceName,
                             speechSpeed = speechSpeed,
                             volumeBoost = volumeBoost,
-                            temperature = temperature
+                            temperature = temperature,
+                            customSummaryPrompt = customSummaryPrompt,
+                            copySummaryToClipboard = copySummaryToClipboard
                         )
                         OfflineConversationManager.update(updated)
                     } else {
-                        // Create new
-                        OfflineConversationManager.create(
+                        // Create new - create with basic settings first
+                        val newConversation = OfflineConversation(
+                            id = java.util.UUID.randomUUID().toString(),
                             title = title,
                             systemPrompt = systemPrompt,
                             voiceName = voiceName,
                             speechSpeed = speechSpeed,
                             volumeBoost = volumeBoost,
-                            temperature = temperature
+                            temperature = temperature,
+                            customSummaryPrompt = customSummaryPrompt,
+                            copySummaryToClipboard = copySummaryToClipboard,
+                            isSystemConversation = false,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
                         )
+                        OfflineConversationManager.update(newConversation)
                     }
                     offlineConversations = OfflineConversationManager.getAll()
                     showOfflineDialog = false

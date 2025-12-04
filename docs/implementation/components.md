@@ -933,3 +933,348 @@ result.onSuccess {
 | WebSocketErrorClassifier | utils/WebSocketErrorClassifier.kt | 10-80 |
 
 **Last Updated:** 2025-12-01
+
+
+---
+
+### OfflineConversationManager
+
+**Role:** Manages offline conversations that don't connect to LibreChat, storing conversation definitions in SharedPreferences.
+
+**Location:** `OfflineConversationManager.kt:1`
+
+**Main Fields:**
+
+- `prefs: SharedPreferences` - Persistent storage for conversation definitions
+  - **Storage:** SharedPreferences with name "offline_conversations"
+  - **Key:** "conversations_list" contains JSON array of conversations
+  
+- `context: Context` - Application context for accessing resources and database
+  
+- `json: Json` - Kotlinx serialization for JSON encoding/decoding
+  - **Configuration:** ignoreUnknownKeys = true, prettyPrint = true
+  
+- `scope: CoroutineScope` - Coroutine scope for database operations
+  - **Dispatcher:** Dispatchers.IO for database operations
+  
+- `HELP_CONVERSATION_ID: String = "system_help_conversation"` - ID of system help conversation
+  - **Protection:** Cannot be deleted by user
+
+**Main Methods:**
+
+#### `init(context: Context): Unit`
+**Role:** Initializes manager and ensures system conversations exist
+
+**Preconditions:** Must be called before any other methods
+
+**Parameters:**
+- `context: Context` - Application context
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- SharedPreferences initialized
+- Help conversation created if doesn't exist
+- Context stored for later use
+
+**Side-effects:**
+- Reads from SharedPreferences
+- Creates help conversation if missing
+- Loads help prompt from assets
+
+**Possible Errors:**
+- Asset loading errors logged, fallback prompt used
+
+**Example:**
+```kotlin
+OfflineConversationManager.init(applicationContext)
+```
+
+**Code Reference:** `OfflineConversationManager.kt:25`
+
+---
+
+#### `getAll(): List<OfflineConversation>`
+**Role:** Retrieves all offline conversations from SharedPreferences
+
+**Preconditions:** init() must have been called
+
+**Returns:** List of OfflineConversation objects (empty list if none exist)
+
+**Postconditions:** None (read-only operation)
+
+**Side-effects:**
+- Reads from SharedPreferences
+- Parses JSON
+
+**Possible Errors:**
+- JSON parsing errors logged, returns empty list
+
+**Example:**
+```kotlin
+val conversations = OfflineConversationManager.getAll()
+conversations.forEach { conv ->
+    println("${conv.title}: ${conv.systemPrompt}")
+}
+```
+
+**Code Reference:** `OfflineConversationManager.kt:60`
+
+---
+
+#### `getById(id: String): OfflineConversation?`
+**Role:** Retrieves specific conversation by ID
+
+**Preconditions:** init() must have been called
+
+**Parameters:**
+- `id: String` - Conversation ID to retrieve
+
+**Returns:** OfflineConversation or null if not found
+
+**Postconditions:** None (read-only operation)
+
+**Side-effects:**
+- Reads from SharedPreferences
+
+**Example:**
+```kotlin
+val helpConv = OfflineConversationManager.getById("system_help_conversation")
+```
+
+**Code Reference:** `OfflineConversationManager.kt:70`
+
+---
+
+#### `create(title: String, systemPrompt: String, voiceName: String, speechSpeed: Float, volumeBoost: Float, temperature: Float): OfflineConversation`
+**Role:** Creates new offline conversation
+
+**Preconditions:** init() must have been called
+
+**Parameters:**
+- `title: String` - Conversation title
+- `systemPrompt: String` - AI system instructions (default: "")
+- `voiceName: String` - Gemini voice name (default: "Puck")
+- `speechSpeed: Float` - Speed multiplier (default: 1.0)
+- `volumeBoost: Float` - Volume multiplier (default: 1.0)
+- `temperature: Float` - Response creativity (default: 1.0)
+
+**Returns:** Created OfflineConversation with generated UUID
+
+**Postconditions:**
+- Conversation added to SharedPreferences
+- UUID generated for new conversation
+- Timestamps set (createdAt, updatedAt)
+
+**Side-effects:**
+- Writes to SharedPreferences
+- Generates UUID
+
+**Possible Errors:**
+- SharedPreferences write errors logged
+
+**Example:**
+```kotlin
+val conv = OfflineConversationManager.create(
+    title = "Coding Assistant",
+    systemPrompt = "You are a helpful coding assistant...",
+    voiceName = "Charon",
+    temperature = 0.7f
+)
+```
+
+**Code Reference:** `OfflineConversationManager.kt:75`
+
+---
+
+#### `update(conversation: OfflineConversation): Unit`
+**Role:** Updates existing conversation
+
+**Preconditions:**
+- init() must have been called
+- Conversation must exist
+
+**Parameters:**
+- `conversation: OfflineConversation` - Updated conversation object
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Conversation updated in SharedPreferences
+- updatedAt timestamp refreshed
+
+**Side-effects:**
+- Writes to SharedPreferences
+- Updates timestamp
+
+**Possible Errors:**
+- If conversation not found, operation is no-op
+
+**Example:**
+```kotlin
+val conv = OfflineConversationManager.getById("conv-123")!!
+val updated = conv.copy(title = "New Title")
+OfflineConversationManager.update(updated)
+```
+
+**Code Reference:** `OfflineConversationManager.kt:100`
+
+---
+
+#### `delete(id: String): Unit`
+**Role:** Deletes conversation and all associated data from both SharedPreferences and Room database
+
+**Preconditions:**
+- init() must have been called
+- ID must not be system conversation
+
+**Parameters:**
+- `id: String` - Conversation ID to delete
+
+**Returns:** Unit (void)
+
+**Postconditions:**
+- Conversation removed from SharedPreferences
+- Conversation removed from Room database
+- All sessions deleted (CASCADE foreign key)
+- All transcripts deleted (stored in sessions)
+- All summaries deleted (stored in sessions)
+
+**Side-effects:**
+- Writes to SharedPreferences
+- Database DELETE operations (async)
+- Logs deletion activity
+
+**Possible Errors:**
+- System conversations protected from deletion
+- Database errors logged but don't fail operation
+
+**Dual-Storage Synchronization:**
+1. **SharedPreferences:** Stores conversation metadata (title, prompt, settings)
+2. **Room Database:** Stores conversation record, sessions, transcripts, summaries
+3. **Deletion Process:**
+   - Step 1: Remove from SharedPreferences (immediate)
+   - Step 2: Remove from Room database (async, CASCADE to sessions)
+   - Step 3: Foreign key CASCADE deletes all sessions
+   - Step 4: Sessions contain transcripts/summaries (deleted with session)
+
+**Synchronization Integrity:**
+- Conversation ID is the primary key in both storages
+- SharedPreferences is source of truth for conversation definitions
+- Room database is source of truth for session history
+- Deletion maintains consistency by removing from both storages
+- If database deletion fails, conversation still removed from UI (SharedPreferences)
+- Orphaned database records cleaned up on next app start
+
+**Example:**
+```kotlin
+OfflineConversationManager.delete("conv-123")
+// Removes conversation from SharedPreferences
+// Async: Removes conversation and all sessions from database
+```
+
+**Code Reference:** `OfflineConversationManager.kt:115`
+
+---
+
+#### `getHelpConversation(): OfflineConversation?`
+**Role:** Retrieves the system help conversation
+
+**Preconditions:** init() must have been called
+
+**Returns:** Help conversation or null if not found
+
+**Postconditions:** None (read-only operation)
+
+**Side-effects:**
+- Reads from SharedPreferences
+
+**Example:**
+```kotlin
+val help = OfflineConversationManager.getHelpConversation()
+```
+
+**Code Reference:** `OfflineConversationManager.kt:55`
+
+---
+
+**Dependencies:**
+- **Android:** Context, SharedPreferences
+- **Kotlinx:** Serialization (Json), Coroutines (CoroutineScope, Dispatchers)
+- **Composition:** RTVIApplication (for database access)
+- **Aggregation:** ConversationRepository (for database operations)
+
+**Used By:**
+- MainActivity (creates, updates, deletes conversations)
+- UI components (ConversationListScreen, OfflineConversationDialog)
+- SessionManager (retrieves conversation for session start)
+
+**Lifecycle:**
+1. **Initialization:** init() called in RTVIApplication.onCreate()
+2. **Usage:** CRUD operations throughout app lifetime
+3. **Destruction:** Lives for app lifetime as singleton object
+
+**Testability:**
+- **Mocking:** Mock SharedPreferences, Context, ConversationRepository
+- **Edge cases:**
+  - System conversation deletion attempts
+  - Corrupted JSON in SharedPreferences
+  - Database deletion failures
+  - Concurrent modifications
+  - Asset loading failures
+
+**Dual-Storage Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│           OfflineConversationManager                     │
+└────────────┬────────────────────────────────────────────┘
+             │
+             ├──> SharedPreferences (Metadata)
+             │    - Conversation definitions
+             │    - Title, prompt, settings
+             │    - Voice configuration
+             │    - Quick access, no database overhead
+             │
+             └──> Room Database (History)
+                  - Conversation record (for foreign key)
+                  - Sessions (linked to conversation)
+                  - Transcripts (stored in sessions)
+                  - Summaries (stored in sessions)
+                  - Full history, queryable
+```
+
+**Why Dual Storage?**
+
+1. **Performance:** SharedPreferences provides fast access to conversation list without database queries
+2. **Separation:** Conversation definitions (rarely change) vs session history (grows continuously)
+3. **Simplicity:** No need for database migrations when adding conversation settings
+4. **Reliability:** Conversation list always available even if database corrupted
+5. **Flexibility:** Easy to export/import conversation definitions
+
+**Synchronization Rules:**
+
+1. **Create:** Add to SharedPreferences immediately, database record created on first session
+2. **Update:** Update SharedPreferences immediately, database not affected
+3. **Delete:** Remove from both storages, database CASCADE handles sessions
+4. **Read:** SharedPreferences for list, database for history
+5. **Consistency:** Conversation ID is the link between both storages
+
+---
+
+## Code References Summary
+
+| Component | File | Key Lines |
+|-----------|------|-----------|
+| VoiceClientManager | VoiceClientManager.kt | 170-3061 |
+| SessionManager | SessionManager.kt | 25-972 |
+| VoiceService | VoiceService.kt | 20-300 |
+| PorcupineService | PorcupineService.kt | 20-400 |
+| ReconnectionManager | VoiceClientManager.kt | 2950-3050 |
+| MainActivity | MainActivity.kt | 100-1417 |
+| PicovoiceManager | PicovoiceManager.kt | 15-400 |
+| WebSocketErrorClassifier | utils/WebSocketErrorClassifier.kt | 10-80 |
+| OfflineConversationManager | OfflineConversationManager.kt | 1-200 |
+
+**Last Updated:** 2025-12-04
+

@@ -27,8 +27,14 @@ Welcome to the comprehensive documentation for the Gemini Multimodal WebSocket D
 - [Components](docs/implementation/components.md) - Detailed component documentation
 - [Interactions](docs/implementation/interactions.md) - Component interaction sequences
 - [Lifecycle Management](docs/implementation/lifecycle.md) - Activity and service lifecycle
+- [Session Pipelines](docs/domain/session-pipelines.md) - Offline and LibreChat session flows
+- [Context Builder](docs/implementation/context-builder.md) - Conversation context building
+- [Transcript Sync](docs/implementation/transcript-sync.md) - LibreChat transcript synchronization
+- [Summary Generation](docs/implementation/summary-generation.md) - AI-powered summary generation
+- [Database Schema](docs/operations/database-schema.md) - Database entities and schema
 
 ### 🔧 Operations
+- [Database Schema](docs/operations/database-schema.md) - Database entities and schema
 - Coming soon: Security, Error Handling, Troubleshooting
 
 ### 🧪 Testing
@@ -52,9 +58,13 @@ docs/
 ├── implementation/   # Technical implementation details
 │   ├── components.md        # Detailed component documentation
 │   ├── interactions.md      # Component interaction sequences
-│   └── lifecycle.md         # Activity and service lifecycle management
+│   ├── lifecycle.md         # Activity and service lifecycle management
+│   ├── context-builder.md   # Conversation context building
+│   ├── transcript-sync.md   # LibreChat transcript synchronization
+│   └── summary-generation.md # AI-powered summary generation
 │
 ├── operations/       # Operational documentation
+│   ├── database-schema.md   # Database entities and schema
 │   └── (coming soon)        # Security, errors, troubleshooting
 │
 ├── testing/          # Test documentation
@@ -76,6 +86,7 @@ These documents provide foundational understanding of the system and should be i
 
 - **[Architecture Overview](docs/project/architecture.md)** - System architecture, components, and data flows
 - **[Domain Model](docs/domain/model.md)** - Core domain objects, relationships, and data structures
+- **[Session Pipelines](docs/domain/session-pipelines.md)** - Offline and LibreChat session flows
 - **[Components](docs/implementation/components.md)** - Detailed component documentation with methods and interfaces
 - **[Lifecycle Management](docs/implementation/lifecycle.md)** - Activity and service lifecycle patterns
 
@@ -85,6 +96,10 @@ These documents provide foundational understanding of the system and should be i
 These documents help with debugging, troubleshooting, and understanding system behavior.
 
 - **[Interactions](docs/implementation/interactions.md)** - Component interaction sequences and data flows
+- **[Context Builder](docs/implementation/context-builder.md)** - Conversation context building
+- **[Transcript Sync](docs/implementation/transcript-sync.md)** - LibreChat transcript synchronization
+- **[Summary Generation](docs/implementation/summary-generation.md)** - AI-powered summary generation
+- **[Database Schema](docs/operations/database-schema.md)** - Database entities and schema
 - **[State Machines](docs/domain/state-machine.md)** - State transitions and lifecycle states
 - **[Requirements](docs/project/requirements.md)** - Functional and technical requirements
 - **[Architecture Decisions](docs/project/decisions.md)** - ADRs and design rationale
@@ -210,6 +225,16 @@ These documents provide context, guidance, and reference information.
 - [Domain Model - SessionManager](docs/domain/model.md#sessionmanager)
 - [Components - SessionManager](docs/implementation/components.md#sessionmanager)
 - [Lifecycle - Session Lifecycle](docs/implementation/lifecycle.md#session-lifecycle)
+- [Session Pipelines](docs/domain/session-pipelines.md) - Complete session flows
+
+### Context & Summaries
+- [Context Builder](docs/implementation/context-builder.md) - Building conversation context
+- [Summary Generation](docs/implementation/summary-generation.md) - AI-powered summaries
+- [Transcript Sync](docs/implementation/transcript-sync.md) - LibreChat synchronization
+
+### Database
+- [Database Schema](docs/operations/database-schema.md) - Entities and schema
+- [Session Pipelines - Database](docs/domain/session-pipelines.md#database-persistence)
 
 ### Error Handling
 - [Architecture - Error Handling](docs/project/architecture.md#error-handling)
