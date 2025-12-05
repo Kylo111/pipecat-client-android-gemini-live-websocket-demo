@@ -2,11 +2,16 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 
 import android.app.Application
 import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
+import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConfigurationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConversationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.DocumentRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.SessionRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.GlobalMemoryDataStore
 import ai.pipecat.gemini_multimodal_websocket_demo.data.OfflineContextBuilder
+import ai.pipecat.gemini_multimodal_websocket_demo.usecases.ImportAssistantUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 class RTVIApplication : Application() {
@@ -21,6 +26,19 @@ class RTVIApplication : Application() {
     }
     val documentRepository by lazy { 
         DocumentRepository(database.documentDao()) 
+    }
+    
+    // Configuration repository for marketplace
+    val configRepository by lazy {
+        ConfigurationRepository(this)
+    }
+    
+    // Import assistant use case
+    val importAssistantUseCase by lazy {
+        ImportAssistantUseCase(
+            offlineConversationManager = OfflineConversationManager,
+            configRepository = configRepository
+        )
     }
     
     // Offline context builder for advanced memory pipeline
@@ -48,6 +66,11 @@ class RTVIApplication : Application() {
     val conversationLockManager by lazy {
         ConversationLockManager(conversationRepository)
     }
+    
+    // Help conversation updater for automatic prompt updates
+    val helpConversationUpdater by lazy {
+        HelpConversationUpdater(this, configRepository)
+    }
 
     
     override fun onCreate() {
@@ -58,6 +81,19 @@ class RTVIApplication : Application() {
         ThemeManager.init(this)
         OfflineConversationManager.init(this)
         PicovoiceManager.initialize(this)
+        
+        // Load configuration on app startup
+        CoroutineScope(Dispatchers.IO).launch {
+            val result = configRepository.loadConfiguration()
+            if (result.isFailure) {
+                android.util.Log.e("RTVIApplication", "Failed to load configuration", result.exceptionOrNull())
+            } else {
+                android.util.Log.i("RTVIApplication", "Configuration loaded successfully")
+                
+                // Check and update Help conversation if needed
+                helpConversationUpdater.checkAndUpdateHelpConversation()
+            }
+        }
         
         // Picovoice is disabled by default - user can enable it in settings
         // This prevents crash on Android 14+ which requires RECORD_AUDIO permission

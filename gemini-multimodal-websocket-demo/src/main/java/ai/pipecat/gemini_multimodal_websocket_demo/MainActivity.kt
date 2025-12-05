@@ -3,6 +3,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.BackPressHandler
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.MarketplaceScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.NetworkStatusBanner
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
@@ -100,7 +101,8 @@ enum class Screen {
     CONNECT,
     IN_CALL,
     SETTINGS,
-    THEME_SELECTION
+    THEME_SELECTION,
+    MARKETPLACE
 }
 
 class MainActivity : ComponentActivity() {
@@ -532,6 +534,9 @@ class MainActivity : ComponentActivity() {
                                             authManager.logout()
                                             currentScreen = Screen.LOGIN
                                         }
+                                    },
+                                    onMarketplaceClick = {
+                                        currentScreen = Screen.MARKETPLACE
                                     }
                                 )
                             }
@@ -578,6 +583,23 @@ class MainActivity : ComponentActivity() {
                                 ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen(
                                     onBack = {
                                         currentScreen = Screen.SETTINGS
+                                    }
+                                )
+                            }
+                            Screen.MARKETPLACE -> {
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                val app = context.applicationContext as RTVIApplication
+                                
+                                ai.pipecat.gemini_multimodal_websocket_demo.ui.MarketplaceScreen(
+                                    configRepository = app.configRepository,
+                                    importUseCase = app.importAssistantUseCase,
+                                    onBack = {
+                                        currentScreen = Screen.THREAD_LIST
+                                    },
+                                    onImportSuccess = {
+                                        // Navigate back to conversation list after successful import
+                                        // The conversation list will automatically update via Flow
+                                        currentScreen = Screen.THREAD_LIST
                                     }
                                 )
                             }

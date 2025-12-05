@@ -137,6 +137,16 @@ object OfflineConversationManager {
     }
     
     /**
+     * Add a new conversation to the list
+     * Used by ImportAssistantUseCase to add imported templates
+     */
+    fun add(conversation: OfflineConversation) {
+        val conversations = getAll().toMutableList()
+        conversations.add(conversation)
+        save(conversations)
+    }
+    
+    /**
      * Update existing conversation
      */
     fun update(conversation: OfflineConversation) {

@@ -47,12 +47,28 @@ fun ConversationListScreen(
     authManager: AuthManager,
     onConversationSelected: (ConversationItem) -> Unit,
     onSettingsClick: () -> Unit = {},
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onMarketplaceClick: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     val app = context.applicationContext as ai.pipecat.gemini_multimodal_websocket_demo.RTVIApplication
     val conversationRepository = app.conversationRepository
+    val configRepository = app.configRepository
+    
+    // News announcement state
+    val newsAnnouncement = remember { configRepository.getNewsAnnouncement() }
+    val sharedPrefs = remember { 
+        context.getSharedPreferences("marketplace_prefs", android.content.Context.MODE_PRIVATE) 
+    }
+    var dismissedNewsId by remember { 
+        mutableStateOf(sharedPrefs.getString("dismissed_news_id", null)) 
+    }
+    val shouldShowNews = remember(newsAnnouncement, dismissedNewsId) {
+        newsAnnouncement != null && 
+        newsAnnouncement.active && 
+        newsAnnouncement.id != dismissedNewsId
+    }
     
     var librechatThreads by remember { mutableStateOf<List<LibreChatService.ConversationThread>>(emptyList()) }
     var offlineConversations by remember { mutableStateOf(OfflineConversationManager.getAll()) }
@@ -167,8 +183,20 @@ fun ConversationListScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Help icon
+                    // Marketplace icon
                     val isParentalLockEnabled = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value
+                    Icon(
+                        painter = painterResource(id = R.drawable.image_gallery),
+                        contentDescription = "Marketplace",
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clickable(enabled = !isParentalLockEnabled) {
+                                onMarketplaceClick()
+                            },
+                        tint = if (isParentalLockEnabled) Color.Gray else Colors.buttonNormal
+                    )
+                    
+                    // Help icon
                     Icon(
                         painter = painterResource(id = R.drawable.help_circle),
                         contentDescription = "Help",
@@ -201,6 +229,20 @@ fun ConversationListScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+            
+            // News banner
+            if (shouldShowNews && newsAnnouncement != null) {
+                NewsBanner(
+                    announcement = newsAnnouncement,
+                    onDismiss = {
+                        dismissedNewsId = newsAnnouncement.id
+                        sharedPrefs.edit()
+                            .putString("dismissed_news_id", newsAnnouncement.id)
+                            .apply()
+                    }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             
             // Add offline conversation button
             val isParentalLockEnabled = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value

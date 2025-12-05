@@ -50,5 +50,12 @@ data class ConversationEntity(
     
     // NEW: Memory update in progress flag
     @ColumnInfo(name = "memory_update_pending")
-    val memoryUpdatePending: Boolean = false
+    val memoryUpdatePending: Boolean = false,
+    
+    // Template tracking fields for marketplace integration
+    @ColumnInfo(name = "origin_template_id")
+    val originTemplateId: String? = null,      // Links back to marketplace template
+    
+    @ColumnInfo(name = "origin_template_version")
+    val originTemplateVersion: Int? = null     // Version at time of import
 )

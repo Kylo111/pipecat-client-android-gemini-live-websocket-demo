@@ -19,7 +19,10 @@ data class OfflineConversation(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val customSummaryPrompt: String = "",
-    val copySummaryToClipboard: Boolean = false
+    val copySummaryToClipboard: Boolean = false,
+    // Template tracking fields for marketplace integration
+    val originTemplateId: String? = null,      // Links back to marketplace template
+    val originTemplateVersion: Int? = null     // Version at time of import
 )
 
 /**
