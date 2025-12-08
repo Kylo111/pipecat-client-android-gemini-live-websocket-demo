@@ -82,6 +82,31 @@ fun InCallLayout(
                         audioLevel = voiceClientManager.userAudioLevel
                     )
                 }
+                
+                // Mode control buttons row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Duplex mode toggle
+                    DuplexModeButton(
+                        isFullDuplex = voiceClientManager.isFullDuplexMode.value,
+                        onToggle = {
+                            voiceClientManager.setFullDuplexMode(!voiceClientManager.isFullDuplexMode.value)
+                        }
+                    )
+                    
+                    // Picovoice toggle
+                    PicovoiceToggleButton(
+                        isEnabled = voiceClientManager.isPicovoiceEnabled.value,
+                        onToggle = {
+                            voiceClientManager.setPicovoiceEnabled(!voiceClientManager.isPicovoiceEnabled.value)
+                        }
+                    )
+                }
             }
         }
 

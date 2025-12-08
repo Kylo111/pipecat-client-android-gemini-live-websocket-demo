@@ -31,6 +31,7 @@ object Preferences {
     private const val PREF_SUMMARY_MODEL = "summary_model"
     private const val PREF_PARENTAL_LOCK_ENABLED = "parental_lock_enabled"
     private const val PREF_FULL_DUPLEX_MODE = "full_duplex_mode"
+    private const val PREF_PICOVOICE_ENABLED_DEFAULT = "picovoice_enabled_default"
     private const val PREF_VERSION = "preferences_version"
     private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
 
@@ -45,7 +46,7 @@ object Preferences {
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, googleCloudApiKey, perplexityApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, picovoiceEnabledDefault
         ).forEach { it.init() }
     }
 
@@ -223,4 +224,7 @@ object Preferences {
     
     // Audio mode (full-duplex vs half-duplex)
     val fullDuplexMode = BooleanPref(PREF_FULL_DUPLEX_MODE, true) // Default: full-duplex
+    
+    // Picovoice wake word detection default state
+    val picovoiceEnabledDefault = BooleanPref(PREF_PICOVOICE_ENABLED_DEFAULT, true) // Default: enabled
 }

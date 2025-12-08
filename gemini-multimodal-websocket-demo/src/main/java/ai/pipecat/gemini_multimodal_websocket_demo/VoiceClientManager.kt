@@ -11,7 +11,6 @@ import android.content.Intent
 import android.media.AudioFormat
 import android.os.Build
 import android.media.AudioManager
-import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.net.Uri
@@ -205,11 +204,25 @@ class VoiceClientManager(
     )
 
     private var webSocket: WebSocket? = null
-    private var audioRecord: AudioRecord? = null
     private var audioTrack: AudioTrack? = null
     private val audioTrackMutex = Mutex()
     private var recordingJob: Job? = null
     private var audioPlaybackJob: Job? = null
+    
+    // AudioListener implementation for SharedAudioManager
+    private val audioListener = object : SharedAudioManager.AudioListener {
+        override val id = "voice_client_manager"
+        
+        override fun onAudioData(buffer: ByteArray, size: Int) {
+            // Process audio (level calculation, Gemini transmission)
+            processAudioData(buffer, size)
+        }
+        
+        override fun onError(error: String) {
+            Log.e(TAG, "Audio error from SharedAudioManager: $error")
+            errors.add(Error(error))
+        }
+    }
     
     // Audio queue for smooth playback without pops/clicks
     private val audioQueue = mutableListOf<Pair<Int, ByteArray>>() // Pair<generationId, audioData>
@@ -284,6 +297,10 @@ class VoiceClientManager(
     val isProcessingImage = mutableStateOf(false)
     val isSpeakerphoneOn = mutableStateOf(false)
     
+    // Session mode state
+    val isFullDuplexMode = mutableStateOf(Preferences.fullDuplexMode.value)
+    val isPicovoiceEnabled = mutableStateOf(Preferences.picovoiceEnabledDefault.value)
+    
     // Tool execution state
     val isExecutingTool = mutableStateOf(false)
     val currentToolName = mutableStateOf<String?>(null)
@@ -350,6 +367,41 @@ class VoiceClientManager(
         Log.i(TAG, "User chose to end session after reconnection failure")
         stop()
     }
+    
+    /**
+     * Set full-duplex mode (user can interrupt bot)
+     * @param enabled true for full-duplex, false for half-duplex
+     */
+    fun setFullDuplexMode(enabled: Boolean) {
+        isFullDuplexMode.value = enabled
+        Log.i(TAG, "Duplex mode changed: ${if (enabled) "FULL" else "HALF"}")
+    }
+    
+    /**
+     * Set Picovoice wake word detection enabled state
+     * @param enabled true to enable wake word detection, false to disable
+     */
+    fun setPicovoiceEnabled(enabled: Boolean) {
+        isPicovoiceEnabled.value = enabled
+        Log.i(TAG, "Picovoice ${if (enabled) "ENABLED" else "DISABLED"}")
+        
+        // Start or stop PorcupineService based on state
+        if (enabled) {
+            // Start PorcupineService (it will register with SharedAudioManager)
+            val intent = Intent(context, PorcupineService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            Log.i(TAG, "Started PorcupineService")
+        } else {
+            // Stop PorcupineService (it will unregister from SharedAudioManager)
+            val intent = Intent(context, PorcupineService::class.java)
+            context.stopService(intent)
+            Log.i(TAG, "Stopped PorcupineService")
+        }
+    }
 
     
     /**
@@ -364,75 +416,9 @@ class VoiceClientManager(
         }
     }
     
-    /**
-     * Stop AudioRecord to free microphone for Picovoice
-     * Called when bot starts speaking
-     */
-    private fun stopAudioRecording() {
-        try {
-            audioRecord?.stop()
-            Log.i(TAG, "🎤 AudioRecord stopped (bot speaking, freeing mic for Picovoice)")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error stopping AudioRecord: ${e.message}")
-        }
-    }
+
     
-    /**
-     * Resume AudioRecord after bot stops speaking
-     * CRITICAL: Wait to ensure Picovoice has FULLY released AudioRecord
-     */
-    private fun resumeAudioRecording() {
-        // Use Thread instead of coroutine to ensure delay works
-        Thread {
-            try {
-                // CRITICAL: Wait 500ms to ensure Picovoice has FULLY stopped and deleted
-                Log.d(TAG, "Waiting 500ms before resuming AudioRecord...")
-                Thread.sleep(500)
-                
-                audioRecord?.startRecording()
-                Log.i(TAG, "🎤 AudioRecord resumed (bot finished, reclaiming mic)")
-            } catch (e: Exception) {
-                Log.w(TAG, "Error resuming AudioRecord: ${e.message}")
-            }
-        }.start()
-    }
-    
-    /**
-     * Update Picovoice service state based on session state
-     * Send broadcast to PorcupineService to pause/resume wake word detection
-     * 
-     * Strategy:
-     * - PorcupineService runs continuously as foreground service
-     * - When bot talks or session paused → RESUME Porcupine (can use mic)
-     * - When user talks → PAUSE Porcupine (VoiceClientManager uses mic)
-     * 
-     * This avoids the Android 14+ crash when starting foreground service with microphone type
-     */
-    private fun updatePicovoiceState() {
-        try {
-            val shouldPorcupineBeActive = isPaused.value || botIsTalking.value
-            
-            val action = if (shouldPorcupineBeActive) {
-                "ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE"
-            } else {
-                "ai.pipecat.gemini_multimodal_websocket_demo.PAUSE_PORCUPINE"
-            }
-            
-            val intent = Intent(action)
-            intent.setPackage(context.packageName)
-            context.sendBroadcast(intent)
-            
-            val reason = when {
-                isPaused.value -> "session paused"
-                botIsTalking.value -> "bot talking"
-                else -> "user can talk"
-            }
-            
-            Log.i(TAG, "🔵 Picovoice ${if (shouldPorcupineBeActive) "RESUME" else "PAUSE"} ($reason)")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating Picovoice state: ${e.message}", e)
-        }
-    }
+
     
     /**
      * Update last bot response time (called when bot responds with audio or text)
@@ -1100,12 +1086,50 @@ class VoiceClientManager(
                 totalAudioBytesReceived = 0L
                 lastAudioLogTime = System.currentTimeMillis()
                 
+                // Initialize modes from Preferences
+                isFullDuplexMode.value = Preferences.fullDuplexMode.value
+                isPicovoiceEnabled.value = Preferences.picovoiceEnabledDefault.value
+                
                 // Only start audio if not already started (for reconnection case)
-                if (audioRecord == null) {
+                if (!SharedAudioManager.isActive.value) {
                     registerBluetoothScoReceiver()
                     setupAudioManager()
                     enableSpeakerphoneIfNoHeadset() // Auto-enable speakerphone if no headset
-                    startAudioRecording()
+                    
+                    // Register with SharedAudioManager instead of creating own AudioRecord
+                    SharedAudioManager.initialize(context)
+                    
+                    // Register VoiceClientManager as listener
+                    scope?.launch {
+                        SharedAudioManager.registerListener(audioListener)
+                        Log.i(TAG, "VoiceClientManager registered with SharedAudioManager")
+                        
+                        // Start PorcupineService if Picovoice is enabled
+                        if (isPicovoiceEnabled.value) {
+                            val intent = Intent(context, PorcupineService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(intent)
+                            } else {
+                                context.startService(intent)
+                            }
+                            Log.i(TAG, "Picovoice enabled - PorcupineService started")
+                        }
+                        
+                        // Start SharedAudioManager if not already running
+                        if (!SharedAudioManager.isActive.value) {
+                            val result = SharedAudioManager.startWithBluetoothSupport()
+                            if (result.isFailure) {
+                                Log.e(TAG, "Failed to start SharedAudioManager: ${result.exceptionOrNull()?.message}")
+                                errors.add(Error("Failed to start audio: ${result.exceptionOrNull()?.message}"))
+                            } else {
+                                Log.i(TAG, "SharedAudioManager started successfully")
+                                mic.value = true
+                            }
+                        } else {
+                            Log.i(TAG, "SharedAudioManager already running")
+                            mic.value = true
+                        }
+                    }
                 }
                 if (audioTrack == null) {
                     startAudioPlayback()
@@ -1159,11 +1183,6 @@ class VoiceClientManager(
                         // Update state immediately
                         botIsTalking.value = false
                         botAudioLevel.floatValue = 0f
-                        
-                        // If in half-duplex, ensure we resume recording since we interrupted
-                        if (!Preferences.fullDuplexMode.value) {
-                             resumeAudioRecording()
-                        }
                         
                         // CRITICAL: Return immediately to avoid processing any audio in this message
                         // which would be stale/interrupted audio
@@ -1227,14 +1246,12 @@ class VoiceClientManager(
                                             botIsTalking.value = true
                                             
                                             // Stop AudioRecord only in half-duplex mode
-                                            if (!Preferences.fullDuplexMode.value) {
-                                                stopAudioRecording()      // Stop AudioRecord to free mic
-                                                Log.i(TAG, "🎤 Half-duplex: AudioRecord stopped (bot speaking)")
+                                            // Note: SharedAudioManager continues running in both modes
+                                            if (!isFullDuplexMode.value) {
+                                                Log.i(TAG, "🎤 Half-duplex: Bot speaking (audio transmission will be skipped)")
                                             } else {
-                                                Log.i(TAG, "🎤 Full-duplex: AudioRecord continues (user can interrupt)")
+                                                Log.i(TAG, "🎤 Full-duplex: Bot speaking (user can interrupt)")
                                             }
-                                            
-                                            updatePicovoiceState()    // Resume Picovoice (can use mic now)
                                         }
                                         updateBotResponseTime() // Bot responded with audio
                                     }
@@ -1252,14 +1269,12 @@ class VoiceClientManager(
                     botIsTalking.value = false
                     
                     // Resume AudioRecord only if it was stopped (half-duplex mode)
-                    if (!Preferences.fullDuplexMode.value) {
-                        resumeAudioRecording()    // Resume AudioRecord
-                        Log.i(TAG, "🎤 Half-duplex: AudioRecord resumed (bot finished)")
+                    // Note: SharedAudioManager continues running in both modes
+                    if (!isFullDuplexMode.value) {
+                        Log.i(TAG, "🎤 Half-duplex: Bot finished (audio transmission will resume)")
                     } else {
-                        Log.i(TAG, "🎤 Full-duplex: AudioRecord was never stopped")
+                        Log.i(TAG, "🎤 Full-duplex: Bot finished")
                     }
-                    
-                    updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
                 }
             }
             
@@ -1269,14 +1284,12 @@ class VoiceClientManager(
                 botIsTalking.value = false
                 
                 // Resume AudioRecord only if it was stopped (half-duplex mode)
-                if (!Preferences.fullDuplexMode.value) {
-                    resumeAudioRecording()    // Resume AudioRecord
-                    Log.i(TAG, "🎤 Half-duplex: AudioRecord resumed (bot finished)")
+                // Note: SharedAudioManager continues running in both modes
+                if (!isFullDuplexMode.value) {
+                    Log.i(TAG, "🎤 Half-duplex: Bot finished (audio transmission will resume)")
                 } else {
-                    Log.i(TAG, "🎤 Full-duplex: AudioRecord was never stopped")
+                    Log.i(TAG, "🎤 Full-duplex: Bot finished")
                 }
-                
-                updatePicovoiceState()    // Pause Picovoice (VoiceClientManager needs mic)
             }
 
             // Check for tool calls
@@ -1913,153 +1926,73 @@ class VoiceClientManager(
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun startAudioRecording() {
-        try {
-            val bufferSize = AudioRecord.getMinBufferSize(
-                SAMPLE_RATE,
-                CHANNEL_CONFIG,
-                AUDIO_FORMAT
+
+
+    /**
+     * Process audio data received from SharedAudioManager
+     * Calculates audio level, detects user talking, and sends to Gemini based on duplex mode
+     */
+    private fun processAudioData(buffer: ByteArray, size: Int) {
+        // Calculate audio level
+        val level = calculateAudioLevel(buffer.copyOf(size))
+        userAudioLevel.floatValue = level
+        
+        // Detect if user is talking using configurable threshold
+        val threshold = Preferences.activityDetectionThreshold.value
+        val isTalking = level > threshold
+        if (userIsTalking.value != isTalking) {
+            userIsTalking.value = isTalking
+            if (isTalking) {
+                Log.i(TAG, "User started speaking (audio level: $level, threshold: $threshold)")
+                updateActivity() // User is active
+                
+                // Start auto-pause monitoring if not already running
+                if (autoPauseJob == null || !autoPauseJob!!.isActive) {
+                    startAutoPauseMonitoring()
+                }
+            } else {
+                Log.i(TAG, "User stopped speaking")
+            }
+        }
+        
+        // Send to Gemini based on duplex mode
+        val shouldSend = when {
+            state.value != ConnectionState.CONNECTED -> false
+            isFullDuplexMode.value -> true  // Always send in full-duplex
+            botIsTalking.value -> false     // Don't send in half-duplex when bot talks
+            else -> true
+        }
+        
+        if (shouldSend && webSocket != null) {
+            // Send audio to Gemini
+            val base64Audio = Base64.encodeToString(buffer.copyOf(size), Base64.NO_WRAP)
+            val message = RealtimeInputMessage(
+                realtime_input = RealtimeInput(
+                    media_chunks = listOf(
+                        MediaChunk(
+                            mime_type = "audio/pcm;rate=16000",
+                            data = base64Audio
+                        )
+                    )
+                )
             )
-
-            Log.i(TAG, "Starting audio recording - Buffer size: $bufferSize bytes, Sample rate: $SAMPLE_RATE Hz")
-
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                SAMPLE_RATE,
-                CHANNEL_CONFIG,
-                AUDIO_FORMAT,
-                bufferSize
-            )
-
-            audioRecord?.startRecording()
-            mic.value = true
             
-            // Log audio routing status after AudioRecord is created
-            audioManager?.let { am ->
-                Log.i(TAG, "📱 Audio routing status after AudioRecord creation:")
-                Log.i(TAG, "   - Mode: ${am.mode}")
-                Log.i(TAG, "   - Bluetooth SCO ON: ${am.isBluetoothScoOn}")
-                Log.i(TAG, "   - Speakerphone ON: ${am.isSpeakerphoneOn}")
-                Log.i(TAG, "   - Wired headset ON: ${am.isWiredHeadsetOn}")
-                
-                // Log which audio source AudioRecord will use
-                val audioSource = MediaRecorder.AudioSource.VOICE_COMMUNICATION
-                Log.i(TAG, "   - AudioRecord source: VOICE_COMMUNICATION ($audioSource)")
-                
-                if (am.isBluetoothScoOn) {
-                    Log.i(TAG, "   ✅ Bluetooth SCO is active - should use BT microphone")
-                } else {
-                    Log.w(TAG, "   ⚠️ Bluetooth SCO is NOT active - will use built-in microphone")
-                }
-            }
-
-            recordingJob = scope?.launch {
-                val buffer = ByteArray(bufferSize)
-                var totalBytesSent = 0L
-                var audioChunksSent = 0
-                
-                // Calculate delay based on speech speed (inverse relationship)
-                // Faster speed = shorter delay between sends
-                val baseDelay = 10L
-                val adjustedDelay = (baseDelay / currentSpeechSpeed).toLong().coerceAtLeast(1L)
-                
-                Log.i(TAG, "Audio recording loop started - Adjusted delay: ${adjustedDelay}ms (speed: $currentSpeechSpeed)")
-                
-                while (isActive && (state.value == ConnectionState.CONNECTED || state.value == ConnectionState.RECONNECTING)) {
-                    // Skip reading if bot is talking (AudioRecord is stopped)
-                    // BUT only in half-duplex mode. In full-duplex, we continue reading.
-                    if (botIsTalking.value && !Preferences.fullDuplexMode.value) {
-                        delay(100)  // Wait while bot talks
-                        continue
-                    }
-                    
-                    val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                    
-                    if (read > 0) {
-                        // Calculate audio level
-                        val level = calculateAudioLevel(buffer.copyOf(read))
-                        userAudioLevel.floatValue = level
-                        
-                        // CRITICAL FIX: Don't send audio while bot is talking (in half-duplex mode)
-                        // This prevents echo/feedback and bot interruption
-                        if (botIsTalking.value && !Preferences.fullDuplexMode.value) {
-                            // Half-duplex: Don't send audio while bot talks
-                            if (DEBUG_LOGGING) {
-                                Log.d(TAG, "⏸️ Half-duplex: Skipping audio send - bot is talking")
-                            }
-                            continue // Skip sending this audio chunk
-                        } else if (botIsTalking.value && Preferences.fullDuplexMode.value) {
-                            // Full-duplex: Send audio even when bot talks (user can interrupt)
-                            if (DEBUG_LOGGING) {
-                                Log.d(TAG, "🎤 Full-duplex: Sending audio while bot talks (user can interrupt)")
-                            }
-                            // Continue normally - don't skip
-                        }
-                        
-                        // Detect if user is talking using configurable threshold
-                        // This threshold affects ONLY activity detection for auto-pause,
-                        // NOT the audio volume sent to Gemini
-                        val threshold = Preferences.activityDetectionThreshold.value
-                        val isTalking = level > threshold
-                        if (userIsTalking.value != isTalking) {
-                            userIsTalking.value = isTalking
-                            if (isTalking) {
-                                Log.i(TAG, "User started speaking (audio level: $level, threshold: $threshold)")
-                                updateActivity() // User is active
-                                
-                                // Start auto-pause monitoring if not already running
-                                if (autoPauseJob == null || !autoPauseJob!!.isActive) {
-                                    startAutoPauseMonitoring()
-                                }
-                            } else {
-                                Log.i(TAG, "User stopped speaking")
-                            }
-                        }
-                        
-                        // Only send audio when actually connected, not during reconnection
-                        if (state.value == ConnectionState.CONNECTED && webSocket != null) {
-                            // Send audio to Gemini
-                            val base64Audio = Base64.encodeToString(buffer.copyOf(read), Base64.NO_WRAP)
-                            val message = RealtimeInputMessage(
-                                realtime_input = RealtimeInput(
-                                    media_chunks = listOf(
-                                        MediaChunk(
-                                            mime_type = "audio/pcm;rate=16000",
-                                            data = base64Audio
-                                        )
-                                    )
-                                )
-                            )
-                            
-                            val messageJson = json.encodeToString(message)
-                            webSocket?.send(messageJson)
-                            
-                            totalBytesSent += read
-                            audioChunksSent++
-                            
-                            if (DEBUG_LOGGING && audioChunksSent % 100 == 0) {
-                                Log.d(TAG, "Audio stats - Chunks sent: $audioChunksSent, Total bytes: $totalBytesSent, Avg chunk size: ${totalBytesSent / audioChunksSent}")
-                            }
-                        }
-                    }
-                    
-                    delay(adjustedDelay) // Adjusted delay based on speech speed
-                }
-                
-                Log.i(TAG, "Audio recording loop ended - Total chunks sent: $audioChunksSent, Total bytes: $totalBytesSent")
-            }
-
-            Log.i(TAG, "Audio recording started successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start audio recording: ${e.message}", e)
+            val messageJson = json.encodeToString(message)
+            webSocket?.send(messageJson)
+            
             if (DEBUG_LOGGING) {
-                Log.e(TAG, "Audio recording error details:", e)
+                Log.d(TAG, "Audio sent to Gemini: $size bytes (duplex: ${isFullDuplexMode.value})")
             }
-            errors.add(Error(context.getString(R.string.error_microphone_start_failed, e.message ?: "")))
+        } else if (DEBUG_LOGGING) {
+            val reason = when {
+                state.value != ConnectionState.CONNECTED -> "not connected"
+                !isFullDuplexMode.value && botIsTalking.value -> "half-duplex + bot talking"
+                else -> "unknown"
+            }
+            Log.d(TAG, "Skipping audio send: $reason")
         }
     }
-
+    
     private fun startAudioPlayback() {
         try {
             val minBufferSize = AudioTrack.getMinBufferSize(
@@ -2137,12 +2070,6 @@ class VoiceClientManager(
         // Disable mic
         mic.value = false // Update mic state to reflect paused session
         
-        // Stop AudioRecord if still running
-        audioRecord?.stop()
-        
-        // Update Picovoice state (start it since session is paused)
-        updatePicovoiceState()
-        
         // Close WebSocket but DO NOT clear session handle
         // This allows resumption when user re-enables mic
         Log.i(TAG, "🔄 Closing WebSocket - session handle preserved for resumption")
@@ -2164,9 +2091,6 @@ class VoiceClientManager(
         
         // Clear paused flag
         isPaused.value = false
-        
-        // Update Picovoice state (stop it since session is resuming)
-        updatePicovoiceState()
         
         // Start auto-pause monitoring
         startAutoPauseMonitoring()
@@ -2217,14 +2141,14 @@ class VoiceClientManager(
                 Log.e(TAG, "[forceStop] Error closing WebSocket", e)
             }
             
-            // Stop audio immediately
+            // Unregister from SharedAudioManager
             try {
-                audioRecord?.stop()
-                audioRecord?.release()
-                audioRecord = null
-                Log.d(TAG, "[forceStop] AudioRecord stopped and released")
+                scope?.launch {
+                    SharedAudioManager.unregisterListener(audioListener.id)
+                    Log.d(TAG, "[forceStop] Unregistered from SharedAudioManager")
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "[forceStop] Error stopping AudioRecord", e)
+                Log.e(TAG, "[forceStop] Error unregistering from SharedAudioManager", e)
             }
             
             try {
@@ -2282,10 +2206,9 @@ class VoiceClientManager(
                 mic.value = true
                 resume()
             } else if (state.value == ConnectionState.CONNECTED) {
-                // Already connected, just start recording
-                Log.i(TAG, "Mic enabled - starting recording (already connected)")
+                // Already connected, SharedAudioManager is already running
+                Log.i(TAG, "Mic enabled (already connected, SharedAudioManager running)")
                 mic.value = true
-                audioRecord?.startRecording()
                 updateActivity() // User interaction
             } else {
                 Log.w(TAG, "⚠️ Mic enable ignored - invalid state: ${state.value}")
@@ -2447,15 +2370,20 @@ class VoiceClientManager(
             }
         }
         
-        try {
-            audioRecord?.stop()
-            Log.d(TAG, "AudioRecord stopped")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error stopping audio record: ${e.message}", e)
+        // Unregister from SharedAudioManager
+        scope?.launch {
+            SharedAudioManager.unregisterListener(audioListener.id)
+            Log.d(TAG, "Unregistered from SharedAudioManager")
         }
-        audioRecord?.release()
-        audioRecord = null
-        Log.d(TAG, "AudioRecord released")
+        
+        // Stop PorcupineService only if not preserving session
+        if (!preserveSessionHandle) {
+            val intent = Intent(context, PorcupineService::class.java)
+            context.stopService(intent)
+            Log.d(TAG, "PorcupineService stopped (session ended)")
+        } else {
+            Log.d(TAG, "PorcupineService kept running (session paused)")
+        }
         
         try {
             audioTrack?.stop()

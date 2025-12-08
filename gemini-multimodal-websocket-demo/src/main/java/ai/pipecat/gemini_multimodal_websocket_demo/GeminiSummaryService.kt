@@ -268,20 +268,47 @@ class GeminiSummaryService(private val context: Context) {
                 }
                 400 -> {
                     val errorBody = response.body?.string() ?: ""
-                    if (errorBody.contains("models/") || errorBody.contains("model")) {
-                        Log.e(TAG, "❌ Invalid model: $errorBody")
-                        Result.failure(Exception("Invalid model name: $modelName"))
-                    } else {
+                    Log.d(TAG, "400 error body: $errorBody")
+                    
+                    when {
+                        // Check for API key errors first
+                        errorBody.contains("API key not valid", ignoreCase = true) ||
+                        errorBody.contains("invalid API key", ignoreCase = true) ||
+                        errorBody.contains("API_KEY_INVALID", ignoreCase = true) -> {
+                            Log.e(TAG, "❌ Invalid API key")
+                            Result.failure(Exception("API key not valid. Please pass a valid API key."))
+                        }
+                        // Check for model errors
+                        errorBody.contains("models/", ignoreCase = true) || 
+                        errorBody.contains("model", ignoreCase = true) -> {
+                            Log.e(TAG, "❌ Invalid model: $errorBody")
+                            Result.failure(Exception("Invalid model name: $modelName"))
+                        }
                         // Other 400 errors might be OK (e.g. empty content)
-                        Log.d(TAG, "✅ Model $modelName exists (400 but not model error)")
-                        Result.success(true)
+                        else -> {
+                            Log.d(TAG, "✅ Model $modelName exists (400 but not model/API key error)")
+                            Result.success(true)
+                        }
                     }
                 }
+                401 -> {
+                    Log.e(TAG, "❌ Unauthorized - invalid API key")
+                    Result.failure(Exception("API key not valid. Please pass a valid API key."))
+                }
                 403 -> {
-                    Result.failure(Exception("API key doesn't have access to this model"))
+                    val errorBody = response.body?.string() ?: ""
+                    Log.e(TAG, "❌ Forbidden: $errorBody")
+                    // 403 can mean invalid API key or no access to model
+                    if (errorBody.contains("API key", ignoreCase = true)) {
+                        Result.failure(Exception("API key not valid. Please pass a valid API key."))
+                    } else {
+                        Result.failure(Exception("API key doesn't have access to this model"))
+                    }
                 }
                 else -> {
-                    Result.failure(Exception("Error validating model: ${response.code}"))
+                    val errorBody = response.body?.string() ?: ""
+                    Log.e(TAG, "❌ Error ${response.code}: $errorBody")
+                    Result.failure(Exception("Error validating model: ${response.code} - $errorBody"))
                 }
             }
         } catch (e: Exception) {

@@ -143,43 +143,68 @@ fun SettingsScreen(
     
     // Validate and save settings function with callback
     val validateAndSaveSettings: (onSuccess: () -> Unit) -> Unit = { onSuccess ->
-        // If summary mode is enabled, validate model first
-        if (useSummaryMode) {
-            // Check if we have required fields
-            when {
-                geminiApiKey.isBlank() -> {
-                    modelValidationError = "Brak klucza API Gemini. Wpisz klucz API w ustawieniach."
-                    showModelErrorDialog = true
-                }
-                summaryModel.isBlank() -> {
-                    modelValidationError = "Brak nazwy modelu. Wpisz nazwę modelu (np. gemini-2.5-flash)."
-                    showModelErrorDialog = true
-                }
-                else -> {
-                    // Validate model
-                    isValidatingModel = true
-                    modelValidationError = null
+        android.util.Log.d("SettingsScreen", "validateAndSaveSettings called, geminiApiKey='$geminiApiKey', isBlank=${geminiApiKey.isBlank()}")
+        
+        // ALWAYS validate Gemini API key first (regardless of summary mode)
+        when {
+            geminiApiKey.isBlank() -> {
+                android.util.Log.d("SettingsScreen", "API key is blank, showing error dialog")
+                modelValidationError = "Brak klucza API Gemini. Wpisz klucz API w ustawieniach."
+                showModelErrorDialog = true
+            }
+            else -> {
+                // Validate Gemini API key by testing connection
+                isValidatingModel = true
+                modelValidationError = null
+                
+                coroutineScope.launch {
+                    // Test Gemini API key with a simple model validation
+                    val testModel = if (useSummaryMode && summaryModel.isNotBlank()) {
+                        summaryModel
+                    } else {
+                        "gemini-2.5-flash" // Use default model for testing
+                    }
                     
-                    coroutineScope.launch {
-                        val result = geminiSummaryService.validateModel(summaryModel, geminiApiKey)
-                        isValidatingModel = false
-                        
-                        if (result.isSuccess) {
-                            // Model is valid, save settings
+                    val result = geminiSummaryService.validateModel(testModel, geminiApiKey)
+                    isValidatingModel = false
+                    
+                    if (result.isSuccess) {
+                        android.util.Log.d("SettingsScreen", "API key validation SUCCESS")
+                        // API key is valid
+                        // If summary mode is enabled, also validate summary model if different
+                        if (useSummaryMode && summaryModel.isNotBlank() && summaryModel != testModel) {
+                            isValidatingModel = true
+                            coroutineScope.launch {
+                                val summaryResult = geminiSummaryService.validateModel(summaryModel, geminiApiKey)
+                                isValidatingModel = false
+                                
+                                if (summaryResult.isSuccess) {
+                                    saveSettingsInternal()
+                                    onSuccess()
+                                } else {
+                                    modelValidationError = "Model podsumowań nieprawidłowy: ${summaryResult.exceptionOrNull()?.message ?: "Unknown error"}"
+                                    showModelErrorDialog = true
+                                }
+                            }
+                        } else {
+                            // API key valid, save settings
                             saveSettingsInternal()
                             onSuccess()
-                        } else {
-                            // Model is invalid, show error
-                            modelValidationError = result.exceptionOrNull()?.message ?: "Unknown error"
-                            showModelErrorDialog = true
                         }
+                    } else {
+                        // API key is invalid
+                        val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                        android.util.Log.e("SettingsScreen", "API key validation FAILED: $errorMsg")
+                        modelValidationError = if (errorMsg.contains("API key not valid") || errorMsg.contains("403")) {
+                            "❌ Klucz API Gemini jest nieprawidłowy. Sprawdź klucz i spróbuj ponownie."
+                        } else {
+                            "❌ Błąd walidacji klucza API: $errorMsg"
+                        }
+                        android.util.Log.d("SettingsScreen", "Setting showModelErrorDialog=true, error='$modelValidationError'")
+                        showModelErrorDialog = true
                     }
                 }
             }
-        } else {
-            // No validation needed, save directly
-            saveSettingsInternal()
-            onSuccess()
         }
     }
     
@@ -706,7 +731,7 @@ fun SettingsScreen(
                     var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
                     
                     SettingsToggle(
-                        label = "Full-Duplex",
+                        label = "Domyślny tryb Full-Duplex",
                         checked = fullDuplexMode,
                         onCheckedChange = { 
                             fullDuplexMode = it
@@ -764,6 +789,85 @@ fun SettingsScreen(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "⚠️ To ustawienie dotyczy tylko NOWYCH sesji. Możesz zmienić tryb podczas aktywnej sesji za pomocą przycisku na ekranie rozmowy.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color(0xFFFF9800),
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // Picovoice Default Toggle
+                    var picovoiceEnabledDefault by remember { mutableStateOf(Preferences.picovoiceEnabledDefault.value) }
+                    
+                    SettingsToggle(
+                        label = "Domyślnie włącz wykrywanie słów kluczowych (Picovoice)",
+                        checked = picovoiceEnabledDefault,
+                        onCheckedChange = { 
+                            picovoiceEnabledDefault = it
+                            Preferences.picovoiceEnabledDefault.value = it
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (picovoiceEnabledDefault) {
+                            "✅ Wykrywanie słów kluczowych będzie włączone przy starcie nowych sesji"
+                        } else {
+                            "ℹ️ Wykrywanie słów kluczowych będzie wyłączone przy starcie nowych sesji"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = if (picovoiceEnabledDefault) Color(0xFF4CAF50) else Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️ O wykrywaniu słów kluczowych:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "Picovoice pozwala kontrolować rozmowę za pomocą głosu (np. \"Alexa\" do pauzy/wznowienia). Możesz włączać/wyłączać tę funkcję podczas sesji za pomocą przycisku na ekranie rozmowy.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "⚠️ To ustawienie dotyczy tylko NOWYCH sesji. Nie wpływa na aktywną sesję.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color(0xFFFF9800),
                             style = TextStyles.base,
                             lineHeight = 14.sp
                         )
@@ -1330,7 +1434,11 @@ fun SettingsScreen(
                 onDismissRequest = { showModelErrorDialog = false },
                 title = {
                     Text(
-                        text = "❌ Nieprawidłowy model",
+                        text = if (modelValidationError?.contains("Klucz API") == true || modelValidationError?.contains("Brak klucza") == true) {
+                            "❌ Błąd klucza API"
+                        } else {
+                            "❌ Nieprawidłowy model"
+                        },
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
                     )
@@ -1338,22 +1446,20 @@ fun SettingsScreen(
                 text = {
                     Column {
                         Text(
-                            text = "Model '${summaryModel}' nie istnieje lub nie jest dostępny.",
+                            text = modelValidationError ?: "Nieznany błąd",
                             style = TextStyles.base
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Błąd: ${modelValidationError}",
-                            style = TextStyles.base,
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Sprawdź nazwę modelu. Przykłady:\n• gemini-2.5-flash\n• gemini-1.5-flash\n• gemini-1.5-pro\n• gemini-2.0-flash-exp",
-                            style = TextStyles.base,
-                            fontSize = 12.sp
-                        )
+                        
+                        // Show additional help only for model errors (not API key errors)
+                        if (modelValidationError?.contains("Klucz API") != true && modelValidationError?.contains("Brak klucza") != true) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Sprawdź nazwę modelu. Przykłady:\n• gemini-2.5-flash\n• gemini-1.5-flash\n• gemini-1.5-pro\n• gemini-2.0-flash-exp",
+                                style = TextStyles.base,
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
                     }
                 },
                 confirmButton = {

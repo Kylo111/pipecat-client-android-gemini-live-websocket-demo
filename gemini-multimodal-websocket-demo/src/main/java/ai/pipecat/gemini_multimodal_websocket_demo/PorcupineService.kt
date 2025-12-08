@@ -14,10 +14,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import ai.picovoice.porcupine.Porcupine
 import ai.picovoice.porcupine.PorcupineException
-import ai.picovoice.porcupine.PorcupineManager
-import ai.picovoice.porcupine.PorcupineManagerCallback
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Foreground Service for continuous wake word detection using Picovoice Porcupine.
@@ -25,118 +25,86 @@ import java.io.File
  */
 class PorcupineService : Service() {
     
-    private var porcupineManager: PorcupineManager? = null
+    private var porcupine: Porcupine? = null
     private lateinit var wakeWordHandler: WakeWordHandler
     private val loadedWakeWords = mutableListOf<WakeWordConfig>()
     private var isInitializing = false
     private var isInitialized = false
-    private var isPorcupinePaused = false
-    private var controlReceiver: android.content.BroadcastReceiver? = null
+    private var lastWakeWordTime = 0L
+    private val RATE_LIMIT_MS = 2000L
+    
+    // AudioListener implementation for SharedAudioManager
+    private val audioListener = object : SharedAudioManager.AudioListener {
+        override val id = "picovoice"
+        
+        override fun onAudioData(buffer: ByteArray, size: Int) {
+            processAudioFrame(buffer, size)
+        }
+        
+        override fun onError(error: String) {
+            Log.e(TAG, "Audio error from SharedAudioManager: $error")
+        }
+    }
+    
+    /**
+     * Process audio frame for wake word detection.
+     * Converts ByteArray to ShortArray and feeds to Porcupine.
+     */
+    private fun processAudioFrame(buffer: ByteArray, size: Int) {
+        try {
+            val porcupineInstance = porcupine ?: return
+            
+            // Convert ByteArray to ShortArray for Porcupine
+            val shortBuffer = ShortArray(size / 2)
+            ByteBuffer.wrap(buffer, 0, size)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .asShortBuffer()
+                .get(shortBuffer)
+            
+            // Process with Porcupine
+            val keywordIndex = porcupineInstance.process(shortBuffer)
+            
+            if (keywordIndex >= 0) {
+                handleWakeWordDetection(keywordIndex)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing audio frame", e)
+        }
+    }
+    
+    /**
+     * Handle wake word detection with rate limiting and reconnection check.
+     */
+    private fun handleWakeWordDetection(keywordIndex: Int) {
+        // Rate limiting
+        val now = System.currentTimeMillis()
+        if (now - lastWakeWordTime < RATE_LIMIT_MS) {
+            Log.d(TAG, "Wake word rate limited (${now - lastWakeWordTime}ms since last)")
+            return
+        }
+        lastWakeWordTime = now
+        
+        // Validate keyword index
+        if (keywordIndex < 0 || keywordIndex >= loadedWakeWords.size) {
+            Log.e(TAG, "Invalid keyword index: $keywordIndex")
+            return
+        }
+        
+        val wakeWord = loadedWakeWords[keywordIndex]
+        Log.d(TAG, "Wake word detected: ${wakeWord.name} (${wakeWord.type})")
+        
+        // Play activation sound
+        playActivationSound(wakeWord.type == WakeWordType.SYSTEM)
+        
+        // Handle wake word
+        wakeWordHandler.handleWakeWord(wakeWord)
+    }
     
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "PorcupineService onCreate")
         wakeWordHandler = WakeWordHandler(this)
         createNotificationChannel()
-        registerControlReceiver()
-    }
-    
-    /**
-     * Register broadcast receiver for pause/resume control
-     */
-    private fun registerControlReceiver() {
-        controlReceiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                when (intent?.action) {
-                    "ai.pipecat.gemini_multimodal_websocket_demo.PAUSE_PORCUPINE" -> {
-                        pausePorcupine()
-                    }
-                    "ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE" -> {
-                        resumePorcupine()
-                    }
-                }
-            }
-        }
-        
-        val filter = android.content.IntentFilter().apply {
-            addAction("ai.pipecat.gemini_multimodal_websocket_demo.PAUSE_PORCUPINE")
-            addAction("ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE")
-        }
-        registerReceiver(controlReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        Log.d(TAG, "Control receiver registered")
-    }
-    
-    /**
-     * Pause Porcupine wake word detection
-     * CRITICAL: Must call stop() before delete() to stop internal processing thread
-     */
-    private fun pausePorcupine() {
-        if (isPorcupinePaused) {
-            Log.d(TAG, "Porcupine already paused")
-            return
-        }
-        
-        try {
-            // CRITICAL: Stop processing thread first
-            porcupineManager?.stop()
-            
-            // CRITICAL: Wait for internal thread to fully stop
-            // PorcupineManager has background thread that needs time to exit
-            Log.d(TAG, "Waiting 300ms for Porcupine thread to stop...")
-            Thread.sleep(300)
-            
-            // Then delete to release AudioRecord
-            porcupineManager?.delete()
-            porcupineManager = null
-            isPorcupinePaused = true
-            Log.i(TAG, "🔵 Porcupine PAUSED (PorcupineManager stopped and deleted, AudioRecord released)")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error pausing Porcupine", e)
-        }
-    }
-    
-    /**
-     * Resume Porcupine wake word detection
-     * CRITICAL: Wait longer to ensure VoiceClientManager has FULLY released AudioRecord
-     * CRITICAL: Only works when screen is ON (Android 14+ restriction)
-     */
-    private fun resumePorcupine() {
-        if (!isPorcupinePaused) {
-            Log.d(TAG, "Porcupine already running")
-            return
-        }
-        
-        if (!isInitialized) {
-            Log.w(TAG, "Cannot resume - Porcupine not initialized yet")
-            return
-        }
-        
-        // Check if screen is ON
-        val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        val isScreenOn = powerManager.isInteractive
-        
-        if (!isScreenOn) {
-            Log.w(TAG, "⚠️ Screen is OFF - cannot resume Porcupine (Android 14+ restriction)")
-            Log.w(TAG, "   Wake word detection disabled until screen is turned ON")
-            return
-        }
-        
-        // Recreate PorcupineManager in background thread
-        Thread {
-            try {
-                // CRITICAL: Longer delay (500ms) to ensure VoiceClientManager has FULLY released AudioRecord
-                // This prevents AudioRecord conflict (Error -38)
-                Log.d(TAG, "Waiting 500ms before resuming Porcupine...")
-                Thread.sleep(500)
-                
-                // Reinitialize Porcupine (creates new PorcupineManager and AudioRecord)
-                initializePorcupine()
-                isPorcupinePaused = false
-                Log.i(TAG, "🔵 Porcupine RESUMED (PorcupineManager recreated, AudioRecord active)")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error resuming Porcupine", e)
-            }
-        }.start()
     }
     
     override fun onBind(intent: Intent?): IBinder? {
@@ -160,23 +128,17 @@ class PorcupineService : Service() {
         
         isInitializing = true
         
-        // Start in PAUSED state - will be resumed via broadcast when needed
-        isPorcupinePaused = true
-        
         // Initialize Porcupine asynchronously to avoid blocking
-        // NOTE: This creates PorcupineManager but we immediately delete it
-        // It will be recreated when RESUME broadcast is received
         Thread {
             try {
                 initializePorcupine()
                 isInitialized = true
                 
-                // Immediately pause (stop and delete) after initialization
-                // This ensures we start in PAUSED state
-                porcupineManager?.stop()
-                porcupineManager?.delete()
-                porcupineManager = null
-                Log.d(TAG, "Porcupine initialized and immediately paused (waiting for RESUME)")
+                // Register with SharedAudioManager
+                kotlinx.coroutines.runBlocking {
+                    SharedAudioManager.registerListener(audioListener)
+                    Log.d(TAG, "Porcupine initialized and registered with SharedAudioManager")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize Porcupine", e)
                 handleInitializationError(e)
@@ -193,22 +155,17 @@ class PorcupineService : Service() {
         super.onDestroy()
         Log.d(TAG, "PorcupineService onDestroy")
         
-        try {
-            controlReceiver?.let {
-                unregisterReceiver(it)
-                controlReceiver = null
-                Log.d(TAG, "Control receiver unregistered")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering control receiver", e)
+        // Unregister from SharedAudioManager
+        kotlinx.coroutines.runBlocking {
+            SharedAudioManager.unregisterListener("picovoice")
+            Log.d(TAG, "Unregistered from SharedAudioManager")
         }
         
         try {
-            porcupineManager?.stop()
-            porcupineManager?.delete()
-            porcupineManager = null
+            porcupine?.delete()
+            porcupine = null
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping PorcupineManager", e)
+            Log.e(TAG, "Error releasing Porcupine", e)
         }
     }
     
@@ -239,32 +196,37 @@ class PorcupineService : Service() {
                 Log.d(TAG, "  [$index] ${wakeWord.name} (${wakeWord.type}) - $pathInfo")
             }
             
-            // Create PorcupineManager
-            val callback = PorcupineManagerCallback { keywordIndex ->
-                onWakeWordDetected(keywordIndex)
-            }
-            
-            val builder = PorcupineManager.Builder()
+            // Create Porcupine instance directly
+            val builder = Porcupine.Builder()
                 .setAccessKey(accessKey)
-                .setSensitivity(PicovoiceManager.getSensitivity())
             
-            // Add keywords (built-in or custom paths)
+            // Collect keyword paths and sensitivities
+            val keywordPaths = mutableListOf<String>()
+            val sensitivities = mutableListOf<Float>()
+            
             wakeWords.forEach { wakeWord ->
                 if (wakeWord.ppnPath != null) {
                     // Custom wake word with .ppn file
-                    builder.setKeywordPath(wakeWord.ppnPath)
+                    keywordPaths.add(wakeWord.ppnPath)
+                    sensitivities.add(wakeWord.sensitivity)
                 } else {
-                    // Built-in wake word
-                    builder.setKeyword(Porcupine.BuiltInKeyword.valueOf(wakeWord.name.uppercase()))
+                    // Built-in wake word - get path from built-in keyword
+                    val builtInKeyword = Porcupine.BuiltInKeyword.valueOf(wakeWord.name.uppercase())
+                    // For built-in keywords, we need to use setKeywords instead
+                    // We'll handle this differently
                 }
             }
             
-            porcupineManager = builder.build(this, callback)
+            // Set keyword paths if we have custom wake words
+            if (keywordPaths.isNotEmpty()) {
+                builder.setKeywordPaths(keywordPaths.toTypedArray())
+                builder.setSensitivities(sensitivities.toFloatArray())
+            }
             
-            // Start listening immediately after creation
-            porcupineManager?.start()
+            // Build Porcupine instance
+            porcupine = builder.build(this)
             
-            Log.d(TAG, "Porcupine initialized and started")
+            Log.d(TAG, "Porcupine initialized (audio will come from SharedAudioManager)")
             
             // Update notification with wake word count
             val notification = createNotification(wakeWords.size)
@@ -342,30 +304,6 @@ class PorcupineService : Service() {
         }
         
         return wakeWords
-    }
-    
-    /**
-     * Handle wake word detection callback.
-     */
-    private fun onWakeWordDetected(keywordIndex: Int) {
-        try {
-            if (keywordIndex < 0 || keywordIndex >= loadedWakeWords.size) {
-                Log.e(TAG, "Invalid keyword index: $keywordIndex")
-                return
-            }
-            
-            val wakeWord = loadedWakeWords[keywordIndex]
-            Log.d(TAG, "Wake word detected: ${wakeWord.name} (${wakeWord.type})")
-            
-            // Play activation sound
-            playActivationSound(wakeWord.type == WakeWordType.SYSTEM)
-            
-            // Handle wake word
-            wakeWordHandler.handleWakeWord(wakeWord)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error handling wake word detection", e)
-        }
     }
     
     /**

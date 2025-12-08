@@ -1198,6 +1198,13 @@ class MainActivity : ComponentActivity() {
         toggleMicrophoneReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 Log.d("MainActivity", "Toggle microphone broadcast received")
+                
+                // Ignore wake word detections during reconnection
+                if (voiceClientManager.state.value == ConnectionState.RECONNECTING) {
+                    Log.d("MainActivity", "Ignoring wake word - connection is RECONNECTING")
+                    return
+                }
+                
                 voiceClientManager.toggleMic()
             }
         }

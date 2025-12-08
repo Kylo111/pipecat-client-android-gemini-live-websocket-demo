@@ -111,28 +111,12 @@ class RTVIApplication : Application() {
             }
             android.util.Log.i("RTVIApplication", "PorcupineService started")
             
-            // Give service time to initialize, then resume Picovoice
-            // (no active session at app start, so Picovoice should be listening)
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                resumePicovoiceOnAppStart()
-            }, 2000) // 2 seconds delay for initialization
-            
         } catch (e: Exception) {
             android.util.Log.e("RTVIApplication", "Failed to start PorcupineService", e)
         }
     }
     
-    private fun resumePicovoiceOnAppStart() {
-        try {
-            // Resume Picovoice since no session is active at app start
-            val intent = android.content.Intent("ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE")
-            intent.setPackage(packageName)
-            sendBroadcast(intent)
-            android.util.Log.i("RTVIApplication", "Picovoice resumed on app start")
-        } catch (e: Exception) {
-            android.util.Log.e("RTVIApplication", "Failed to resume Picovoice", e)
-        }
-    }
+
     
     companion object {
         // Helper to get repositories from context
