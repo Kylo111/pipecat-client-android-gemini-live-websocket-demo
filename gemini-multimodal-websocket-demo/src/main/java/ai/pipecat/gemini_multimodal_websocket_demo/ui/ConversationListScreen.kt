@@ -438,7 +438,7 @@ fun ConversationListScreen(
                         )
                         OfflineConversationManager.update(updated)
                     } else {
-                        // Create new - create with basic settings first
+                        // Create new - use add() method for new conversations
                         val newConversation = OfflineConversation(
                             id = java.util.UUID.randomUUID().toString(),
                             title = title,
@@ -451,7 +451,7 @@ fun ConversationListScreen(
                             createdAt = System.currentTimeMillis(),
                             updatedAt = System.currentTimeMillis()
                         )
-                        OfflineConversationManager.update(newConversation)
+                        OfflineConversationManager.add(newConversation)
                     }
                     offlineConversations = OfflineConversationManager.getAll()
                     showOfflineDialog = false
