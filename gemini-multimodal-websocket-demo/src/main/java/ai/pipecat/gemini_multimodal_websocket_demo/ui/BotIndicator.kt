@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.FloatState
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,14 +30,14 @@ import androidx.compose.ui.unit.dp
 fun BotIndicator(
     modifier: Modifier,
     isReady: Boolean,
-    isTalking: State<Boolean>,
-    audioLevel: FloatState,
+    isTalking: Boolean,
+    audioLevel: Float,
 ) {
     Box(
         modifier = modifier.padding(15.dp),
         contentAlignment = Alignment.Center
     ) {
-        val color by animateColorAsState(if (isTalking.value || !isReady) {
+        val color by animateColorAsState(if (isTalking || !isReady) {
             Color.Black
         } else {
             Colors.botIndicatorBackground
@@ -63,8 +61,8 @@ fun BotIndicator(
                 if (isReadyVal) {
                     ListeningAnimation(
                         modifier = Modifier.fillMaxSize(),
-                        active = isTalking.value,
-                        level = audioLevel.floatValue,
+                        active = isTalking,
+                        level = audioLevel,
                         color = Color.White
                     )
                 } else {
@@ -87,7 +85,7 @@ fun PreviewBotIndicator() {
     BotIndicator(
         modifier = Modifier,
         isReady = false,
-        isTalking = remember { mutableStateOf(true) },
-        audioLevel = remember { mutableFloatStateOf(1.0f) }
+        isTalking = true,
+        audioLevel = 1.0f
     )
 }

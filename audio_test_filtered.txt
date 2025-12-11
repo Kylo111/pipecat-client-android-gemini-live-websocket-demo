@@ -1,0 +1,320 @@
+12-11 20:43:59.871  1914  2767 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:00.020  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:00.209  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:00.372  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:00.874  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:01.375  1914  2767 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:01.772  1245  1318 E libPowerHal: [getCPUFreq] error cid:2, nClusterNum:2
+12-11 20:44:01.877  1914  2767 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:01.891  1245  1359 I TouchUtility: notifyAppState error = NULL
+12-11 20:44:01.962 24243 24487 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-11 20:44:02.008  2942  3142 E MultiSpringDynamicAnimationcb09d45: ERROR Not Found Bundle Radius
+12-11 20:44:02.008  2942  3142 E MultiSpringDynamicAnimationcb09d45: ERROR Not Found Bundle SurfaceExtAlpha
+12-11 20:44:02.008  2942  3142 E MultiSpringDynamicAnimationcb09d45: ERROR Not Found Bundle SurfaceExtAlpha
+12-11 20:44:02.008  2942  3142 E MultiSpringDynamicAnimationcb09d45: ERROR Not Found Bundle SurfaceExtAlpha
+12-11 20:44:02.009  2942  3142 E MultiSpringDynamicAnimation85abd0b: ERROR Not Found Bundle scaleY
+12-11 20:44:02.223  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:02.378  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:02.879  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:03.038  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:03.197  1245  1318 E libPowerHal: [getCPUFreq] error cid:2, nClusterNum:2
+12-11 20:44:03.329 16143 16143 D VoiceClientManager:   Full setup JSON: {"setup":{"model":"models/gemini-2.5-flash-native-audio-preview-09-2025","generation_config":{"response_modalities":["AUDIO"],"speech_config":{"voice_config":{"prebuilt_voice_config":{"voice_name":"Aoede"}}},"temperature":1.0},"system_instruction":{"parts":[{"text":"            You are a helpful assistant for the Kumpel Chat app. Help users understand how to use the app's features including voice conversations, offline mode, LibreChat integration, wake word detection, and the new Assistant Marketplace. Be concise and friendly.\n            \n            === CONVERSATION HISTORY ===\n                                    === RECENT SESSIONS ===\n                                                Session gru 10, 13:30 (0 min):\n                        Poniżej znajduje się podsumowanie rozmowy:\n\n**1. Główne tematy rozmowy:**\n*   Wyjaśnienie funkcji \"Kumpel Chat\".\n*   Krótkie nieporozumienie dotyczące kontynuacji wypowiedzi przez asystenta.\n\n**2. Kluczowe informacje i wnioski:**\n*   Użytkownik pytał o funkcję \"Kumpel Chat\" (początkowo błędnie rozpoznaną w transkrypcji jako \"kąpielzat\").\n*   Asystent wyjaśnił, że \"Kumpel Chat\" pozwala na korzystanie z różnych modeli AI (w tym zintegrowanych z LibreChat) bezpośrednio w aplikacji, co zwiększa elastyczność i wybór narzędzi.\n*   Asystent nie zakończył wypowiedzi, a jedynie czekał na kolejne pytanie użytkownika.\n\n**3. Ewentualne pytania lub problemy wymagające dalszej uwagi:**\n*   Użytkownik nie otrzymał jeszcze dalszych informacji o innych funkcjach \"Kumpel\", takich jak tryb offline czy Assistant Marketplace, które asystent zaproponował omówić.\n\n**4. Sugerowane następne kroki:**\n*   Kontynuowanie rozmowy poprzez wyjaśnienie innych funkcji \"Kumpel Chat\", np. trybu offline lub Assistant Marketplace, zgodnie z propozycją asystenta.\n*   Upewnienie się, że użytkownik w pełni rozumie koncepcję i korzyści płynące z \"Kumpel Chat\".\n\n                        Session gru 10, 13:01 (1 min):\n                        Poniżej znajduje się podsumowanie rozmowy:\n\n**Podsumowanie rozmowy**\n\n1.  **Główne tematy rozmowy:**\n    *   Zapoznanie użytkownika z podstawowymi funkcjami asystenta (AI w aplikacji Kumpel Chat).\n    *   Szczegółowe zapytanie użytkownika o proces tworzenia spersonalizowanych asystentów.\n\n2.  **Kluczowe informacje i wnioski:**\n    *   Asystent może prowadzić głosowe rozmowy, działać w trybie offline, tworzyć i używać spersonalizowanych asystentów, integrować się z LibreChat, ustawić słowo-wybudzenie oraz korzystać z Assistant Marketplace.\n    *   Użytkownik jest zainteresowany funkcją tworzenia spersonalizowanych asystentów i poprosił o ponowne wyjaśnienie tego procesu.\n    *   Asystenci offline mogą być tworzeni za pomocą Assistant Marketplace. Możliwe jest dostosowanie ich osobowości i ekspertyzy (np. tutor językowy, mentor kodowania).\n\n3.  **Ewentualne pytania lub problemy wymagające dalszej uwagi:**\n    *   Brak szczegółowego wyjaśnienia, jak użytkownik *faktycznie* może tworzyć i dostosowywać asystentów w Assistant Marketplace. Asystent wyjaśnił *co* to jest i *gdzie* (Marketplace), ale nie *jak* to zrobić krok po kroku.\n    *   Co dokładnie oznacza \"Assistant Marketplace\" i w jaki sposób użytkownik wchodzi z nim w interakcję, aby tworzyć asystentów?\n\n4.  **Sugerowane następne kroki:**\n    *   Szczegółowe przedstawienie procesu tworzenia spersonalizowanego asystenta za pomocą Assistant Marketplace (np. jakie kroki należy podjąć w aplikacji).\n    *   Wyjaśnienie roli i funkcjonalności Assistant Marketplace z perspektywy użytkownika.\n    *   Zaproponowanie użytkownikowi, aby wspólnie przejść przez pierwszy krok tworzenia asystenta.\n\n                        Session gru 10, 12:12 (5 min):\n                        Poniżej znajduje się podsumowanie rozmowy:\n\n**1. Główne tematy rozmowy:**\n*   Zapytanie użytkownika o przeznaczenie i funkcje aplikac
+12-11 20:44:03.380  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:03.852  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:03.882  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:04.020  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:04.217  1245  1359 I TouchUtility: notifyAppState error = NULL
+12-11 20:44:04.235  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:04.383  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:04.405  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:04.786   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup36 (../../devices/platform/charger/power_supply/usb/wakeup36): Permission denied
+12-11 20:44:04.788   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup26 (../../devices/platform/pe5/wakeup/wakeup26): Permission denied
+12-11 20:44:04.801   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup32 (../../devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery/wakeup32): Permission denied
+12-11 20:44:04.804   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup22 (../../devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:tcpc/tcpc/type_c_port0/wakeup22): Permission denied
+12-11 20:44:04.808   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup167 (../../devices/platform/11db0000.i2c/i2c-3/3-0028/wakeup/wakeup167): Permission denied
+12-11 20:44:04.816   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup165 (../../devices/platform/soc/11011000.spi1/spi_master/spi1/spi1.0/wakeup/wakeup165): Permission denied
+12-11 20:44:04.823   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup37 (../../devices/platform/charger/power_supply/bms/wakeup37): Permission denied
+12-11 20:44:04.827   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup17 (../../devices/platform/11db1000.i2c/i2c-6/6-006d/power_supply/nu2115-standalone/wakeup17): Permission denied
+12-11 20:44:04.830   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup35 (../../devices/virtual/power_supply/batt_verify/wakeup35): Permission denied
+12-11 20:44:04.832   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup25 (../../devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:tcpc/wakeup/wakeup25): Permission denied
+12-11 20:44:04.833 16143 16195 I AudioEngine: AudioManager mode set to MODE_IN_COMMUNICATION (was: 3)
+12-11 20:44:04.842   653 20072 E android.system.suspend-service: Error opening kernel wakelock stats for: wakeup168 (../../devices/platform/soc/soc:odm/soc:odm:wifi_ant_check/wakeup/wakeup168): Permission denied
+12-11 20:44:04.885  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:04.917  1210  1210 W StreamHAL: Error from HAL stream in function set_microphone_direction: Function not implemented
+12-11 20:44:04.918  1210  5613 W StreamHAL: Error from HAL stream in function set_microphone_field_dimension: Function not implemented
+12-11 20:44:04.919 16143 16195 I AudioEngine: AEC DISABLED for testing - use headphones!
+12-11 20:44:04.919 16143 16195 I AudioEngine: NS DISABLED for testing
+12-11 20:44:04.925 16143 16265 I AudioEngine: Recording started (sample rate: 16000 Hz, buffer size: 5120 bytes)
+12-11 20:44:04.991  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:05.010 24243 24395 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-11 20:44:05.386  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:05.550  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:05.887  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:05.997  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:06.389  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:06.762  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:06.890  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:07.392  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:07.893  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:08.394  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:08.895  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:09.177 24243 24487 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-11 20:44:09.396  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:09.868 16143 16195 D VoiceClientManager:    Side effects (5): NotifyBotStartedTalking, StartPlayback, QueueAudio, StartSilenceDetection, StopAutoPauseTimer
+12-11 20:44:09.870 16143 16195 D SideEffectExecutor: 🔊 Side effect: StartPlayback
+12-11 20:44:09.870 16143 16195 D AudioEngine: 🎵 startPlayback() CALLED - Thread: DefaultDispatcher-worker-1
+12-11 20:44:09.870 16143 16195 D AudioEngine: 🎵   _isPlaying: false
+12-11 20:44:09.870 16143 16195 D AudioEngine: 🎵   audioTrack exists: false
+12-11 20:44:09.870 16143 16195 D AudioEngine: 🎵   audioTrack state: null
+12-11 20:44:09.870 16143 16195 D AudioEngine: 🎵   audioTrack playState: null
+12-11 20:44:09.871 16143 16195 D AudioEngine: 🎵   currentGeneration: 1
+12-11 20:44:09.871 16143 16195 D AudioTrack: INSP: type=audio,case=1,set=0xb400007386cb82e0,stream_type=-1,sample_rate=24000,format=0x1,channel_mask=0x1,frame_count=30960,flags=0x0,notification_frames=0,session_id=0,transfer_type=3,uid=10447,pid=16143
+12-11 20:44:09.871 16143 16195 D AudioTrack: INSP: type=audio,case=1,attributes=1,content_type=1,usage=2,source=-1,flags=0x800
+12-11 20:44:09.871 16143 16195 D AudioTrackStub: AudioTrackStub() create
+12-11 20:44:09.873 16143 16195 I AudioTrackImpl: initAudioTrackImpl()
+12-11 20:44:09.873 16143 16233 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 0
+12-11 20:44:09.874 16143 16195 D AudioTrack: set: mPowerTrackStatus=0
+12-11 20:44:09.889 16143 16195 D AudioTrack: createTrack_l(1336): 0xb400007386cb82e0, mCblk = 0x7452dfe000, mLatency = 1352, mAfLatency = 62, frameCount = 30960, mSampleRate = 24000, mFlags = 0, mReqFrameCount = 30960, mNotificationFramesAct = 10320
+12-11 20:44:09.894 16143 16195 D AudioTrack: start(1336): 0xb400007386cb82e0, prior state:STATE_STOPPED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-11 20:44:09.900  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:09.915  1299 12923 E AudioFlinger_Threads: open /proc/16143/cmdline error
+12-11 20:44:09.915  1210  4301 D AudioALSAStreamOut: +setParameters(): flag 32768, NoAudioTrack=0
+12-11 20:44:09.915 16143 16195 I AudioEngine: Playback started (sample rate: 24000 Hz, buffer size: 61920 bytes)
+12-11 20:44:09.915  1210  4301 W AudioALSAStreamOut: setParameters(), still have param.size() = 1, remain param = "NoAudioTrack=0"
+12-11 20:44:09.915 16143 16195 I AudioEngine:   Buffer duration: ~1290ms
+12-11 20:44:09.915 16143 16195 D VCMListeners: AudioEngine playback started
+12-11 20:44:09.916 16143 16231 I AudioEngine: Playback loop started (BATCHING ENABLED: 16 chunks per write = 30720 bytes)
+12-11 20:44:09.916 16143 16231 D AudioEngine: 🔄 playbackJob iteration #0 - queueSize: 7, generation: 1, audioTrack.state: 1, audioTrack.playState: 3
+12-11 20:44:09.918 16143 16231 D AudioEngine: 📦 Batched 7 chunks → 13440 bytes
+12-11 20:44:09.922 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 13440, written: 13440, generation: 1
+12-11 20:44:09.924 16143 16235 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 0
+12-11 20:44:09.928 16143 16231 D AudioEngine: 📦 Batched 3 chunks → 49920 bytes
+12-11 20:44:09.946  1210  8096 E AudioALSAPlaybackHandlerBase: -getHardwareBufferInfo(), pcm_get_htimestamp fail, ret = -1, pcm_get_error =  flag = 0x8000
+12-11 20:44:10.069 16143 16234 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 10
+12-11 20:44:10.163 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 20
+12-11 20:44:10.163 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 20
+12-11 20:44:10.228 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 30
+12-11 20:44:10.317 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 40
+12-11 20:44:10.357 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 49920, written: 49920, generation: 1
+12-11 20:44:10.361 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:10.387 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 30
+12-11 20:44:10.401  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:10.483 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 40
+12-11 20:44:10.696 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 60
+12-11 20:44:10.804 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:10.805 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:10.868 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 60
+12-11 20:44:10.902  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:10.969 16143 16238 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 70
+12-11 20:44:11.091 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 80
+12-11 20:44:11.175 16143 16233 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 90
+12-11 20:44:11.252 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:11.254 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:11.272 16143 16236 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 80
+12-11 20:44:11.361 16143 16238 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 90
+12-11 20:44:11.406  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:11.469 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 100
+12-11 20:44:11.566 16143 16236 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 110
+12-11 20:44:11.671 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 120
+12-11 20:44:11.769 16143 16233 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 130
+12-11 20:44:11.898 16143 16234 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 140
+12-11 20:44:11.908  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:11.978 16143 16233 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 150
+12-11 20:44:12.093 16143 16238 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 160
+12-11 20:44:12.148 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:12.149 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:12.157 16143 16238 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 150
+12-11 20:44:12.250 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 160
+12-11 20:44:12.359 16143 16514 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 170
+12-11 20:44:12.409  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:12.478 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 180
+12-11 20:44:12.566 16143 16514 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 190
+12-11 20:44:12.596 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:12.597 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:12.637 16143 16234 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 180
+12-11 20:44:12.749 16143 16234 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 190
+12-11 20:44:12.910  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:12.998 16143 16233 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 200
+12-11 20:44:13.027 16143 16235 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 210
+12-11 20:44:13.057 16143 16195 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 220
+12-11 20:44:13.411  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:13.492 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:13.493 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:13.522 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 220
+12-11 20:44:13.523 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 220
+12-11 20:44:13.556 16143 16233 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 230
+12-11 20:44:13.709 16143 16238 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 250
+12-11 20:44:13.913  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:13.940 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:13.941 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:13.955 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 250
+12-11 20:44:14.124 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 260
+12-11 20:44:14.238 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 270
+12-11 20:44:14.417  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:14.426 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 280
+12-11 20:44:14.491 16143 16195 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 290
+12-11 20:44:14.506 16143 16236 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 300
+12-11 20:44:14.517 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 310
+12-11 20:44:14.835 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:14.837 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:14.904 16143 16195 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 300
+12-11 20:44:14.918  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:14.975 16143 16236 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 310
+12-11 20:44:14.978 16143 16234 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 310
+12-11 20:44:15.039 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 320
+12-11 20:44:15.070 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 330
+12-11 20:44:15.147 16143 16218 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 340
+12-11 20:44:15.160 16143 16196 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 350
+12-11 20:44:15.183 16143 16196 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 360
+12-11 20:44:15.202 16143 16238 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 370
+12-11 20:44:15.218 16143 16196 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 380
+12-11 20:44:15.284 16143 16231 D AudioTrack: [audioTrackData][fine] 5s(f:5362 m:0 s:0 k:0 z:0) : pid 16143 uid 10447 sessionId 17081 sr 24000 ch 1 fmt 1  mMaxAmplitude 28751
+12-11 20:44:15.284 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:15.285 16143 16231 D AudioEngine: 🔄 playbackJob iteration #10 - queueSize: 386, generation: 1, audioTrack.state: 1, audioTrack.playState: 3
+12-11 20:44:15.285 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:15.308 16143 16195 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 370
+12-11 20:44:15.308 16143 16196 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 370
+12-11 20:44:15.419  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:15.431 16143 16196 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 380
+12-11 20:44:15.431 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 380
+12-11 20:44:15.518 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 390
+12-11 20:44:15.590 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 400
+12-11 20:44:15.732 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:15.734 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:15.874 16143 16235 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 390
+12-11 20:44:15.914 16143 16235 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 400
+12-11 20:44:15.915 16143 16514 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 400
+12-11 20:44:15.921  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:15.934 16143 16234 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 410
+12-11 20:44:15.981 16143 16195 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 420
+12-11 20:44:16.066 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 430
+12-11 20:44:16.167 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 440
+12-11 20:44:16.263 16143 16264 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 450
+12-11 20:44:16.380 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 460
+12-11 20:44:16.397 24243 24487 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-11 20:44:16.422  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:16.480 16143 16197 D AudioEngine: 📥 queueAudio() - size: 1920, currentGeneration: 1, queueSize before: 470
+12-11 20:44:16.628 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:16.629 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:16.864 16143 16214 W GeminiProtocol: ServerContent received but no recognized content. Keys: generationComplete
+12-11 20:44:16.865 16143 16214 W VoiceClientManager:     "generationComplete": true
+12-11 20:44:16.924  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:17.076 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:17.078 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:17.425  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:17.927  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:17.972 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:17.973 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:18.420 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:18.421 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:18.428  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:18.930  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:19.282  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:19.316 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:19.317 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:19.431  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:19.452  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:19.764 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:19.765 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:19.932  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:20.212 16143 16231 D AudioTrack: [audioTrackData][fine] 10s(f:10290 m:0 s:0 k:0 z:0) : pid 16143 uid 10447 sessionId 17081 sr 24000 ch 1 fmt 1  mMaxAmplitude 21107
+12-11 20:44:20.212 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:20.213 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:20.434  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:20.935  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:21.107 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:21.109 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:21.436  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:21.556 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:21.557 16143 16231 D AudioEngine: 🔄 playbackJob iteration #20 - queueSize: 349, generation: 1, audioTrack.state: 1, audioTrack.playState: 3
+12-11 20:44:21.558 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:21.938  1914  2733 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:22.292  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:22.440  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:22.452 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:22.453 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:22.465  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:22.900 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:22.901 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:22.942  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:23.305  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:23.443  1914  5673 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:23.473  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:23.614 24243 24487 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-11 20:44:23.796 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:23.797 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:23.945  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:24.243 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:24.244 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:24.446  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:24.692 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:24.694 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:24.948  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:25.140 16143 16231 D AudioTrack: [audioTrackData][fine] 15s(f:15218 m:0 s:0 k:0 z:0) : pid 16143 uid 10447 sessionId 17081 sr 24000 ch 1 fmt 1  mMaxAmplitude 20634
+12-11 20:44:25.301  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:25.450  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:25.469  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:25.588 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:25.589 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:25.951  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:26.036 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:26.037 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:26.298  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:26.453  1914  2966 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:26.466  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:26.931 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 30720, generation: 1
+12-11 20:44:26.931 16143 16231 D AudioEngine: 📦 Batched 16 chunks → 30720 bytes
+12-11 20:44:26.954  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:26.960 16143 16264 D VoiceClientManager:    Side effects (8): NotifyBotStoppedTalking, StopPlayback, ClearAudioQueue, StopRecording, StopAutoPauseTimer, Disconnect, UpdateServiceNotification, UpdatePicovoiceState
+12-11 20:44:26.960 16143 16264 D SideEffectExecutor: 🔊 Side effect: StopPlayback
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑 stopPlayback() CALLED - Thread: DefaultDispatcher-worker-11
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑   _isPlaying: true
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑   audioTrack exists: true
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑   audioTrack state: 1
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑   audioTrack playState: 3
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑   queueSize before clear: 205
+12-11 20:44:26.960 16143 16264 D AudioEngine: 🛑   queueSize after clear: 0 (cleared 205 chunks)
+12-11 20:44:26.961 16143 16264 D AudioEngine: 🛑   Acquired audioTrackMutex
+12-11 20:44:26.961 16143 16264 D AudioEngine: 🛑   Stopping AudioTrack...
+12-11 20:44:26.961 16143 16264 D AudioTrack: stop(1336): 0xb400007386cb82e0, prior state:STATE_ACTIVE packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-11 20:44:26.961 16143 16264 D AudioTrackShared: this(0xb400007236cc15f0), mCblk(0x7452dfe000), front(409088), mIsOut 1, interrupt() FUTEX_WAKE
+12-11 20:44:26.961 16143 16231 D AudioEngine: ✍️ AudioTrack.write() - requested: 30720, written: 16992, generation: 1
+12-11 20:44:26.961 16143 16231 I AudioEngine: Playback loop ended normally
+12-11 20:44:26.961  1299 12889 E AudioFlinger_Threads: open /proc/16143/cmdline error
+12-11 20:44:26.961 16143 16264 D AudioTrack: stop(1336): 0xb400007386cb82e0 stop done
+12-11 20:44:26.962 16143 16264 D AudioEngine: 🛑   AudioTrack stopped - state: 1, playState: 1
+12-11 20:44:26.962 16143 16264 D AudioEngine: 🛑   Flushing AudioTrack...
+12-11 20:44:26.962 16143 16264 D AudioTrack: flush(1336): 0xb400007386cb82e0, prior state:STATE_STOPPED
+12-11 20:44:26.962 16143 16264 D AudioEngine: 🛑   AudioTrack flushed - state: 1
+12-11 20:44:26.962 16143 16264 D AudioEngine: 🛑   Releasing AudioTrack...
+12-11 20:44:26.962 16143 16264 D AudioTrack: stop(1336): 0xb400007386cb82e0, prior state:STATE_FLUSHED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-11 20:44:26.962 16143 16264 D AudioTrack: ~AudioTrack(1336): 0xb400007386cb82e0
+12-11 20:44:26.962 16143 16264 D AudioTrack: stop(1336): 0xb400007386cb82e0, prior state:STATE_FLUSHED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-11 20:44:26.962 16143 16264 D AudioTrackShared: this(0xb400007236cc15f0), mCblk(0x7452dfe000), front(409088), mIsOut 1, interrupt() FUTEX_WAKE
+12-11 20:44:26.963 16143 16264 D AudioEngine: 🛑   AudioTrack released
+12-11 20:44:26.963 16143 16264 D AudioEngine: 🛑   Released audioTrackMutex
+12-11 20:44:26.963 16143 16264 D VCMListeners: AudioEngine playback stopped
+12-11 20:44:26.963 16143 16264 I AudioEngine: Playback stopped
+12-11 20:44:26.964 16143 16264 D SideEffectExecutor: 🔊 Side effect: ClearAudioQueue - calling interruptPlayback()
+12-11 20:44:26.964 16143 16264 D AudioEngine: ⏸️ interruptPlayback() CALLED
+12-11 20:44:26.964 16143 16264 D AudioEngine: ⏸️   currentGeneration before: 1
+12-11 20:44:26.964 16143 16264 I AudioEngine: ⏸️   currentGeneration after: 2 - Interrupting playback - invalidating pending chunks
+12-11 20:44:26.964 16143 16264 D AudioEngine: AudioTrack not initialized, skipping flush
+12-11 20:44:26.964 16143 16264 D AudioTrackShared: this(0xb400007276d184f0), mCblk(0x746243c000), front(350720), mIsOut 0, interrupt() FUTEX_WAKE
+12-11 20:44:26.965 16143 16265 I AudioEngine: Recording loop ended
+12-11 20:44:27.020  1210  4301 D AudioALSAStreamOut: +setParameters(): flag 32768, NoAudioTrack=1
+12-11 20:44:27.020  1210  4301 W AudioALSAStreamOut: setParameters(), still have param.size() = 1, remain param = "NoAudioTrack=1"
+12-11 20:44:27.054 16143 16264 D AudioEngine: AEC released
+12-11 20:44:27.054 16143 16264 D AudioEngine: NS released
+12-11 20:44:27.054 16143 16264 D AudioTrackShared: this(0xb400007276d184f0), mCblk(0x746243c000), front(350720), mIsOut 0, interrupt() FUTEX_WAKE
+12-11 20:44:27.055 16143 16264 I AudioEngine: AudioManager mode restored to 3
+12-11 20:44:27.055 16143 16264 I AudioEngine: Recording stopped
+12-11 20:44:27.055 16143 16264 D AudioEngine: Recording not active, no need to wait for release
+12-11 20:44:27.096  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:27.458  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:27.481  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:27.959  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:28.310  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:28.461  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959
+12-11 20:44:28.478  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-11 20:44:28.962  1914  2278 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27959

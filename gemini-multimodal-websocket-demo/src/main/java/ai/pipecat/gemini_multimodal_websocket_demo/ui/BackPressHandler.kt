@@ -1,7 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
-import ai.pipecat.gemini_multimodal_websocket_demo.Screen
+import ai.pipecat.gemini_multimodal_websocket_demo.navigation.Screen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.activity.compose.BackHandler
