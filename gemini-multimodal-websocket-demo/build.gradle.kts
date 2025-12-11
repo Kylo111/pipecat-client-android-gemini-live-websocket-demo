@@ -108,6 +108,9 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     
+    // DataStore for preferences
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    
     // WorkManager for background sync
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     
