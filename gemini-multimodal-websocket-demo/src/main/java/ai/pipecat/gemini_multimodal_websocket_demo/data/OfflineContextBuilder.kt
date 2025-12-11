@@ -48,7 +48,7 @@ class OfflineContextBuilder(
      */
     suspend fun buildContext(conversationId: String): String {
         try {
-            Log.d(TAG, "Building context for conversation: $conversationId")
+            Log.d(TAG, "🔍 [DIAGNOSTIC] Building context for conversation: $conversationId")
             
             // Skip context building for system conversations (e.g., help conversation)
             // System conversations are stateless and rely only on their system prompt
@@ -61,35 +61,52 @@ class OfflineContextBuilder(
             // Get conversation
             val conversation = conversationRepository.getConversation(conversationId)
             if (conversation == null) {
-                Log.w(TAG, "Conversation not found, returning empty context")
+                Log.w(TAG, "⚠️ [DIAGNOSTIC] Conversation not found in database, returning empty context")
                 return ""
             }
             
+            Log.d(TAG, "✅ [DIAGNOSTIC] Conversation found: ${conversation.title}")
+            
             // Load memory components
             val globalUserCard = try {
-                globalMemoryDataStore.getGlobalUserCard()
+                val card = globalMemoryDataStore.getGlobalUserCard()
+                Log.d(TAG, "📋 [DIAGNOSTIC] Global User Card loaded:")
+                Log.d(TAG, "  - userName: ${card.userName ?: "null"}")
+                Log.d(TAG, "  - preferences: ${card.preferences.size} items")
+                Log.d(TAG, "  - knownLanguages: ${card.knownLanguages.size} items")
+                Log.d(TAG, "  - professionalBackground: ${card.professionalBackground?.take(50) ?: "null"}")
+                Log.d(TAG, "  - generalFacts: ${card.generalFacts.size} items")
+                card
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading Global User Card", e)
+                Log.e(TAG, "❌ [DIAGNOSTIC] Error loading Global User Card", e)
                 GlobalUserCard() // Default empty card
             }
             
             val localConversationCard = try {
                 if (conversation.localCardJson.isNullOrBlank()) {
+                    Log.d(TAG, "📋 [DIAGNOSTIC] Local Conversation Card: empty (new conversation)")
                     LocalConversationCard() // Default empty card (Requirement 2.4)
                 } else {
-                    json.decodeFromString<LocalConversationCard>(conversation.localCardJson)
+                    val card = json.decodeFromString<LocalConversationCard>(conversation.localCardJson)
+                    Log.d(TAG, "📋 [DIAGNOSTIC] Local Conversation Card loaded:")
+                    Log.d(TAG, "  - agreedFacts: ${card.agreedFacts.size} items")
+                    Log.d(TAG, "  - pendingQuestions: ${card.pendingQuestions.size} items")
+                    Log.d(TAG, "  - personaAlignment: ${card.personaAlignment?.take(50) ?: "null"}")
+                    card
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing Local Conversation Card", e)
+                Log.e(TAG, "❌ [DIAGNOSTIC] Error parsing Local Conversation Card", e)
                 LocalConversationCard() // Default empty card
             }
             
             val metaSummary = conversation.metaSummary 
                 ?: "New conversation started" // Default (Requirement 3.4)
+            Log.d(TAG, "📋 [DIAGNOSTIC] Meta-Summary: ${metaSummary.take(100)}...")
             
             // Get last session transcript
             val lastSession = conversationRepository.getLastSession(conversationId)
             val lastTranscript = lastSession?.transcript ?: ""
+            Log.d(TAG, "📋 [DIAGNOSTIC] Last Session Transcript: ${lastTranscript.length} chars")
             
             // Build context sections
             val sections = mutableListOf<String>()
@@ -124,12 +141,15 @@ class OfflineContextBuilder(
             
             // Apply truncation if needed (Requirement 5.2)
             val finalContext = if (fullContext.length > MAX_CONTEXT_LENGTH) {
+                Log.d(TAG, "⚠️ [DIAGNOSTIC] Context exceeds MAX_CONTEXT_LENGTH, truncating...")
                 truncateContext(sections, lastTranscript)
             } else {
                 fullContext
             }
             
-            Log.d(TAG, "Built context: ${finalContext.length} characters, ${sections.size} sections")
+            Log.d(TAG, "✅ [DIAGNOSTIC] Built context: ${finalContext.length} characters, ${sections.size} sections")
+            Log.d(TAG, "📄 [DIAGNOSTIC] Context preview (first 500 chars):")
+            Log.d(TAG, finalContext.take(500))
             return finalContext
             
         } catch (e: Exception) {

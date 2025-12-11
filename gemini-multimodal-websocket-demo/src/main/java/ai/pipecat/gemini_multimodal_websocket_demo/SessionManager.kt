@@ -567,14 +567,16 @@ class SessionManager(
      * @return Result indicating success or failure
      */
     suspend fun endSession(): Result<Unit> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "🔍 [DIAGNOSTIC] endSession() called")
+        
         // Prevent multiple calls
         if (isEndingSession) {
-            Log.w(TAG, "Session is already being ended, skipping")
+            Log.w(TAG, "⚠️ [DIAGNOSTIC] Session is already being ended, skipping")
             return@withContext Result.success(Unit)
         }
         
         val session = currentSession ?: run {
-            Log.w(TAG, "No active LibreChat session")
+            Log.w(TAG, "⚠️ [DIAGNOSTIC] No active LibreChat session")
             
             // For offline conversations, still end the database session if exists
             currentDbSessionId?.let { dbSessionId ->
@@ -592,7 +594,10 @@ class SessionManager(
                             durationSecs >= MIN_SESSION_DURATION_SECONDS && 
                             transcriptLength >= MIN_TRANSCRIPT_LENGTH) {
                             
-                            Log.d(TAG, "📝 Session qualifies for memory update (${durationSecs}s, ${transcriptLength} chars)")
+                            Log.d(TAG, "✅ [DIAGNOSTIC] Session qualifies for memory update:")
+                            Log.d(TAG, "  - Duration: ${durationSecs}s (min: ${MIN_SESSION_DURATION_SECONDS}s)")
+                            Log.d(TAG, "  - Transcript length: ${transcriptLength} chars (min: ${MIN_TRANSCRIPT_LENGTH} chars)")
+                            Log.d(TAG, "  - Transcript preview: ${sess.transcript.take(200)}...")
                             
                             // Get conversation to check source
                             currentConversationId?.let { convId ->
@@ -614,11 +619,11 @@ class SessionManager(
                                         when (source) {
                                             "gemini_live", "offline" -> {
                                                 // Use MemoryUpdateService for Gemini Live conversations
-                                                Log.d(TAG, "🧠 Using MemoryUpdateService for memory evolution")
+                                                Log.d(TAG, "🧠 [DIAGNOSTIC] Using MemoryUpdateService for memory evolution")
                                                 
                                                 // Get conversation system prompt (persona) for context
                                                 val conversationSystemPrompt = getConversationSystemPrompt(convId)
-                                                Log.d(TAG, "📋 Conversation persona: ${conversationSystemPrompt?.take(100) ?: "default"}...")
+                                                Log.d(TAG, "📋 [DIAGNOSTIC] Conversation persona: ${conversationSystemPrompt?.take(100) ?: "default"}...")
                                                 
                                                 // Lock conversation during memory update
                                                 conversationLockManager.lockConversation(convId)
@@ -631,8 +636,11 @@ class SessionManager(
                                                     )
                                                     
                                                     memoryResult.onSuccess { result ->
-                                                        Log.d(TAG, "✅ Memory updated successfully")
-                                                        Log.d(TAG, "  Session summary: ${result.sessionSummary.take(100)}...")
+                                                        Log.d(TAG, "✅ [DIAGNOSTIC] Memory updated successfully")
+                                                        Log.d(TAG, "  - Session summary: ${result.sessionSummary.take(100)}...")
+                                                        Log.d(TAG, "  - Global card updated: ${result.updatedGlobalCard != null}")
+                                                        Log.d(TAG, "  - Local card updated: ${result.updatedLocalCard != null}")
+                                                        Log.d(TAG, "  - Meta-summary updated: ${result.updatedMetaSummary != null}")
                                                         
                                                         // CRITICAL: Persist the memory updates to storage
                                                         val persistResult = memoryUpdateService.persistMemoryUpdate(
@@ -641,12 +649,12 @@ class SessionManager(
                                                         )
                                                         
                                                         persistResult.onSuccess {
-                                                            Log.d(TAG, "✅ Memory persisted to storage")
+                                                            Log.d(TAG, "✅ [DIAGNOSTIC] Memory persisted to storage")
                                                         }.onFailure { persistError ->
-                                                            Log.e(TAG, "❌ Failed to persist memory", persistError)
+                                                            Log.e(TAG, "❌ [DIAGNOSTIC] Failed to persist memory", persistError)
                                                         }
                                                     }.onFailure { error ->
-                                                        Log.e(TAG, "❌ Failed to update memory", error)
+                                                        Log.e(TAG, "❌ [DIAGNOSTIC] Failed to update memory", error)
                                                     }
                                                 } finally {
                                                     // Always unlock conversation after memory update

@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
  */
 class GeminiClient(
     private val apiKey: String,
-    private val model: String = "gemini-2.0-flash-exp",
+    private val model: String = "gemini-2.5-flash-exp",
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -84,7 +84,15 @@ class GeminiClient(
             return
         }
         
-        Log.i(TAG, "Connecting to Gemini Live API...")
+        Log.i(TAG, "🔍 [DIAGNOSTIC] Connecting to Gemini Live API...")
+        Log.d(TAG, "🔍 [DIAGNOSTIC] Connection parameters:")
+        Log.d(TAG, "  - model: $model")
+        Log.d(TAG, "  - voiceName: $voiceName")
+        Log.d(TAG, "  - temperature: $temperature")
+        Log.d(TAG, "  - systemPrompt length: ${systemPrompt.length} chars")
+        Log.d(TAG, "  - toolDeclarations: ${toolDeclarations.size} tools")
+        Log.d(TAG, "📄 [DIAGNOSTIC] System prompt preview (first 500 chars):")
+        Log.d(TAG, systemPrompt.take(500))
         
         // Build WebSocket URL with API key
         val url = "$GEMINI_WS_URL?key=$apiKey"
@@ -100,6 +108,10 @@ class GeminiClient(
             toolDeclarations = toolDeclarations
         )
         val setupJson = protocol.serializeSetupMessage(setupMessage)
+        
+        Log.d(TAG, "📄 [DIAGNOSTIC] Setup message length: ${setupJson.length} chars")
+        Log.d(TAG, "📄 [DIAGNOSTIC] Setup message preview (first 1000 chars):")
+        Log.d(TAG, setupJson.take(1000))
         
         // Create WebSocket request
         val request = Request.Builder()

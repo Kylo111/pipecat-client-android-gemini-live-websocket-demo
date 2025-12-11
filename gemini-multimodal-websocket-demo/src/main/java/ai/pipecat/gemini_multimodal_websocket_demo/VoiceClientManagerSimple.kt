@@ -76,14 +76,22 @@ class VoiceClientManagerSimple(
         
         // Get system prompt from preferences (already contains conversation context)
         val systemPrompt = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.systemPrompt.value ?: ""
-        Log.d(TAG, "System prompt length: ${systemPrompt.length} chars")
+        Log.d(TAG, "🔍 [DIAGNOSTIC] System prompt from Preferences: ${systemPrompt.length} chars")
+        Log.d(TAG, "📄 [DIAGNOSTIC] System prompt preview (first 500 chars):")
+        Log.d(TAG, systemPrompt.take(500))
         
         // Get tool declarations
         val toolDeclarations = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
-        Log.d(TAG, "Configuring ${toolDeclarations.size} tools for function calling")
+        Log.d(TAG, "🔧 [DIAGNOSTIC] Configuring ${toolDeclarations.size} tools for function calling")
+        
+        // Get model from preferences (default to gemini-2.5-flash-exp for Gemini Live)
+        val model = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.modelName.value 
+            ?: "gemini-2.5-flash-exp"
+        
+        Log.d(TAG, "🔍 [DIAGNOSTIC] Using model: $model")
         
         // Create new simplified manager
-        simpleManager = SimpleVoiceClientManager(context, apiKey)
+        simpleManager = SimpleVoiceClientManager(context, apiKey, model)
         
         // Wire state updates
         wireStateUpdates()

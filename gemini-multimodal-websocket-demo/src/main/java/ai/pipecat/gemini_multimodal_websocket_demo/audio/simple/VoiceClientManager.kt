@@ -27,7 +27,8 @@ import kotlinx.serialization.json.JsonElement
  */
 class VoiceClientManager(
     private val context: Context,
-    private val apiKey: String
+    private val apiKey: String,
+    private val model: String = "gemini-2.5-flash-exp"
 ) {
     companion object {
         private const val TAG = "VoiceClientManager"
@@ -44,6 +45,7 @@ class VoiceClientManager(
     
     private val geminiClient = GeminiClient(
         apiKey = apiKey,
+        model = model,
         scope = scope
     )
     

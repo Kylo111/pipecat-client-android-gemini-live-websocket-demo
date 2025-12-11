@@ -141,13 +141,15 @@ class ConversationLauncher(
         
         val sessionResult = sessionManager.startOfflineSession(offlineConv.id)
         sessionResult.onSuccess { conversationContext ->
-            Log.d(TAG, "Started offline session with context: ${conversationContext.length} chars")
+            Log.d(TAG, "✅ [DIAGNOSTIC] Started offline session with context: ${conversationContext.length} chars")
             
             // Build system prompt with conversation context
             val fullPrompt = buildOfflineSystemPrompt(offlineConv.systemPrompt, conversationContext)
             Preferences.systemPrompt.value = fullPrompt
             
-            Log.d(TAG, "System prompt with context: ${fullPrompt.length} chars")
+            Log.d(TAG, "✅ [DIAGNOSTIC] System prompt set in Preferences: ${fullPrompt.length} chars")
+            Log.d(TAG, "📄 [DIAGNOSTIC] Preferences.systemPrompt.value preview (first 500 chars):")
+            Log.d(TAG, Preferences.systemPrompt.value?.take(500) ?: "null")
             
             // Create ThreadSettings from offline conversation settings
             val offlineSettings = ThreadSettings(
@@ -173,7 +175,11 @@ class ConversationLauncher(
     private fun buildOfflineSystemPrompt(basePrompt: String, conversationContext: String): String {
         val prompt = basePrompt.ifBlank { "You are a helpful assistant" }
         
-        return if (conversationContext.isNotBlank()) {
+        Log.d(TAG, "🔍 [DIAGNOSTIC] Building offline system prompt:")
+        Log.d(TAG, "  - basePrompt length: ${basePrompt.length} chars")
+        Log.d(TAG, "  - conversationContext length: ${conversationContext.length} chars")
+        
+        val fullPrompt = if (conversationContext.isNotBlank()) {
             """
             $prompt
             
@@ -187,8 +193,15 @@ class ConversationLauncher(
             - If user refers to something from history, acknowledge it
             """.trimIndent()
         } else {
+            Log.d(TAG, "⚠️ [DIAGNOSTIC] No conversation context, using base prompt only")
             prompt
         }
+        
+        Log.d(TAG, "✅ [DIAGNOSTIC] Full prompt length: ${fullPrompt.length} chars")
+        Log.d(TAG, "📄 [DIAGNOSTIC] Full prompt preview (first 500 chars):")
+        Log.d(TAG, fullPrompt.take(500))
+        
+        return fullPrompt
     }
     
     /**
