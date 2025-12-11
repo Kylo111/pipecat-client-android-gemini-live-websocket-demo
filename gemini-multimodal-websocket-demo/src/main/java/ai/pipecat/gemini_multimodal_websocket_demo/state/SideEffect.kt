@@ -188,6 +188,12 @@ sealed class SideEffect {
      */
     object ClearSessionHandle : SideEffect()
     
+    /**
+     * Start a new session (force new session without resumption)
+     * Used when resumption fails or setup times out
+     */
+    object StartNewSession : SideEffect()
+    
     // ============================================================================
     // UI Side Effects
     // ============================================================================

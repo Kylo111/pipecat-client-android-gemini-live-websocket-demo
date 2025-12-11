@@ -5,39 +5,84 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
+ * SessionHandle represents a session resumption handle with metadata.
+ * 
+ * This data class encapsulates the session handle along with its creation time
+ * and resumability status, enabling smart expiration checks.
+ * 
+ * @property handle The session resumption handle from Gemini API
+ * @property createdAt Timestamp when the handle was created (milliseconds since epoch)
+ * @property resumable Whether the session is resumable (from Gemini API)
+ * 
+ * Requirements: Task 8 - Smart fallback strategy with handle expiration
+ */
+data class SessionHandle(
+    val handle: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val resumable: Boolean = true
+) {
+    /**
+     * Check if the session handle has expired.
+     * 
+     * Gemini API expires session handles after approximately 5-10 minutes server-side.
+     * We use a conservative 5-minute threshold to avoid attempting resumption with
+     * expired handles, which would cause INVALID_ARGUMENT errors.
+     * 
+     * @return true if the handle is older than 5 minutes, false otherwise
+     * 
+     * Requirements: Task 8 - 5-minute expiration threshold
+     */
+    fun isExpired(): Boolean {
+        val ageMs = System.currentTimeMillis() - createdAt
+        return ageMs > SESSION_HANDLE_EXPIRATION_MS
+    }
+    
+    companion object {
+        // Conservative 5-minute threshold (Gemini expires handles after ~5-10 minutes)
+        const val SESSION_HANDLE_EXPIRATION_MS = 5 * 60 * 1000L // 5 minutes
+    }
+}
+
+/**
  * SessionState represents the current state of a voice session.
  *
  * @property isActive Whether the session is currently active
  * @property isPaused Whether the session is paused
- * @property resumptionHandle The handle for resuming the session (null if not available)
- * @property isResumable Whether the session can be resumed
+ * @property sessionHandle The handle for resuming the session (null if not available)
  * @property createdTime The timestamp when the session was created
  * @property canResume Computed property: true if handle is valid and not expired
  */
 data class SessionState(
     val isActive: Boolean = false,
     val isPaused: Boolean = false,
-    val resumptionHandle: String? = null,
-    val isResumable: Boolean = false,
+    val sessionHandle: SessionHandle? = null,
     val createdTime: Long = 0L
 ) {
     /**
      * Computed property that checks if the session can be resumed.
      * A session can be resumed if:
-     * 1. It has a resumption handle
+     * 1. It has a session handle
      * 2. The handle is marked as resumable
-     * 3. The session hasn't expired (within 2 hours)
+     * 3. The handle hasn't expired (within 5 minutes)
+     * 
+     * Requirements: Task 8 - Check handle expiration before use
      */
     val canResume: Boolean
         get() {
-            if (resumptionHandle == null || !isResumable) return false
-            val currentTime = System.currentTimeMillis()
-            val elapsed = currentTime - createdTime
-            return elapsed < SESSION_RESUMPTION_TIMEOUT
+            val handle = sessionHandle ?: return false
+            return handle.resumable && !handle.isExpired()
         }
+    
+    /**
+     * Get the resumption handle string if available and valid.
+     * 
+     * @return The handle string, or null if not available or expired
+     */
+    val resumptionHandle: String?
+        get() = if (canResume) sessionHandle?.handle else null
 
     companion object {
-        const val SESSION_RESUMPTION_TIMEOUT = 2 * 60 * 60 * 1000L // 2 hours
+        const val SESSION_RESUMPTION_TIMEOUT = 2 * 60 * 60 * 1000L // 2 hours (legacy, kept for compatibility)
     }
 }
 
@@ -99,8 +144,7 @@ class SessionStateManager {
         val newState = SessionState(
             isActive = true,
             isPaused = false,
-            resumptionHandle = null,
-            isResumable = false,
+            sessionHandle = null,
             createdTime = System.currentTimeMillis()
         )
         _state.value = newState
@@ -161,8 +205,7 @@ class SessionStateManager {
         val newState = SessionState(
             isActive = false,
             isPaused = false,
-            resumptionHandle = null,
-            isResumable = false,
+            sessionHandle = null,
             createdTime = 0L
         )
         _state.value = newState
@@ -170,9 +213,34 @@ class SessionStateManager {
     }
 
     /**
-     * Updates the session resumption handle.
+     * Save a session resumption handle with timestamp.
      *
      * Called when the server provides a resumption handle via sessionResumptionUpdate message.
+     * This method creates a SessionHandle object with the current timestamp for expiration tracking.
+     *
+     * @param handle The resumption handle from the server
+     * @param resumable Whether the session is resumable
+     *
+     * Requirements: Task 8 - Store timestamp with handle for expiration checking
+     */
+    fun saveSessionHandle(handle: String, resumable: Boolean) {
+        val currentState = _state.value
+        val sessionHandle = SessionHandle(
+            handle = handle,
+            createdAt = System.currentTimeMillis(),
+            resumable = resumable
+        )
+        val newState = currentState.copy(
+            sessionHandle = sessionHandle
+        )
+        _state.value = newState
+        listener?.onSessionStateChanged(newState)
+    }
+    
+    /**
+     * Updates the session resumption handle (legacy method for backward compatibility).
+     *
+     * Delegates to saveSessionHandle() for consistent timestamp tracking.
      *
      * @param handle The resumption handle from the server
      * @param resumable Whether the session is resumable
@@ -180,13 +248,36 @@ class SessionStateManager {
      * Requirement 5.1: Track resumption handle
      */
     fun updateResumptionHandle(handle: String, resumable: Boolean) {
+        saveSessionHandle(handle, resumable)
+    }
+    
+    /**
+     * Get the current session handle if available and valid.
+     * 
+     * Returns null if:
+     * - No handle exists
+     * - Handle is not resumable
+     * - Handle has expired (older than 5 minutes)
+     * 
+     * @return SessionHandle if valid, null otherwise
+     * 
+     * Requirements: Task 8 - Return SessionHandle with expiration checking
+     */
+    fun getSessionHandle(): SessionHandle? {
         val currentState = _state.value
-        val newState = currentState.copy(
-            resumptionHandle = handle,
-            isResumable = resumable
-        )
-        _state.value = newState
-        listener?.onSessionStateChanged(newState)
+        val handle = currentState.sessionHandle ?: return null
+        
+        // Check if handle is expired
+        if (handle.isExpired()) {
+            return null
+        }
+        
+        // Check if handle is resumable
+        if (!handle.resumable) {
+            return null
+        }
+        
+        return handle
     }
 
     /**
@@ -197,8 +288,7 @@ class SessionStateManager {
     fun clearResumptionHandle() {
         val currentState = _state.value
         val newState = currentState.copy(
-            resumptionHandle = null,
-            isResumable = false
+            sessionHandle = null
         )
         _state.value = newState
         listener?.onSessionStateChanged(newState)
@@ -210,11 +300,11 @@ class SessionStateManager {
      * A handle is valid if:
      * 1. It exists (not null)
      * 2. It's marked as resumable
-     * 3. It hasn't expired (within 2 hours of session creation)
+     * 3. It hasn't expired (within 5 minutes)
      *
      * @return true if the handle is valid, false otherwise
      *
-     * Requirement 5.4: Indicate when resumption handle expires (2 hours)
+     * Requirements: Task 8 - Check handle expiration (5-minute threshold)
      */
     fun isHandleValid(): Boolean {
         return _state.value.canResume

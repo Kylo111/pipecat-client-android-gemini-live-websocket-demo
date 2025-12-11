@@ -44,12 +44,26 @@ interface ConversationMonitorListener {
  * @param autoPauseTimeoutSeconds Timeout in seconds for auto-pause (0 or negative = disabled)
  * @param botResponseTimeoutMinutes Timeout in minutes for bot response (0 or negative = disabled)
  * @param botSilenceThresholdMs Threshold in milliseconds for detecting bot silence
+ * @param getAudioQueueSize Optional callback to get current audio queue size (for accurate silence detection)
+ * @param isAudioTrackPlaying Optional callback to check if AudioTrack is actively playing
+ * 
+ * @deprecated This class is deprecated as part of the simplified audio core architecture.
+ * The new architecture relies on Gemini's turnComplete events instead of custom silence detection.
+ * Timer-based logic is now handled directly in the simplified VoiceClientManager.
+ * See MIGRATION_GUIDE.md for migration instructions.
  */
+@Deprecated(
+    message = "Use simplified VoiceClientManager from audio.simple package instead",
+    replaceWith = ReplaceWith("ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.VoiceClientManager"),
+    level = DeprecationLevel.WARNING
+)
 class ConversationMonitor(
     private val scope: CoroutineScope,
     private val autoPauseTimeoutSeconds: Int,
     private val botResponseTimeoutMinutes: Int,
-    private val botSilenceThresholdMs: Long = 1500L
+    private val botSilenceThresholdMs: Long = 1500L,
+    private val getAudioQueueSize: (() -> Int)? = null,
+    private val isAudioTrackPlaying: (() -> Boolean)? = null
 ) {
     companion object {
         private const val TAG = "ConversationMonitor"
@@ -241,6 +255,9 @@ class ConversationMonitor(
     /**
      * Start monitoring bot audio silence to detect when bot stops speaking
      * This is a fallback mechanism in case turnComplete message is not received
+     * 
+     * CRITICAL: Checks network silence, queue emptiness, AND AudioTrack playback state
+     * to avoid cutting off bot mid-sentence when there's buffered audio still playing.
      */
     fun startSilenceDetection() {
         stopSilenceDetection()
@@ -254,13 +271,21 @@ class ConversationMonitor(
                 // Only check if bot is marked as talking
                 if (isBotTalking) {
                     val silenceDuration = System.currentTimeMillis() - lastBotAudioTime
+                    val queueSize = getAudioQueueSize?.invoke() ?: 0
+                    val isPlaying = isAudioTrackPlaying?.invoke() ?: false
                     
-                    // If we haven't received audio for threshold, bot stopped talking
-                    if (silenceDuration > botSilenceThresholdMs) {
-                        Log.i(TAG, "🔇 Bot stopped speaking (silence detected: ${silenceDuration}ms)")
+                    // CRITICAL: Bot is truly silent only if ALL conditions are met:
+                    // 1. No new audio packets from network for threshold duration
+                    // 2. Audio queue is empty (no buffered audio waiting to play)
+                    // 3. AudioTrack is NOT actively playing (internal buffer is empty)
+                    // This prevents cutting off bot mid-sentence when AudioTrack still has audio in its buffer
+                    if (silenceDuration > botSilenceThresholdMs && queueSize == 0 && !isPlaying) {
+                        Log.i(TAG, "🔇 Bot stopped speaking (silence: ${silenceDuration}ms, queue: $queueSize, playing: $isPlaying)")
                         listener?.onSilenceDetected()
                         // Note: The listener should update isBotTalking state
                         break
+                    } else if (DEBUG_LOGGING && silenceDuration > botSilenceThresholdMs) {
+                        Log.d(TAG, "⏳ Network silence but still playing (queue: ${queueSize}, AudioTrack playing: $isPlaying) - waiting...")
                     }
                 }
             }

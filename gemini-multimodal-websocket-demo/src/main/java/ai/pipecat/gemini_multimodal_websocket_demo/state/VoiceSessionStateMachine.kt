@@ -25,9 +25,23 @@ data class ReduceResult(
  * The reducer itself has NO side effects - it only computes what should happen.
  * Side effects are returned as data and executed by VoiceClientManager.
  * 
+ * @param isFullDuplex Whether full-duplex mode is enabled (user can speak while bot is speaking)
+ * 
  * Requirements: 1.2, 1.3, 1.4, 1.6, 3.3, 7.1, 7.2
+ * 
+ * @deprecated This class is deprecated as part of the simplified audio core architecture.
+ * Use the new simplified VoiceClientManager in ai.pipecat.gemini_multimodal_websocket_demo.audio.simple package instead.
+ * The new architecture eliminates the complex state machine in favor of direct event handling by Gemini.
+ * See MIGRATION_GUIDE.md for migration instructions.
  */
-class VoiceSessionStateMachine {
+@Deprecated(
+    message = "Use simplified VoiceClientManager from audio.simple package instead",
+    replaceWith = ReplaceWith("ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.VoiceClientManager"),
+    level = DeprecationLevel.WARNING
+)
+class VoiceSessionStateMachine(
+    private val isFullDuplex: Boolean = false
+) {
     
     companion object {
         private const val TAG = "VoiceSessionStateMachine"
@@ -178,6 +192,9 @@ class VoiceSessionStateMachine {
      * - WebSocketError -> Error
      * - StopRequested -> Idle
      * - SessionHandleReceived -> Connecting (self-transition, save handle)
+     * - SetupTimeout -> Idle (with fallback to new session)
+     * - ResumptionFailed -> Idle (with fallback to new session)
+     * - GeminiError -> Idle or Error (depending on error code)
      */
     private fun reduceConnecting(
         state: VoiceSessionState.Connecting,
@@ -186,7 +203,10 @@ class VoiceSessionStateMachine {
         return when (event) {
             is VoiceEvent.SetupComplete -> {
                 ReduceResult(
-                    newState = VoiceSessionState.Listening(),
+                    newState = VoiceSessionState.Listening(
+                        isMicEnabled = true,
+                        isFullDuplex = isFullDuplex  // Use configured full-duplex mode
+                    ),
                     sideEffects = listOf(
                         SideEffect.PerformPostSetupOperations,
                         SideEffect.StartRecording,
@@ -223,6 +243,95 @@ class VoiceSessionStateMachine {
                         SideEffect.SaveSessionHandle(event.handle, event.resumable)
                     )
                 )
+            }
+            is VoiceEvent.SetupTimeout -> {
+                // Setup timeout - no setupComplete received within timeout period
+                // Disconnect, clear handle, and fallback to new session
+                Log.w(TAG, "Setup timeout in Connecting state - falling back to new session")
+                ReduceResult(
+                    newState = VoiceSessionState.Idle,
+                    sideEffects = listOf(
+                        SideEffect.Disconnect(),
+                        SideEffect.ClearSessionHandle,
+                        SideEffect.ClearAudioQueue,
+                        SideEffect.ShowError("Connection timeout - retrying"),
+                        SideEffect.UpdateServiceNotification,
+                        SideEffect.UpdatePicovoiceState,
+                        SideEffect.StartNewSession
+                    )
+                )
+            }
+            is VoiceEvent.ResumptionFailed -> {
+                // Session resumption failed - clear handle and fallback to new session
+                Log.w(TAG, "Resumption failed in Connecting state: ${event.reason}")
+                ReduceResult(
+                    newState = VoiceSessionState.Idle,
+                    sideEffects = listOf(
+                        SideEffect.Disconnect(),
+                        SideEffect.ClearSessionHandle,
+                        SideEffect.StopPlayback,
+                        SideEffect.ClearAudioQueue,
+                        SideEffect.ShowError("Session expired - starting new session"),
+                        SideEffect.UpdateServiceNotification,
+                        SideEffect.UpdatePicovoiceState,
+                        SideEffect.StartNewSession
+                    )
+                )
+            }
+            is VoiceEvent.GeminiError -> {
+                // Gemini API error received
+                Log.e(TAG, "Gemini error in Connecting state: code=${event.code}, message=${event.message}")
+                
+                when (event.code) {
+                    "INVALID_ARGUMENT" -> {
+                        // Session handle is invalid/expired - fallback to new session
+                        ReduceResult(
+                            newState = VoiceSessionState.Idle,
+                            sideEffects = listOf(
+                                SideEffect.Disconnect(),
+                                SideEffect.ClearSessionHandle,
+                                SideEffect.ClearAudioQueue,
+                                SideEffect.ShowError("Session expired - starting new session"),
+                                SideEffect.UpdateServiceNotification,
+                                SideEffect.UpdatePicovoiceState,
+                                SideEffect.StartNewSession
+                            )
+                        )
+                    }
+                    "RESOURCE_EXHAUSTED" -> {
+                        // Rate limited - recoverable error
+                        ReduceResult(
+                            newState = VoiceSessionState.Error("Rate limited: ${event.message}", isRecoverable = true),
+                            sideEffects = listOf(
+                                SideEffect.Disconnect(),
+                                SideEffect.ShowError("Rate limited - please wait"),
+                                SideEffect.UpdateServiceNotification
+                            )
+                        )
+                    }
+                    "UNAVAILABLE" -> {
+                        // Service temporarily unavailable - recoverable error
+                        ReduceResult(
+                            newState = VoiceSessionState.Error("Service unavailable: ${event.message}", isRecoverable = true),
+                            sideEffects = listOf(
+                                SideEffect.Disconnect(),
+                                SideEffect.ShowError("Service unavailable - please retry"),
+                                SideEffect.UpdateServiceNotification
+                            )
+                        )
+                    }
+                    else -> {
+                        // Unknown error - non-recoverable
+                        ReduceResult(
+                            newState = VoiceSessionState.Error("Gemini error: ${event.message}", isRecoverable = false),
+                            sideEffects = listOf(
+                                SideEffect.Disconnect(),
+                                SideEffect.ShowError("Connection error: ${event.message}"),
+                                SideEffect.UpdateServiceNotification
+                            )
+                        )
+                    }
+                }
             }
             else -> {
                 Log.d(TAG, "reduceConnecting: ignoring event ${event::class.simpleName}")

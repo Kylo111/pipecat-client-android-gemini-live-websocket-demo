@@ -26,7 +26,16 @@ import kotlinx.coroutines.withContext
  * Side effects are executed sequentially in the order they are provided.
  * Cleanup operations (Stop*, Clear*, Disconnect) use NonCancellable context to ensure
  * they complete even if the coroutine is cancelled.
+ * 
+ * @deprecated This class is deprecated as part of the simplified audio core architecture.
+ * The new architecture eliminates the side effect abstraction layer in favor of direct method calls.
+ * See MIGRATION_GUIDE.md for migration instructions.
  */
+@Deprecated(
+    message = "Use simplified VoiceClientManager from audio.simple package instead",
+    replaceWith = ReplaceWith("ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.VoiceClientManager"),
+    level = DeprecationLevel.WARNING
+)
 class SideEffectExecutor(
     private val context: Context,
     private val audioEngine: AudioEngine,
@@ -52,6 +61,13 @@ class SideEffectExecutor(
     var onUpdatePicovoiceState: (() -> Unit)? = null
     var onPerformPostSetupOperations: (() -> Unit)? = null
     var onProcessEvent: ((VoiceEvent) -> Unit)? = null
+    var onStartSetupTimeout: (() -> Unit)? = null
+    var onCancelSetupTimeout: (() -> Unit)? = null
+    var onStartNewSession: (() -> Unit)? = null
+    
+    // Zombie Audio protection callbacks
+    var onCloseAudioGate: (() -> Unit)? = null
+    var onOpenAudioGate: (() -> Unit)? = null
     
     /**
      * Execute a list of side effects.
@@ -97,12 +113,14 @@ class SideEffectExecutor(
             }
             is SideEffect.StartPlayback -> {
                 if (debugLogging) Log.d(TAG, "🔊 Side effect: StartPlayback")
-                audioEngine.startPlayback()
+                // Use safe method to prevent race conditions with concurrent stop calls
+                audioEngine.startPlaybackSafe()
             }
             is SideEffect.StopPlayback -> {
                 if (debugLogging) Log.d(TAG, "🔊 Side effect: StopPlayback")
                 withContext(NonCancellable) {
-                    audioEngine.stopPlayback()
+                    // Use safe method to prevent race conditions with concurrent start calls
+                    audioEngine.stopPlaybackSafe()
                 }
             }
             is SideEffect.ClearAudioQueue -> {
@@ -119,11 +137,19 @@ class SideEffectExecutor(
                     // It also increments generation ID internally to invalidate in-flight packets
                     audioEngine.interruptPlayback()
                 }
+                // ZOMBIE AUDIO PROTECTION: Close audio gate to refuse stale packets
+                // After interruption, any audio packets still in network buffers are "zombies"
+                // and must be dropped. Gate will reopen when bot starts new response.
+                onCloseAudioGate?.invoke()
             }
             is SideEffect.QueueAudio -> {
                 if (debugLogging) {
                     Log.d(TAG, "🔊 Side effect: QueueAudio (${sideEffect.data.size} bytes)")
                 }
+                // ZOMBIE AUDIO PROTECTION: Open audio gate when bot starts new response
+                // This is the first audio of a new bot response, so we can safely accept packets again
+                onOpenAudioGate?.invoke()
+                
                 audioEngine.queueAudio(sideEffect.data)
                 // CRITICAL FIX: Update bot audio time for silence detection
                 // Without this, ConversationMonitor thinks bot stopped speaking
@@ -135,6 +161,8 @@ class SideEffectExecutor(
             is SideEffect.Connect -> {
                 if (debugLogging) Log.d(TAG, "🌐 Side effect: Connect")
                 webSocketClient.connect(sideEffect.url, sideEffect.setupMessage)
+                // Start setup timeout watchdog (Task 7)
+                onStartSetupTimeout?.invoke()
             }
             is SideEffect.Disconnect -> {
                 if (debugLogging) Log.d(TAG, "🌐 Side effect: Disconnect (code: ${sideEffect.code})")
@@ -259,6 +287,14 @@ class SideEffectExecutor(
                 onUpdateUiState?.invoke(null, sideEffect.text)
                 sessionManager?.captureBotTranscript(sideEffect.text)
                 onBotTranscript?.invoke(sideEffect.text)
+            }
+            
+            // Session resumption side effects
+            is SideEffect.StartNewSession -> {
+                if (debugLogging) Log.d(TAG, "🔄 Side effect: StartNewSession")
+                // Invoke callback to start a new session without resumption
+                // This is wired to VoiceClientManager.start(forceNewSession = true)
+                onStartNewSession?.invoke()
             }
         }
     }

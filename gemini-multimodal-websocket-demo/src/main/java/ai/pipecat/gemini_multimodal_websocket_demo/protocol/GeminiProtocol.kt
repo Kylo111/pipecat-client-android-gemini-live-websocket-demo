@@ -38,6 +38,7 @@ class GeminiProtocol {
      * Parse a text message from the WebSocket into a typed GeminiEvent.
      * 
      * This method handles all message types from the Gemini Live API:
+     * - error: Error messages from Gemini (checked FIRST)
      * - setupComplete: Connection established
      * - serverContent: Bot audio, transcripts, turn complete
      * - toolCall: Function calling requests
@@ -51,6 +52,12 @@ class GeminiProtocol {
         return try {
             val jsonElement = json.parseToJsonElement(text)
             val jsonObject = jsonElement.jsonObject
+            
+            // CRITICAL: Check for error field FIRST before other parsing
+            // This ensures error messages are handled immediately
+            if (jsonObject.containsKey("error")) {
+                return parseError(jsonObject)
+            }
             
             // Parse based on message type
             when {
@@ -80,6 +87,24 @@ class GeminiProtocol {
             Log.e(TAG, "Error parsing message: ${e.message}", e)
             GeminiEvent.ParseError(e.message ?: "Unknown error", text)
         }
+    }
+
+    /**
+     * Parse an error message from Gemini API.
+     * 
+     * Error messages contain a code and message that indicate what went wrong.
+     * Common error codes:
+     * - INVALID_ARGUMENT: Session handle is invalid/expired
+     * - RESOURCE_EXHAUSTED: Rate limited
+     * - UNAVAILABLE: Service temporarily unavailable
+     */
+    private fun parseError(jsonObject: JsonObject): GeminiEvent {
+        val error = jsonObject["error"]?.jsonObject
+        val code = error?.get("code")?.jsonPrimitive?.content ?: "UNKNOWN"
+        val message = error?.get("message")?.jsonPrimitive?.content ?: "Unknown error"
+        
+        Log.e(TAG, "Parsed: Error (code: $code, message: $message)")
+        return GeminiEvent.Error(code, message)
     }
 
     /**

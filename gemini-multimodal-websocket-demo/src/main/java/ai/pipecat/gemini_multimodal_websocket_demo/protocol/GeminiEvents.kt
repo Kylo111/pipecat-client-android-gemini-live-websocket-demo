@@ -107,6 +107,19 @@ sealed class GeminiEvent {
     object Interrupted : GeminiEvent()
 
     /**
+     * Represents an error message from the Gemini API.
+     * Contains error code and message for handling different error types.
+     * 
+     * @property code Error code from Gemini (e.g., "INVALID_ARGUMENT", "RESOURCE_EXHAUSTED")
+     * @property message Human-readable error message
+     */
+    @Immutable
+    data class Error(
+        val code: String,
+        val message: String
+    ) : GeminiEvent()
+
+    /**
      * Represents a message that could not be parsed or recognized.
      * Contains the raw JSON for logging and debugging purposes.
      * 

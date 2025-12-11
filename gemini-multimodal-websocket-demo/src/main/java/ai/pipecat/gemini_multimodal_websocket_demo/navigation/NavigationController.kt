@@ -2,7 +2,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo.navigation
 
 import ai.pipecat.gemini_multimodal_websocket_demo.AuthManager
 import ai.pipecat.gemini_multimodal_websocket_demo.SessionManager
-import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManager
+import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManagerSimple
 import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +30,7 @@ enum class Screen {
 class NavigationController(
     private val authManager: AuthManager,
     private val sessionManager: SessionManager,
-    private val voiceClientManager: VoiceClientManager,
+    private val voiceClientManager: VoiceClientManagerSimple,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -166,7 +166,20 @@ class NavigationController(
      */
     fun endSessionAndNavigate() {
         scope.launch {
+            Log.d(TAG, "Ending session and navigating to thread list")
+            
+            // Stop voice client first (closes WebSocket, stops audio)
+            if (voiceClientManager.uiState.value.connectionState != ConnectionState.DISCONNECTED) {
+                Log.d(TAG, "Stopping voice client...")
+                voiceClientManager.stop()
+            }
+            
+            // End session (generates summary and syncs transcript)
+            Log.d(TAG, "Ending session...")
             sessionManager.endSession()
+            
+            // Navigate to thread list
+            Log.d(TAG, "Navigating to thread list")
             _currentScreen.value = Screen.THREAD_LIST
         }
     }

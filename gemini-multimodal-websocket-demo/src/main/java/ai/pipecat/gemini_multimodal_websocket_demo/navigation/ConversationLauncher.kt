@@ -6,7 +6,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.SessionManager
 import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
-import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManager
+import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManagerSimple
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import android.util.Log
@@ -30,7 +30,7 @@ sealed class LaunchResult {
 class ConversationLauncher(
     private val authManager: AuthManager,
     private val sessionManager: SessionManager,
-    private val voiceClientManager: VoiceClientManager,
+    private val voiceClientManager: VoiceClientManagerSimple,
     private val navigationController: NavigationController,
     private val scope: CoroutineScope
 ) {

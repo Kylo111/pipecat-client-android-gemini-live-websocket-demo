@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -135,7 +136,17 @@ data class AudioChunk(
  * 
  * @param context Android context for accessing audio resources
  * @param scope CoroutineScope for managing audio operations (should use Dispatchers.Default)
+ * 
+ * @deprecated This class is deprecated as part of the simplified audio core architecture.
+ * Use the new simplified AudioEngine in ai.pipecat.gemini_multimodal_websocket_demo.audio.simple package instead.
+ * The new architecture eliminates custom batching and uses Kotlin Channels for non-blocking writes.
+ * See MIGRATION_GUIDE.md for migration instructions.
  */
+@Deprecated(
+    message = "Use simplified AudioEngine from audio.simple package instead",
+    replaceWith = ReplaceWith("ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.AudioEngine"),
+    level = DeprecationLevel.WARNING
+)
 class AudioEngine(
     private val context: Context,
     private val scope: CoroutineScope
@@ -171,11 +182,13 @@ class AudioEngine(
         /**
          * Buffer size multiplier for audio buffers.
          * 
-         * INCREASED from 8 to 30 to provide ~1.2 seconds of buffer instead of ~344ms.
-         * This prevents audio dropouts during network jitter and stops VAD from
-         * incorrectly detecting silence when the buffer empties.
+         * RECORDING: Use 4x minimum (256ms) - small buffer prevents overflow during half-duplex pause
+         * PLAYBACK: Use 30x minimum (1.2s) - large buffer prevents dropouts during network jitter
+         * 
+         * Note: These are now separate constants for recording vs playback.
          */
-        private const val BUFFER_MULTIPLIER = 30
+        private const val RECORDING_BUFFER_MULTIPLIER = 4
+        private const val PLAYBACK_BUFFER_MULTIPLIER = 30
     }
     
     // State flows for reactive state management
@@ -243,7 +256,7 @@ class AudioEngine(
             INPUT_SAMPLE_RATE,
             CHANNEL_CONFIG_IN,
             AUDIO_FORMAT
-        ) * BUFFER_MULTIPLIER
+        ) * RECORDING_BUFFER_MULTIPLIER
     }
     
     // Recording control methods
@@ -609,7 +622,13 @@ class AudioEngine(
     
     /**
      * Pauses audio recording (for half-duplex mode when bot is speaking).
-     * The AudioRecord continues running but audio data is not read or sent.
+     * 
+     * CRITICAL: Actually STOPS AudioRecord to prevent buffer overflow.
+     * In half-duplex mode, when the bot is speaking, we don't need the microphone.
+     * Stopping AudioRecord prevents buffer overflow and saves CPU/battery.
+     * 
+     * The recording loop continues running but skips reading when paused.
+     * AudioRecord will be restarted when resumeRecording() is called.
      */
     fun pauseRecording() {
         if (!_isRecording.value) {
@@ -622,13 +641,48 @@ class AudioEngine(
             return
         }
         
+        Log.i(TAG, "🔇 Pausing recording - stopping AudioRecord to prevent overflow")
+        
+        try {
+            // Flush buffer before stopping
+            val dummyBuffer = ByteArray(inputBufferSize)
+            var flushedBytes = 0
+            var readAttempts = 0
+            val maxAttempts = 10  // Safety limit
+            
+            // Read and discard all pending data
+            while (readAttempts < maxAttempts) {
+                val bytesRead = audioRecord?.read(dummyBuffer, 0, dummyBuffer.size) ?: 0
+                if (bytesRead <= 0) break
+                flushedBytes += bytesRead
+                readAttempts++
+            }
+            
+            // Stop AudioRecord to prevent buffer overflow during playback
+            audioRecord?.stop()
+            
+            if (flushedBytes > 0) {
+                Log.i(TAG, "🔇 AudioRecord stopped - flushed $flushedBytes bytes")
+            } else {
+                Log.i(TAG, "🔇 AudioRecord stopped - buffer was empty")
+            }
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "AudioRecord already stopped or invalid state", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping AudioRecord: ${e.message}", e)
+        }
+        
         isRecordingPaused = true
         _userAudioLevel.value = 0f
+        
         Log.i(TAG, "Recording paused (half-duplex mode)")
     }
     
     /**
      * Resumes audio recording after pause.
+     * 
+     * CRITICAL: Restarts AudioRecord after it was stopped by pauseRecording().
+     * This ensures the microphone is ready to capture user speech again.
      */
     fun resumeRecording() {
         if (!_isRecording.value) {
@@ -639,6 +693,27 @@ class AudioEngine(
         if (!isRecordingPaused) {
             Log.w(TAG, "Recording not paused")
             return
+        }
+        
+        Log.i(TAG, "🔊 Resuming recording - restarting AudioRecord")
+        
+        try {
+            // Restart AudioRecord
+            audioRecord?.startRecording()
+            Log.i(TAG, "🔊 AudioRecord restarted successfully")
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "Cannot restart AudioRecord - invalid state", e)
+            // Try to recover by recreating AudioRecord
+            try {
+                audioRecord?.release()
+                audioRecord = null
+                // Recording loop will detect this and may need manual restart
+                Log.w(TAG, "AudioRecord released - may need manual restart")
+            } catch (releaseError: Exception) {
+                Log.e(TAG, "Error during AudioRecord recovery", releaseError)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restarting AudioRecord: ${e.message}", e)
         }
         
         isRecordingPaused = false
@@ -689,6 +764,33 @@ class AudioEngine(
     private val audioQueueMutex = Mutex()
     private val audioTrackMutex = Mutex()
     
+    /**
+     * Get current audio queue size (for silence detection).
+     * Thread-safe read without blocking.
+     */
+    fun getAudioQueueSize(): Int = audioQueue.size
+    
+    /**
+     * Check if AudioTrack is actively playing audio.
+     * Returns true if AudioTrack exists and is in PLAYSTATE_PLAYING.
+     * Used by ConversationMonitor to avoid cutting off bot mid-sentence.
+     */
+    fun isAudioTrackPlaying(): Boolean {
+        return try {
+            audioTrack?.playState == android.media.AudioTrack.PLAYSTATE_PLAYING
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * Mutex for protecting playback state transitions (start/stop).
+     * This prevents race conditions when startPlayback() and stopPlayback() are called concurrently.
+     * 
+     * Requirements: 1.1, 5.1, 5.2, 7.1, 7.2
+     */
+    private val playbackStateMutex = Mutex()
+    
     // Buffer for playback
     private val outputBufferSize: Int by lazy {
         val minBufferSize = AudioTrack.getMinBufferSize(
@@ -696,9 +798,9 @@ class AudioEngine(
             CHANNEL_CONFIG_OUT,
             AUDIO_FORMAT
         )
-        // Use 8x minimum buffer size for better streaming stability
+        // Use 30x minimum buffer size for better streaming stability
         // Larger buffer prevents audio dropouts (pops/clicks) during network jitter
-        minBufferSize * BUFFER_MULTIPLIER
+        minBufferSize * PLAYBACK_BUFFER_MULTIPLIER
     }
     
     // Playback control methods
@@ -708,8 +810,48 @@ class AudioEngine(
      * Initializes AudioTrack and starts the playback loop.
      */
     fun startPlayback() {
+        // DIAGNOSTIC LOGS - Entry point
+        Log.d(TAG, "🎵 startPlayback() CALLED - Thread: ${Thread.currentThread().name}")
+        Log.d(TAG, "🎵   _isPlaying: ${_isPlaying.value}")
+        Log.d(TAG, "🎵   audioTrack exists: ${audioTrack != null}")
+        Log.d(TAG, "🎵   audioTrack state: ${audioTrack?.state}")
+        Log.d(TAG, "🎵   audioTrack playState: ${audioTrack?.playState}")
+        Log.d(TAG, "🎵   currentGeneration: ${currentGenerationId.get()}")
+        
+        // CRITICAL: Check if already playing - prevent duplicate AudioTrack
+        // Requirements: 1.1, 1.2
         if (_isPlaying.value) {
-            Log.w(TAG, "Playback already started")
+            Log.w(TAG, "⚠️ startPlayback: Already playing, ignoring duplicate call")
+            return
+        }
+        
+        // CRITICAL: Check if AudioTrack already exists
+        // Requirements: 1.1, 1.3
+        if (audioTrack != null) {
+            Log.w(TAG, "startPlayback: AudioTrack already exists, reusing")
+            
+            // If AudioTrack exists but not playing, reuse it
+            if (audioTrack?.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                try {
+                    audioTrack?.play()
+                    Log.i(TAG, "startPlayback: Resumed existing AudioTrack")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error resuming existing AudioTrack", e)
+                    listener?.onError(AudioEngineError.PlaybackFailed("Failed to resume AudioTrack: ${e.message}"))
+                    return
+                }
+            }
+            
+            _isPlaying.value = true
+            
+            // Start playback loop if not already running
+            if (playbackJob == null || playbackJob?.isActive != true) {
+                startPlaybackLoop()
+            }
+            
+            // Notify listener
+            listener?.onPlaybackStarted()
+            
             return
         }
         
@@ -787,39 +929,96 @@ class AudioEngine(
             // Notify listener
             listener?.onPlaybackStarted()
             
-            // Start playback loop on background dispatcher
-            playbackJob = scope.launch(Dispatchers.Default) {
+            // Start playback loop
+            startPlaybackLoop()
+            
+        } catch (e: Exception) {
+            val error = "Failed to start playback: ${e.message}"
+            Log.e(TAG, error, e)
+            listener?.onError(AudioEngineError.PlaybackFailed(error))
+            _isPlaying.value = false
+        }
+    }
+    
+    /**
+     * Starts the playback loop coroutine.
+     * This method is extracted to allow reuse when resuming existing AudioTrack.
+     * 
+     * AUDIO BATCHING FIX: Instead of writing 1920-byte chunks individually (causing
+     * 10+ JNI calls per 3ms and overwhelming the ALSA driver), we now aggregate
+     * multiple chunks into larger batches (8-16KB) before writing to AudioTrack.
+     * This reduces JNI overhead and prevents "trylock fail" errors in the driver.
+     * 
+     * Requirements: 1.7
+     */
+    private fun startPlaybackLoop() {
+        // Cancel any existing playback job
+        playbackJob?.cancel()
+        
+        // BATCHING CONFIGURATION
+        // REDUCED from 16 to 4 chunks to prevent massive queue buildup
+        // Target: 4 chunks per batch = 4 * 1920 = 7680 bytes (~160ms at 24kHz)
+        // This balances latency vs driver stress
+        // Smaller batches = lower latency, more responsive interruption
+        val BATCH_SIZE = 4
+        
+        // Start playback loop on background dispatcher
+        playbackJob = scope.launch(Dispatchers.Default) {
                 try {
-                    Log.i(TAG, "Playback loop started")
+                    Log.i(TAG, "Playback loop started (BATCHING ENABLED: $BATCH_SIZE chunks per write = ${BATCH_SIZE * 1920} bytes)")
                     
+                    var iterationCount = 0
                     while (isActive && _isPlaying.value) {
                         try {
-                            // Get next chunk from queue
-                            val chunk = audioQueueMutex.withLock {
-                                if (audioQueue.isEmpty()) {
-                                    null
-                                } else {
-                                    audioQueue.removeAt(0)
+                            // DIAGNOSTIC LOG - Every 10th iteration to avoid spam
+                            if (iterationCount % 10 == 0) {
+                                Log.d(TAG, "🔄 playbackJob iteration #$iterationCount - queueSize: ${audioQueue.size}, generation: ${currentGenerationId.get()}, audioTrack.state: ${audioTrack?.state}, audioTrack.playState: ${audioTrack?.playState}")
+                            }
+                            iterationCount++
+                            
+                            // === BATCHING: Collect multiple chunks ===
+                            val chunksToWrite = mutableListOf<AudioChunk>()
+                            val currentGen = currentGenerationId.get()
+                            
+                            audioQueueMutex.withLock {
+                                // Take up to BATCH_SIZE chunks from queue
+                                var collected = 0
+                                while (collected < BATCH_SIZE && audioQueue.isNotEmpty()) {
+                                    val chunk = audioQueue.removeAt(0)
+                                    
+                                    // Only collect chunks from current generation
+                                    if (chunk.generationId == currentGen) {
+                                        chunksToWrite.add(chunk)
+                                        collected++
+                                    } else {
+                                        Log.d(TAG, "Skipping queued audio chunk (interrupted, gen ${chunk.generationId} != $currentGen)")
+                                    }
                                 }
                             }
                             
-                            if (chunk == null) {
-                                // Queue empty, wait a bit
+                            if (chunksToWrite.isEmpty()) {
+                                // Queue empty or all chunks invalidated, wait a bit
                                 delay(10)
                                 continue
                             }
                             
-                            // Check if this chunk is still valid (not interrupted)
-                            if (chunk.generationId != currentGenerationId.get()) {
-                                Log.d(TAG, "Skipping queued audio chunk (interrupted)")
-                                continue
+                            // === BATCHING: Aggregate chunks into single buffer ===
+                            val totalSize = chunksToWrite.sumOf { it.data.size }
+                            val batchBuffer = ByteArray(totalSize)
+                            var offset = 0
+                            
+                            for (chunk in chunksToWrite) {
+                                System.arraycopy(chunk.data, 0, batchBuffer, offset, chunk.data.size)
+                                offset += chunk.data.size
                             }
                             
-                            // Play the chunk
+                            Log.d(TAG, "📦 Batched ${chunksToWrite.size} chunks → ${batchBuffer.size} bytes")
+                            
+                            // === Write batched data to AudioTrack ===
                             // CRITICAL: Get AudioTrack reference and check state INSIDE lock
                             val audioTrackInstance = audioTrackMutex.withLock {
                                 // Double check generation ID inside lock
-                                if (chunk.generationId != currentGenerationId.get()) {
+                                if (currentGen != currentGenerationId.get()) {
                                     return@withLock null
                                 }
                                 
@@ -843,15 +1042,14 @@ class AudioEngine(
                             
                             // If we got a valid AudioTrack, write data OUTSIDE the lock
                             if (audioTrackInstance != null) {
-                                // === FIX: Handle partial writes ===
-                                // AudioTrack.write() may not write all bytes at once, especially
-                                // for large chunks. We must loop until all data is written.
+                                // === Handle partial writes ===
+                                // AudioTrack.write() may not write all bytes at once
                                 var totalBytesWritten = 0
-                                val dataSize = chunk.data.size
+                                val dataSize = batchBuffer.size
                                 
                                 while (totalBytesWritten < dataSize) {
                                     // Check cancellation/interruption during write loop
-                                    if (!isActive || chunk.generationId != currentGenerationId.get()) {
+                                    if (!isActive || currentGen != currentGenerationId.get()) {
                                         break
                                     }
                                     
@@ -859,28 +1057,31 @@ class AudioEngine(
                                     
                                     val written = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                                         audioTrackInstance.write(
-                                            chunk.data,
+                                            batchBuffer,
                                             totalBytesWritten, // offset
                                             remaining,
                                             AudioTrack.WRITE_BLOCKING
                                         )
                                     } else {
                                         audioTrackInstance.write(
-                                            chunk.data,
+                                            batchBuffer,
                                             totalBytesWritten,
                                             remaining
                                         )
                                     }
                                     
+                                    // DIAGNOSTIC LOG - Write result
+                                    Log.d(TAG, "✍️ AudioTrack.write() - requested: $remaining, written: $written, generation: $currentGen")
+                                    
                                     if (written < 0) {
                                         // Handle error codes
                                         when (written) {
                                             AudioTrack.ERROR_INVALID_OPERATION -> {
-                                                Log.e(TAG, "AudioTrack ERROR_INVALID_OPERATION")
+                                                Log.e(TAG, "❌ AudioTrack ERROR_INVALID_OPERATION")
                                                 _isPlaying.value = false
                                             }
                                             AudioTrack.ERROR_DEAD_OBJECT -> {
-                                                Log.e(TAG, "AudioTrack ERROR_DEAD_OBJECT")
+                                                Log.e(TAG, "❌ AudioTrack ERROR_DEAD_OBJECT")
                                                 audioTrackMutex.withLock {
                                                     try { audioTrack?.stop() } catch (_: Exception) {}
                                                     try { audioTrack?.release() } catch (_: Exception) {}
@@ -889,19 +1090,21 @@ class AudioEngine(
                                                 }
                                             }
                                             else -> {
-                                                Log.e(TAG, "AudioTrack write error: $written")
+                                                Log.e(TAG, "❌ AudioTrack write error: $written")
                                             }
                                         }
-                                        break // Error occurred, drop rest of chunk
+                                        break // Error occurred, drop rest of batch
                                     }
                                     
                                     totalBytesWritten += written
                                 }
-                                // === END FIX ===
                                 
-                                // Calculate audio level for visualization
-                                val level = calculateAudioLevel(chunk.data, chunk.data.size)
-                                _botAudioLevel.value = level
+                                // Calculate audio level for visualization (use last chunk for simplicity)
+                                val lastChunk = chunksToWrite.lastOrNull()
+                                if (lastChunk != null) {
+                                    val level = calculateAudioLevel(lastChunk.data, lastChunk.data.size)
+                                    _botAudioLevel.value = level
+                                }
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             Log.d(TAG, "Playback loop cancelled (normal)")
@@ -920,20 +1123,27 @@ class AudioEngine(
                     Log.e(TAG, "Fatal error in playback loop", e)
                     listener?.onError(AudioEngineError.PlaybackFailed(e.message ?: "Unknown error"))
                 }
-            }
-            
-        } catch (e: Exception) {
-            val error = "Failed to start playback: ${e.message}"
-            Log.e(TAG, error, e)
-            listener?.onError(AudioEngineError.PlaybackFailed(error))
-            _isPlaying.value = false
         }
     }
     
     /**
      * Stops audio playback.
+     * 
+     * CRITICAL: This method now uses synchronous queue clearing and proper mutex protection
+     * to prevent race conditions. The playback job is cancelled first, then the queue is
+     * cleared synchronously, and finally AudioTrack is stopped, flushed, and released.
+     * 
+     * Requirements: 2.1, 2.2, 6.4, 7.3, 7.4
      */
     fun stopPlayback() {
+        // DIAGNOSTIC LOGS - Entry point
+        Log.d(TAG, "🛑 stopPlayback() CALLED - Thread: ${Thread.currentThread().name}")
+        Log.d(TAG, "🛑   _isPlaying: ${_isPlaying.value}")
+        Log.d(TAG, "🛑   audioTrack exists: ${audioTrack != null}")
+        Log.d(TAG, "🛑   audioTrack state: ${audioTrack?.state}")
+        Log.d(TAG, "🛑   audioTrack playState: ${audioTrack?.playState}")
+        Log.d(TAG, "🛑   queueSize before clear: ${audioQueue.size}")
+        
         if (!_isPlaying.value) {
             Log.w(TAG, "Playback not started")
             return
@@ -942,30 +1152,45 @@ class AudioEngine(
         try {
             _isPlaying.value = false
             
-            // Cancel playback job
+            // 1. Cancel playback coroutine FIRST
+            // Requirements: 7.3, 7.4
             playbackJob?.cancel()
             playbackJob = null
             
-            // Stop and release AudioTrack
-            try {
-                audioTrack?.stop()
-            } catch (e: IllegalStateException) {
-                Log.w(TAG, "AudioTrack already stopped or not initialized", e)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error stopping AudioTrack", e)
-            }
-            
-            try {
-                audioTrack?.release()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error releasing AudioTrack", e)
-            }
-            audioTrack = null
-            
-            // Clear queue
-            scope.launch {
+            // 2. Clear queue SYNCHRONOUSLY (not in separate coroutine)
+            // Requirements: 2.1, 2.2
+            runBlocking {
                 audioQueueMutex.withLock {
+                    val queueSize = audioQueue.size
                     audioQueue.clear()
+                    Log.d(TAG, "🛑   queueSize after clear: ${audioQueue.size} (cleared $queueSize chunks)")
+                }
+            }
+            
+            // 3. Stop, FLUSH, then release AudioTrack
+            // Requirements: 6.4, 2.5
+            runBlocking {
+                audioTrackMutex.withLock {
+                    Log.d(TAG, "🛑   Acquired audioTrackMutex")
+                    try {
+                        audioTrack?.let { track ->
+                            Log.d(TAG, "🛑   Stopping AudioTrack...")
+                            track.stop()
+                            Log.d(TAG, "🛑   AudioTrack stopped - state: ${track.state}, playState: ${track.playState}")
+                            
+                            Log.d(TAG, "🛑   Flushing AudioTrack...")
+                            track.flush()
+                            Log.d(TAG, "🛑   AudioTrack flushed - state: ${track.state}")
+                            
+                            Log.d(TAG, "🛑   Releasing AudioTrack...")
+                            track.release()
+                            Log.d(TAG, "🛑   AudioTrack released")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Error stopping AudioTrack", e)
+                    }
+                    audioTrack = null
+                    Log.d(TAG, "🛑   Released audioTrackMutex")
                 }
             }
             
@@ -979,6 +1204,42 @@ class AudioEngine(
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping playback", e)
             listener?.onError(AudioEngineError.PlaybackFailed("Failed to stop playback: ${e.message}"))
+        }
+    }
+    
+    /**
+     * Thread-safe wrapper for startPlayback() that prevents concurrent start/stop calls.
+     * 
+     * This method wraps startPlayback() in a mutex to ensure that only one playback
+     * state transition can occur at a time. This prevents race conditions where
+     * startPlayback() and stopPlayback() are called simultaneously.
+     * 
+     * Use this method in critical paths where concurrent access is possible
+     * (e.g., from SideEffectExecutor when processing multiple events rapidly).
+     * 
+     * Requirements: 1.1, 5.1, 5.2, 7.1, 7.2
+     */
+    suspend fun startPlaybackSafe() {
+        playbackStateMutex.withLock {
+            startPlayback()
+        }
+    }
+    
+    /**
+     * Thread-safe wrapper for stopPlayback() that prevents concurrent start/stop calls.
+     * 
+     * This method wraps stopPlayback() in a mutex to ensure that only one playback
+     * state transition can occur at a time. This prevents race conditions where
+     * startPlayback() and stopPlayback() are called simultaneously.
+     * 
+     * Use this method in critical paths where concurrent access is possible
+     * (e.g., from SideEffectExecutor when processing multiple events rapidly).
+     * 
+     * Requirements: 1.1, 5.1, 5.2, 7.1, 7.2
+     */
+    suspend fun stopPlaybackSafe() {
+        playbackStateMutex.withLock {
+            stopPlayback()
         }
     }
     
@@ -1004,6 +1265,10 @@ class AudioEngine(
      */
     fun queueAudio(data: ByteArray) {
         val genId = currentGenerationId.get()
+        // DIAGNOSTIC LOG - Queue operation (log every 10th to avoid spam)
+        if (audioQueue.size % 10 == 0) {
+            Log.d(TAG, "📥 queueAudio() - size: ${data.size}, currentGeneration: $genId, queueSize before: ${audioQueue.size}")
+        }
         scope.launch {
             audioQueueMutex.withLock {
                 audioQueue.add(AudioChunk(genId, data))
@@ -1012,15 +1277,50 @@ class AudioEngine(
     }
     
     /**
-     * Clears all queued audio data.
+     * Clears all queued audio data and flushes AudioTrack buffer.
+     * 
+     * CRITICAL: This method increments the generation ID to invalidate in-flight audio chunks,
+     * clears the audio queue, and flushes the AudioTrack buffer to ensure immediate audio stop.
+     * 
+     * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
      */
     fun clearAudioQueue() {
+        // DIAGNOSTIC LOGS - Entry point
+        Log.d(TAG, "🗑️ clearAudioQueue() CALLED")
+        Log.d(TAG, "🗑️   queueSize before: ${audioQueue.size}")
+        Log.d(TAG, "🗑️   currentGeneration before: ${currentGenerationId.get()}")
+        
+        // CRITICAL: Increment generation ID FIRST (atomic operation)
+        // This immediately invalidates any in-flight audio chunks
+        val newGenId = currentGenerationId.incrementAndGet()
+        Log.i(TAG, "🗑️   currentGeneration after: $newGenId")
+        
         scope.launch(Dispatchers.Default) {
             try {
+                // 1. Clear the queue
                 audioQueueMutex.withLock {
                     val queueSize = audioQueue.size
                     audioQueue.clear()
-                    Log.i(TAG, "Cleared audio queue ($queueSize chunks discarded)")
+                    Log.i(TAG, "🗑️   queueSize after clear: ${audioQueue.size} (cleared $queueSize chunks)")
+                }
+                
+                // 2. Flush AudioTrack buffer (if playing)
+                // Use audioTrackMutex to protect AudioTrack operations
+                audioTrackMutex.withLock {
+                    val track = audioTrack
+                    if (track != null && track.state == AudioTrack.STATE_INITIALIZED) {
+                        try {
+                            // Pause → Flush → Play sequence to clear buffer
+                            track.pause()
+                            track.flush()
+                            track.play()
+                            Log.i(TAG, "AudioTrack buffer flushed (pause → flush → play)")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error flushing AudioTrack: ${e.message}")
+                        }
+                    } else {
+                        Log.d(TAG, "AudioTrack not initialized, skipping flush")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error clearing audio queue: ${e.message}", e)
@@ -1035,29 +1335,40 @@ class AudioEngine(
      * 
      * CRITICAL: This method is now SYNCHRONOUS to ensure audio stops immediately.
      * The generation ID increment happens atomically before any async operations.
+     * AudioTrack operations are protected by audioTrackMutex to prevent race conditions.
+     * 
+     * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 8.1, 8.2, 8.3, 8.4, 8.5
      */
     fun interruptPlayback() {
-        // Increment generation FIRST to immediately invalidate in-flight packets
-        // This is atomic and happens before any async operations
-        val newId = currentGenerationId.incrementAndGet()
-        Log.i(TAG, "🛑 Interrupting playback - invalidating pending chunks (New GenID: $newId)")
+        // DIAGNOSTIC LOGS - Entry point
+        Log.d(TAG, "⏸️ interruptPlayback() CALLED")
+        Log.d(TAG, "⏸️   currentGeneration before: ${currentGenerationId.get()}")
         
-        // CRITICAL FIX: Flush AudioTrack SYNCHRONOUSLY on the calling thread
-        // This ensures audio stops immediately, not after some delay
+        // CRITICAL: Increment generation FIRST (atomic operation, outside mutex)
+        // This immediately invalidates any in-flight audio chunks
+        val newId = currentGenerationId.incrementAndGet()
+        Log.i(TAG, "⏸️   currentGeneration after: $newId - Interrupting playback - invalidating pending chunks")
+        
+        // CRITICAL FIX: Flush AudioTrack SYNCHRONOUSLY with mutex protection
+        // This ensures audio stops immediately without race conditions
         try {
-            val audioTrackInstance = audioTrack
-            if (audioTrackInstance != null && audioTrackInstance.state == AudioTrack.STATE_INITIALIZED) {
-                Log.i(TAG, "🛑 Flushing AudioTrack buffer SYNCHRONOUSLY")
-                try {
-                    // Pause first to stop playback immediately
-                    audioTrackInstance.pause()
-                    // Flush to clear buffered audio
-                    audioTrackInstance.flush()
-                    // Resume playback state (ready for next audio)
-                    audioTrackInstance.play()
-                    Log.i(TAG, "✅ AudioTrack flushed successfully")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error flushing audio track: ${e.message}")
+            runBlocking {
+                audioTrackMutex.withLock {
+                    val track = audioTrack
+                    if (track != null && track.state == AudioTrack.STATE_INITIALIZED) {
+                        Log.i(TAG, "🛑 Flushing AudioTrack buffer SYNCHRONOUSLY (with mutex)")
+                        try {
+                            // Pause → Flush → Play sequence to clear buffer
+                            track.pause()
+                            track.flush()
+                            track.play()
+                            Log.i(TAG, "✅ AudioTrack flushed successfully")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error flushing AudioTrack: ${e.message}")
+                        }
+                    } else {
+                        Log.d(TAG, "AudioTrack not initialized, skipping flush")
+                    }
                 }
             }
         } catch (e: Exception) {

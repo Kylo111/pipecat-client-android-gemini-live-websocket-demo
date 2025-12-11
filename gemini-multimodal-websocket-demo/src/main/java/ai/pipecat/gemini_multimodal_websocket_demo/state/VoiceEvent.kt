@@ -308,4 +308,29 @@ sealed class VoiceEvent {
         val handle: String,
         val resumable: Boolean
     ) : VoiceEvent()
+    
+    /**
+     * Session resumption failed.
+     * 
+     * @property reason Reason for resumption failure
+     */
+    data class ResumptionFailed(
+        val reason: String
+    ) : VoiceEvent()
+    
+    /**
+     * Setup timeout occurred - no setupComplete received within timeout period.
+     */
+    object SetupTimeout : VoiceEvent()
+    
+    /**
+     * Gemini API error received.
+     * 
+     * @property code Error code from Gemini API (e.g., "INVALID_ARGUMENT", "RESOURCE_EXHAUSTED")
+     * @property message Error message from Gemini API
+     */
+    data class GeminiError(
+        val code: String,
+        val message: String
+    ) : VoiceEvent()
 }

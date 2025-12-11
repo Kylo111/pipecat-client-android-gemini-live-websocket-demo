@@ -1,0 +1,102 @@
+
+audio_test_log.txt:315:12-10 11:21:07.520 14877 14877 D VoiceClientManager:   Full setup JSON: {"setup":{"model":"models/gemini-2.5-flash-native-audio-preview-09-2025","generation_config":{"response_modalities":["AUDIO"],"speech_config":{"voice_config":{"prebuilt_voice_config":{"voice_name":"Aoede"}}},"temperature":1.0},"system_instruction":{"parts":[{"text":"            You are a helpful assistant for the Kumpel Chat app. Help users understand how to use the app's features including voice conversations, offline mode, LibreChat integration, wake word detection, and the new Assistant Marketplace. Be concise and friendly.\n            \n            === CONVERSATION HISTORY ===\n                                    === RECENT SESSIONS ===\n                                                Session gru 09, 23:58 (0 min):\n                        Poniżej znajduje się podsumowanie rozmowy:\n\n**Podsumowanie Rozmowy**\n\n**1. Główne tematy rozmowy:**\n*   Główne zastosowanie i funkcje aplikacji Kumpel Chat.\n*   Wyjaśnienie funkcji \"trybu offline\".\n*   Wyjaśnienie funkcji \"rozmów głosowych\".\n*   Potrzeba prostszych wyjaśnień ze strony użytkownika.\n\n**2. Kluczowe informacje i wnioski:**\n*   Użytkownik pytał o przeznaczenie aplikacji Kumpel Chat, ze szczególnym uwzględnieniem \"trybu offline\".\n*   Asystent wyjaśnił, że jego rolą jest pomoc w korzystaniu z aplikacji Kumpel Chat i wymienił jej kluczowe funkcje: rozmowy głosowe, tryb offline, integracja z LibreChat, ustawianie słów-wybudzeń (wake words) oraz korzystanie z Assistant Marketplace.\n*   **Rozmowy głosowe** pozwalają na bezpośrednią komunikację głosową z AI, zastępując pisanie.\n*   **Tryb offline** umożliwia tworzenie \"offline conversations\" lub \"botów\" o specyficznych osobowościach lub ekspertyzach (np. tutor językowy, mentor kodowania), które działają bez połączenia z internetem.\n*   Użytkownik wyraził potrzebę prostszych wyjaśnień (\"Ну, по-простому.\").\n\n**3. Ewentualne pytania lub problemy wymagające dalszej uwagi:**\n*   Rozmowa zakończyła się po szczegółowym wyjaśnieniu trybu offline. Nie wiadomo, czy użytkownik ma dalsze pytania dotyczące tej funkcji lub innych funkcji aplikacji.\n*   Początkowe błędy transkrypcji wypowiedzi użytkownika (\"Do czego służy obracać?\") wskazują na trudności w rozpoznawaniu mowy, które mogą wpływać na płynność komunikacji.\n\n**4. Sugerowane następne kroki:**\n*   Potwierdź, czy użytkownik w pełni zrozumiał funkcję trybu offline i czy ma dodatkowe pytania.\n*   Zapytaj, czy użytkownik chciałby dowiedzieć się więcej o innych funkcjach aplikacji Kumpel Chat (np. integracja z LibreChat, słowa-wybudzenia, Assistant Marketplace).\n*   Zaproponuj demonstrację lub wskazówki, jak użytkownik mógłby utworzyć swojego pierwszego bota offline.\n\n                        === LAST SESSION (Full Transcript) ===\n                        Date: gru 10, 11:05\n                        Duration: 4 min\n                        \n                        user:  .\nassistant: Hello! Jak\nassistant:  mogę\nassistant:  pomóc\nassistant:  w korzystaniu\nassistant:  z Kumpel\nassistant:  Chat?\nuser:  <noise>\nassistant: Tak, możesz\nassistant:  używać\nassistant:  marketplace\nassistant:  asystentów,\nassistant:  aby tworzyć\nassistant:  i korzystać\nassistant:  z asystentów\nassistant:  offline\nassistant:  do różnych\nassistant:  zadań.\nassistant:  Chcesz\nassistant:  wiedzieć\nassistant:  więcej\nassistant:  o marketplace?\nuser:  kurva.\nassistant: Przepraszam, nie\nassistant:  rozumiem.\nassistant:  Czy mógłbyś\nassistant:  powtórzyć?\n                        \n                        Note: This is the most recent conversation. User may refer to details from this session.\n            \n            === INSTRUCTIONS ===\n            - Use the conversation history above to provide context-aware responses\n            - Reference previous discussions when relevant\n            - Maintain continuity with past conversations\n            - If user refer
+audio_test_log.txt:1109:12-10 11:21:08.463  1914  2510 V AS.AudioDeviceBroker: onUpdateCommunicationRouteClient, crc: [CommunicationRouteClient: mUid: 10447 mDevice: AudioDeviceAttributes: role:output type:speaker addr: name: profiles:[] descriptors:[] mIsPrivileged: false mPlaybackActive: true mRecordingActive: true] wasBtScoRequested: false eventSource: setNewModeOwner
+audio_test_log.txt:1541:12-10 11:21:09.238 14877 15030 I AudioEngine: AudioManager mode set to MODE_IN_COMMUNICATION (was: 3)
+audio_test_log.txt:1780:12-10 11:21:09.327 14877 15030 I AudioEngine: AEC DISABLED for testing - use headphones!
+audio_test_log.txt:1781:12-10 11:21:09.327 14877 15030 I AudioEngine: NS DISABLED for testing
+audio_test_log.txt:1793:12-10 11:21:09.328 14877  7264 I AudioEngine: Recording started (sample rate: 16000 Hz, buffer size: 38400 bytes)
+audio_test_log.txt:2409:12-10 11:21:13.701 14877   910 D VoiceClientManager:    Side effects (6): NotifyBotStartedTalking, StartPlayback, QueueAudio, StartSilenceDetection, StopAutoPauseTimer, PauseRecording
+audio_test_log.txt:2418:12-10 11:21:13.702 14877   910 D SideEffectExecutor: 🔊 Side effect: StartPlayback
+audio_test_log.txt:2420:12-10 11:21:13.703 14877 15030 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2422:12-10 11:21:13.703 14877 15030 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2430:12-10 11:21:13.705 14877 32381 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2431:12-10 11:21:13.705 14877 32381 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2444:12-10 11:21:13.707 14877   911 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2447:12-10 11:21:13.707 14877   911 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2457:12-10 11:21:13.709 14877  7267 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2460:12-10 11:21:13.710 14877  7267 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2466:12-10 11:21:13.711 14877   911 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2467:12-10 11:21:13.711 14877   911 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2474:12-10 11:21:13.713 14877 15030 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2475:12-10 11:21:13.713 14877 15030 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2504:12-10 11:21:13.727 14877  7267 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2506:12-10 11:21:13.727 14877  7267 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2507:12-10 11:21:13.727 14877   910 D AudioTrack: createTrack_l(718): 0xb400007386d39bc0, mCblk = 0x7452d75000, mLatency = 1352, mAfLatency = 62, frameCount = 30960, mSampleRate = 24000, mFlags = 0, mReqFrameCount = 30960, mNotificationFramesAct = 10320
+audio_test_log.txt:2530:12-10 11:21:13.731 14877 15050 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2541:12-10 11:21:13.732 14877   910 D AudioTrack: start(718): 0xb400007386d39bc0, prior state:STATE_STOPPED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+audio_test_log.txt:2558:12-10 11:21:13.737 14877 15050 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2566:12-10 11:21:13.739 14877  7265 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2569:12-10 11:21:13.740 14877  7265 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2575:12-10 11:21:13.741 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2576:12-10 11:21:13.741 14877  7580 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2584:12-10 11:21:13.742 14877  7265 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2585:12-10 11:21:13.742 14877  7265 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2595:12-10 11:21:13.743 14877 32381 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2598:12-10 11:21:13.743 14877 32381 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2613:12-10 11:21:13.746 14877 32381 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2614:12-10 11:21:13.746 14877 32381 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2625:12-10 11:21:13.748 14877   910 I AudioEngine: Playback started (sample rate: 24000 Hz, buffer size: 61920 bytes)
+audio_test_log.txt:2626:12-10 11:21:13.748 14877   910 I AudioEngine:   Buffer duration: ~1290ms
+audio_test_log.txt:2640:12-10 11:21:13.750  1210  8096 D AudioALSAStreamManager: +createPlaybackHandler(), mAudioMode = 3, output_devices = 0x2, isMixerOut = 0, isBypassAurisys = 0, flag = 32768, isIEMsSource = 0, isIEMsOn = 0
+audio_test_log.txt:2643:12-10 11:21:13.750  1210  8096 D AudioALSAPlaybackHandlerMixer: open(+), source flag 32768, mDevice = 0x2, buffer_size 8192, sample_rate 48000
+audio_test_log.txt:2644:12-10 11:21:13.751  1210  8096 D AudioALSAPlaybackHandlerBase: CreateAurisysLibManager, ph type: 11, voip: 1, mAurisysScenario: 6
+audio_test_log.txt:2648:12-10 11:21:13.751 14877   910 D VCMListeners: AudioEngine playback started
+audio_test_log.txt:2652:12-10 11:21:13.752 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (46080 bytes)
+audio_test_log.txt:2665:12-10 11:21:13.753 14877 32381 I AudioEngine: Playback loop started
+audio_test_log.txt:2688:12-10 11:21:13.755 14877   910 I AudioEngine: Recording paused (half-duplex mode)
+audio_test_log.txt:2690:12-10 11:21:13.757  1210  8096 D audio_sw_mixer: sw_mixer_source_attach(), MIXER_PLAYBACK  , name T_VOIP       order 6 sz 8192 fmt 3 ch 2 rate 48000 latency_us 21333
+audio_test_log.txt:2692:12-10 11:21:13.757  1210  8096 D AudioALSAStreamManager: +createPlaybackHandler(), mAudioMode = 3, output_devices = 0x2, isMixerOut = 1, isBypassAurisys = 1, flag = 32768, isIEMsSource = 0, isIEMsOn = 0
+audio_test_log.txt:2695:12-10 11:21:13.757  1210  8096 D AudioALSAPlaybackHandlerNormal: +open(), flag = 32768, source output_devices = 0x2, audio_format = 3, buffer_size = 8192, sample_rate = 48000, channels = 2
+audio_test_log.txt:2696:12-10 11:21:13.757  1210  8096 D AudioALSADeviceParser: compare pcm success = 1, stringpair = Playback_12
+audio_test_log.txt:2697:12-10 11:21:13.757  1210  8096 D AudioALSADeviceConfigManager: ApplyDeviceTurnonSequenceByName() DeviceName = PLAYBACK12_TO_ADDA_DL descriptor->DeviceStatusCounte = 0, Ctlsize=4
+audio_test_log.txt:2703:12-10 11:21:13.761  1210  8096 D AudioALSAPlaybackHandlerBase: transferAudioFormatToPcmFormat(), audio_format(0x4) => pcm_format(0x3)
+audio_test_log.txt:2704:12-10 11:21:13.761  1210  8096 D AudioALSAPlaybackHandlerNormal: open(), flag = 32768, mConfig: channels = 2, sample_rate(target) = 48000, period_size = 1024, period_count = 2, format = 3, avail_min = 1024, start_threshold = 2048
+audio_test_log.txt:2710:12-10 11:21:13.763  1210  8096 D AudioALSAPlaybackHandlerBase: openPcmDriverWithFlag(), pcm device = 1 flag = 0x8 mPcm = 0xb400007cf8f00c50
+audio_test_log.txt:2711:12-10 11:21:13.764  1210  8096 D AudioALSAPlaybackHandlerBase: CreateAurisysLibManager, ph type: 12, voip: 1, mAurisysScenario: 9
+audio_test_log.txt:2784:12-10 11:21:13.771 14877  7265 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2785:12-10 11:21:13.772 14877  7265 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2791:12-10 11:21:13.773 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2792:12-10 11:21:13.773 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2811:12-10 11:21:13.784 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2812:12-10 11:21:13.785 14877  7580 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2816:12-10 11:21:13.785  1210  8096 D AudioALSAVoiceWakeUpController: updateSpeakerPlaybackStatus(), isSpeakerPlaying = 1
+audio_test_log.txt:2817:12-10 11:21:13.785  1210  8096 D AudioALSAPlaybackHandlerNormal: -open()
+audio_test_log.txt:2818:12-10 11:21:13.785  1210  8096 D audio_sw_mixer: sw_mixer_target_attach(), MIXER_PLAYBACK  , name T_PRIMARY    order 4 sz 8192 fmt 3 ch 2 rate 48000 latency_us 21333
+audio_test_log.txt:2819:12-10 11:21:13.785  1210  8096 D audio_sw_mixer: sw_mixer_manager_create_path(), MIXER_PLAYBACK  , path T_VOIP=>T_PRIMARY   , source: order 6 sz 8192 fmt 3 ch 2 rate 48000 latency_us 21333, target: order 4 sz 8192 fmt 3 ch 2 rate 48000 latency_us 21333
+audio_test_log.txt:2820:12-10 11:21:13.785  1210  8096 D audio_sw_mixer: dump_path_list(), MIXER_PLAYBACK  , T_VOIP=>T_PRIMARY   [8192, 6, y] 
+audio_test_log.txt:2821:12-10 11:21:13.785  1210  8096 D AudioALSAPlaybackHandlerMixer: open(-), target flag 32768, mDevice 0x2, buffer_size 8192, frame_count 1024, sample_rate 48000
+audio_test_log.txt:2824:12-10 11:21:13.785  1210  8096 D sixth_if_gift: sixth_arsi_set_key_value_pair(), key value pair = SetPlaybackBoost=0 value = 0
+audio_test_log.txt:2827:12-10 11:21:13.785  1210  8096 D aurisys_lib_handler: lib_name sia81xx_sixth, 0xb400007cc8efc150, ADB_CMD_KEY_VALUE: set 512, 18, SetPlaybackBoost=0, retval 0
+audio_test_log.txt:2830:12-10 11:21:13.785  1210  8096 D AudioALSAHardware: [DEBUG] setCachedParam2soundfx: targetScenario PLAYBACK_NORMAL
+audio_test_log.txt:2838:12-10 11:21:13.786  1210  8096 D AudioALSAPlaybackHandlerNormal: setScreenState(), flag = 0x8000, mode = 1, sample_rate(source/target) = 48000/48000, buffer_size(source/target) = 8192/16384, device_support_hifi = 0
+audio_test_log.txt:2839:12-10 11:21:13.786  1210  8096 D AudioALSAPlaybackHandlerNormal: setScreenState(), flag = 32768, rate = 1024, mInterrupt = 0.021333, mode = 1, sample_rate(target) = 48000, buffer_size = 8192, channel = 2, format = 4, reduceInterruptSize = 1024
+audio_test_log.txt:2840:12-10 11:21:13.786  1210  1858 D audio_sw_mixer: sw_mixer_wait_to_mix(), MIXER_PLAYBACK  , target T_PRIMARY    thread enter direct mode
+audio_test_log.txt:2844:12-10 11:21:13.790  1210  8096 E AudioALSAPlaybackHandlerBase: getQueuedFramesInfo(), pcm_get_htimestamp or trylock fail, ret -1, pcm_get_error 
+audio_test_log.txt:2856:12-10 11:21:13.798 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2857:12-10 11:21:13.799 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2863:12-10 11:21:13.800 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2864:12-10 11:21:13.800 14877  7580 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2874:12-10 11:21:13.807 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2875:12-10 11:21:13.807 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2885:12-10 11:21:13.819 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2886:12-10 11:21:13.819 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2895:12-10 11:21:13.840 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2897:12-10 11:21:13.841 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2905:12-10 11:21:13.843 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2906:12-10 11:21:13.844 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2915:12-10 11:21:13.850 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2916:12-10 11:21:13.850 14877  7580 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2926:12-10 11:21:13.920 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2927:12-10 11:21:13.920 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2936:12-10 11:21:13.923 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2937:12-10 11:21:13.923 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2946:12-10 11:21:13.926 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2947:12-10 11:21:13.926 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2956:12-10 11:21:13.930 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2957:12-10 11:21:13.930 14877  7580 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2966:12-10 11:21:13.933 14877   910 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2967:12-10 11:21:13.933 14877   910 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2976:12-10 11:21:13.937 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+audio_test_log.txt:2977:12-10 11:21:13.937 14877  7580 D SideEffectExecutor: 🔊 Side effect: QueueAudio (1920 bytes)
+audio_test_log.txt:2985:12-10 11:21:13.939 14877  7580 D VoiceClientManager:    Side effects (1): QueueAudio
+

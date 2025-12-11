@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var networkMonitor: NetworkMonitor
-    private lateinit var voiceClientManager: VoiceClientManager
+    private lateinit var voiceClientManager: VoiceClientManagerSimple
     private lateinit var navigationController: NavigationController
     private lateinit var conversationLauncher: ConversationLauncher
     
@@ -124,8 +124,8 @@ class MainActivity : ComponentActivity() {
         // Create sessionManager first with lifecycleScope for transcript sync
         val sessionManager = SessionManager(this, libreChatService, lifecycleScope)
         
-        // Create voiceClientManager with sessionManager and store as instance variable
-        voiceClientManager = VoiceClientManager(this, sessionManager)
+        // Create voiceClientManager using the new simplified audio core
+        voiceClientManager = VoiceClientManagerSimple(this, sessionManager)
         
         // Set voiceClientManager reference in sessionManager (circular dependency resolution)
         sessionManager.voiceClientManager = voiceClientManager
@@ -1000,7 +1000,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ConnectSettings(
-    voiceClientManager: VoiceClientManager,
+    voiceClientManager: VoiceClientManagerSimple,
     onSettingsClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
