@@ -20,7 +20,8 @@ enum class Screen {
     CONNECT,
     IN_CALL,
     SETTINGS,
-    THEME_SELECTION
+    THEME_SELECTION,
+    MARKETPLACE
 }
 
 /**
@@ -157,6 +158,7 @@ class NavigationController(
             Screen.SETTINGS -> _currentScreen.value = Screen.THREAD_LIST
             Screen.THEME_SELECTION -> _currentScreen.value = Screen.SETTINGS
             Screen.CONNECT -> _currentScreen.value = Screen.THREAD_LIST
+            Screen.MARKETPLACE -> _currentScreen.value = Screen.THREAD_LIST
             else -> { /* No back navigation for LOGIN and THREAD_LIST */ }
         }
     }

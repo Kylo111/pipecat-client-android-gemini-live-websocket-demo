@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -22,13 +23,17 @@ import kotlinx.serialization.json.JsonElement
  * - Exposes Compose state for UI
  * - Wires events between components
  * - Manages lifecycle
+ * - Handles auto-mute timers (user inactivity and bot response timeout)
  * 
  * Requirements: 5.1, 5.2
  */
 class VoiceClientManager(
     private val context: Context,
     private val apiKey: String,
-    private val model: String = "gemini-2.5-flash-exp"
+    private val model: String = "gemini-2.5-flash-exp",
+    private val autoMuteTimeoutSeconds: Int = 60,
+    private val botResponseTimeoutMinutes: Int = 5,
+    private val activityThreshold: Float = 0.02f
 ) {
     companion object {
         private const val TAG = "VoiceClientManager"
@@ -50,6 +55,14 @@ class VoiceClientManager(
     )
     
     private val audioDeviceHandler = AudioDeviceHandler(context)
+    
+    // Auto-mute monitor for timer-based muting
+    private val autoMuteMonitor = AutoMuteMonitor(
+        scope = scope,
+        autoMuteTimeoutSeconds = autoMuteTimeoutSeconds,
+        botResponseTimeoutMinutes = botResponseTimeoutMinutes,
+        activityThreshold = activityThreshold
+    )
     
     // Tool executor for function calling
     private val toolExecutor = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolExecutor(context)
@@ -80,8 +93,32 @@ class VoiceClientManager(
     private val _botAudioLevel = mutableStateOf(0f)
     val botAudioLevel: State<Float> = _botAudioLevel
     
+    // Timer state (exposed for UI)
+    val secondsUntilAutoMute: StateFlow<Int> = autoMuteMonitor.secondsUntilAutoMute
+    val minutesUntilBotTimeout: StateFlow<Int> = autoMuteMonitor.minutesUntilBotTimeout
+    
     init {
         wireEvents()
+        wireAutoMuteMonitor()
+    }
+    
+    /**
+     * Wire auto-mute monitor events.
+     * 
+     * Requirements: 5.2
+     */
+    private fun wireAutoMuteMonitor() {
+        autoMuteMonitor.listener = object : AutoMuteMonitorListener {
+            override fun onAutoMuteTriggered() {
+                Log.i(TAG, "⏱️ Auto-mute triggered - user inactivity")
+                setMuted(true)
+            }
+            
+            override fun onBotResponseTimeout() {
+                Log.i(TAG, "⏱️ Bot response timeout - muting microphone")
+                setMuted(true)
+            }
+        }
     }
     
     /**
@@ -163,7 +200,9 @@ class VoiceClientManager(
             if (!_isMuted.value) {
                 geminiClient.sendAudio(audioData)
                 // Update user audio level (simple RMS calculation)
-                updateUserAudioLevel(audioData)
+                val audioLevel = updateUserAudioLevel(audioData)
+                // Reset auto-mute timer on user activity
+                autoMuteMonitor.resetAutoMuteTimer(audioLevel)
             }
         }
         
@@ -177,11 +216,13 @@ class VoiceClientManager(
     /**
      * Update user audio level from recorded audio data.
      * Simple RMS calculation for visualization.
+     * 
+     * @return Normalized audio level (0.0-1.0)
      */
-    private fun updateUserAudioLevel(audioData: ByteArray) {
+    private fun updateUserAudioLevel(audioData: ByteArray): Float {
         if (audioData.isEmpty()) {
             _userAudioLevel.value = 0f
-            return
+            return 0f
         }
         
         // Calculate RMS of PCM16 data
@@ -196,6 +237,7 @@ class VoiceClientManager(
         val rms = Math.sqrt(sum / (audioData.size / 2))
         val normalized = (rms / 32768.0).toFloat().coerceIn(0f, 1f)
         _userAudioLevel.value = normalized
+        return normalized
     }
     
     /**
@@ -207,6 +249,7 @@ class VoiceClientManager(
     private fun onGeminiAudio(audioData: ByteArray) {
         if (!_isBotSpeaking.value) {
             _isBotSpeaking.value = true
+            autoMuteMonitor.setBotTalking(true)
             Log.d(TAG, "🤖 Bot started speaking")
         }
         
@@ -214,6 +257,9 @@ class VoiceClientManager(
         
         // Update bot audio level (simple RMS calculation)
         updateBotAudioLevel(audioData)
+        
+        // Update bot response timer
+        autoMuteMonitor.updateBotResponseTime()
     }
     
     /**
@@ -250,6 +296,7 @@ class VoiceClientManager(
         Log.i(TAG, "🚫 Interrupted by user")
         audioEngine.flush()
         _isBotSpeaking.value = false
+        autoMuteMonitor.setBotTalking(false)
     }
     
     /**
@@ -269,6 +316,7 @@ class VoiceClientManager(
             
             Log.i(TAG, "🎵 Playback finished")
             _isBotSpeaking.value = false
+            autoMuteMonitor.setBotTalking(false)
         }
     }
     
@@ -312,6 +360,10 @@ class VoiceClientManager(
             audioEngine.startPlayback()
             audioEngine.startRecording()
             
+            // Start auto-mute timers
+            autoMuteMonitor.startAutoMuteTimer()
+            autoMuteMonitor.startBotResponseTimer()
+            
             Log.i(TAG, "✅ Connected successfully")
             
         } catch (e: Exception) {
@@ -337,6 +389,10 @@ class VoiceClientManager(
         
         Log.i(TAG, "🔌 Disconnecting...")
         
+        // Stop auto-mute timers
+        autoMuteMonitor.stopAutoMuteTimer()
+        autoMuteMonitor.stopBotResponseTimer()
+        
         // Stop audio engine
         audioEngine.stopRecording()
         audioEngine.stopPlayback()
@@ -357,11 +413,19 @@ class VoiceClientManager(
      * Set muted state.
      * When muted, audio recording continues but is not sent to Gemini.
      * 
+     * When unmuting, timers are restarted.
+     * 
      * Requirements: 5.2
      */
     fun setMuted(muted: Boolean) {
         _isMuted.value = muted
         Log.i(TAG, "🎤 Muted: $muted")
+        
+        // When unmuting, restart timers
+        if (!muted && _connectionState.value == ConnectionState.CONNECTED) {
+            autoMuteMonitor.startAutoMuteTimer()
+            autoMuteMonitor.startBotResponseTimer()
+        }
     }
     
     /**
@@ -402,6 +466,7 @@ class VoiceClientManager(
      */
     fun release() {
         disconnect()
+        autoMuteMonitor.release()
         audioEngine.release()
         Log.i(TAG, "Released")
     }

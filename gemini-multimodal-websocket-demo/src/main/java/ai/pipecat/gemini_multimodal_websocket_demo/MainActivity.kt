@@ -6,6 +6,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.navigation.Screen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.BackPressHandler
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.InCallLayout
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.LoginScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.MarketplaceScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.NetworkStatusBanner
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
@@ -13,6 +14,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ConversationListScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.usecases.ImportAssistantUseCase
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationType
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
@@ -337,6 +339,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onLogout = {
                                         navigationController.logout()
+                                    },
+                                    onMarketplaceClick = {
+                                        navigationController.navigateTo(Screen.MARKETPLACE)
                                     }
                                 )
                             }
@@ -370,6 +375,26 @@ class MainActivity : ComponentActivity() {
                                 ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen(
                                     onBack = {
                                         navigationController.navigateTo(Screen.SETTINGS)
+                                    }
+                                )
+                            }
+                            Screen.MARKETPLACE -> {
+                                val app = applicationContext as RTVIApplication
+                                val importUseCase = remember {
+                                    ImportAssistantUseCase(
+                                        offlineConversationManager = OfflineConversationManager,
+                                        configRepository = app.configRepository
+                                    )
+                                }
+                                
+                                MarketplaceScreen(
+                                    configRepository = app.configRepository,
+                                    importUseCase = importUseCase,
+                                    onBack = {
+                                        navigationController.navigateTo(Screen.THREAD_LIST)
+                                    },
+                                    onImportSuccess = {
+                                        navigationController.navigateTo(Screen.THREAD_LIST)
                                     }
                                 )
                             }

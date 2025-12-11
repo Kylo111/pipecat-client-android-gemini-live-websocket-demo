@@ -90,8 +90,22 @@ class VoiceClientManagerSimple(
         
         Log.d(TAG, "🔍 [DIAGNOSTIC] Using model: $model")
         
+        // Get auto-mute settings from preferences
+        val autoMuteTimeoutSeconds = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.autoPauseTimeoutSeconds.value
+        val botResponseTimeoutMinutes = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.botResponseTimeoutMinutes.value
+        val activityThreshold = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.activityDetectionThreshold.value
+        
+        Log.d(TAG, "🔍 [DIAGNOSTIC] Auto-mute settings: timeout=${autoMuteTimeoutSeconds}s, botTimeout=${botResponseTimeoutMinutes}min, threshold=$activityThreshold")
+        
         // Create new simplified manager
-        simpleManager = SimpleVoiceClientManager(context, apiKey, model)
+        simpleManager = SimpleVoiceClientManager(
+            context = context,
+            apiKey = apiKey,
+            model = model,
+            autoMuteTimeoutSeconds = autoMuteTimeoutSeconds,
+            botResponseTimeoutMinutes = botResponseTimeoutMinutes,
+            activityThreshold = activityThreshold
+        )
         
         // Wire state updates
         wireStateUpdates()
@@ -304,6 +318,17 @@ class VoiceClientManagerSimple(
         }
         
         scope.launch {
+            // Observe muted state
+            snapshotFlow { manager.isMuted.value }
+                .collect { isMuted ->
+                    _uiState.value = _uiState.value.copy(
+                        isPaused = isMuted,
+                        isMicEnabled = !isMuted
+                    )
+                }
+        }
+        
+        scope.launch {
             // Observe transcripts and send to SessionManager
             snapshotFlow { manager.userTranscript.value }
                 .collect { transcript ->
@@ -353,6 +378,20 @@ class VoiceClientManagerSimple(
                     errors.clear()
                     errors.addAll(errorList)
                 }
+        }
+        
+        scope.launch {
+            // Observe auto-mute timer
+            manager.secondsUntilAutoMute.collect { seconds ->
+                _uiState.value = _uiState.value.copy(secondsUntilAutoPause = seconds)
+            }
+        }
+        
+        scope.launch {
+            // Observe bot response timeout timer
+            manager.minutesUntilBotTimeout.collect { minutes ->
+                _uiState.value = _uiState.value.copy(minutesUntilBotTimeout = minutes)
+            }
         }
         
         scope.launch {
