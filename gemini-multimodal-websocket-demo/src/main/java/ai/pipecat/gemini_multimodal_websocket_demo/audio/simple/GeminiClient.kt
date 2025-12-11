@@ -231,6 +231,39 @@ class GeminiClient(
     }
     
     /**
+     * Send image to Gemini.
+     * 
+     * @param imageData Image data (JPEG format)
+     * @param mimeType MIME type of the image (e.g., "image/jpeg")
+     * 
+     * Requirements: 6.1
+     */
+    fun sendImage(imageData: ByteArray, mimeType: String = "image/jpeg") {
+        if (!_isConnected) {
+            Log.w(TAG, "Cannot send image - not connected")
+            return
+        }
+        
+        scope.launch(Dispatchers.IO) {
+            try {
+                // Encode image to Base64
+                val base64Image = Base64.encodeToString(imageData, Base64.NO_WRAP)
+                
+                Log.i(TAG, "Sending image: ${imageData.size} bytes, Base64: ${base64Image.length} chars")
+                
+                // Build message using protocol
+                val message = protocol.serializeImageInput(base64Image, mimeType)
+                webSocket?.send(message)
+                
+                Log.i(TAG, "Image sent successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending image", e)
+                onError?.invoke(e)
+            }
+        }
+    }
+    
+    /**
      * Send tool execution result back to Gemini.
      * 
      * @param callId Tool call ID (from ToolCall event)

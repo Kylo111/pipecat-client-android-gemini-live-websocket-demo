@@ -175,19 +175,78 @@ class VoiceClientManagerSimple(
     }
     
     /**
-     * Toggle speakerphone (not implemented in simplified version).
+     * Toggle speakerphone on/off.
      */
     fun toggleSpeakerphone() {
-        Log.d(TAG, "toggleSpeakerphone() - not implemented in simplified version")
-        // AudioDeviceHandler manages device routing automatically
+        Log.d(TAG, "toggleSpeakerphone() called")
+        simpleManager?.toggleSpeakerphone()
+        
+        // Update UI state to reflect speakerphone change
+        val isSpeakerOn = simpleManager?.isSpeakerphoneOn() ?: false
+        _uiState.value = _uiState.value.copy(isSpeakerphoneOn = isSpeakerOn)
     }
     
+    // Image processor
+    private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
+    private var imageProcessingJob: kotlinx.coroutines.Job? = null
+    
     /**
-     * Send image (not implemented in simplified version).
+     * Send image to Gemini.
+     * Processes the image (resize, compress) and sends it through the WebSocket.
      */
     fun sendImage(uri: Uri) {
-        Log.d(TAG, "sendImage() - not implemented in simplified version")
-        errors.add(Error("Image sending not yet implemented"))
+        Log.d(TAG, "sendImage() called - URI: $uri")
+        
+        val manager = simpleManager
+        if (manager == null) {
+            Log.w(TAG, "Cannot send image - not connected")
+            errors.add(Error("Cannot send image - not connected"))
+            return
+        }
+        
+        // Cancel any existing image processing job
+        imageProcessingJob?.cancel()
+        
+        // Launch image processing job
+        imageProcessingJob = scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                Log.i(TAG, "Processing image...")
+                
+                // Process image (resize, compress)
+                val result = imageProcessor.processImage(uri)
+                
+                result.onSuccess { processedImage ->
+                    Log.i(TAG, "Image processed successfully:")
+                    Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
+                    Log.i(TAG, "  Dimensions: ${processedImage.dimensions.first}x${processedImage.dimensions.second}")
+                    Log.i(TAG, "  MIME type: ${processedImage.mimeType}")
+                    
+                    // Send to Gemini
+                    manager.sendImage(processedImage.data, processedImage.mimeType)
+                    
+                    // Record in session manager
+                    val imageDescription = "Image sent: ${uri.lastPathSegment ?: "unknown"} " +
+                            "(${processedImage.processedSize} bytes, ${processedImage.dimensions.first}x${processedImage.dimensions.second})"
+                    sessionManager?.recordImageSent(imageDescription)
+                    
+                    Log.i(TAG, "Image sent successfully")
+                    
+                }.onFailure { error ->
+                    Log.e(TAG, "Image processing failed: ${error.message}", error)
+                    
+                    val errorMessage = when (error) {
+                        is OutOfMemoryError -> "Image too large to process. Please select a smaller image."
+                        else -> "Failed to process image: ${error.message}"
+                    }
+                    
+                    errors.add(Error(errorMessage))
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending image: ${e.message}", e)
+                errors.add(Error("Error sending image: ${e.message}"))
+            }
+        }
     }
     
     /**
@@ -294,6 +353,17 @@ class VoiceClientManagerSimple(
                     errors.clear()
                     errors.addAll(errorList)
                 }
+        }
+        
+        scope.launch {
+            // Periodically update speakerphone state (every 500ms)
+            while (true) {
+                val isSpeakerOn = manager.isSpeakerphoneOn()
+                if (_uiState.value.isSpeakerphoneOn != isSpeakerOn) {
+                    _uiState.value = _uiState.value.copy(isSpeakerphoneOn = isSpeakerOn)
+                }
+                kotlinx.coroutines.delay(500)
+            }
         }
     }
 }

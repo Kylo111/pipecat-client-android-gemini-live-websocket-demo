@@ -365,6 +365,30 @@ class VoiceClientManager(
     }
     
     /**
+     * Check if speakerphone is currently enabled.
+     */
+    fun isSpeakerphoneOn(): Boolean {
+        return audioDeviceHandler.isSpeakerphoneOn()
+    }
+    
+    /**
+     * Toggle speakerphone on/off.
+     */
+    fun toggleSpeakerphone() {
+        audioDeviceHandler.toggleSpeakerphone()
+    }
+    
+    /**
+     * Send image to Gemini.
+     * 
+     * @param imageData Image data (JPEG format)
+     * @param mimeType MIME type of the image (e.g., "image/jpeg")
+     */
+    fun sendImage(imageData: ByteArray, mimeType: String = "image/jpeg") {
+        geminiClient.sendImage(imageData, mimeType)
+    }
+    
+    /**
      * Stop the voice client (alias for disconnect for compatibility).
      * Used by SessionManager.
      */

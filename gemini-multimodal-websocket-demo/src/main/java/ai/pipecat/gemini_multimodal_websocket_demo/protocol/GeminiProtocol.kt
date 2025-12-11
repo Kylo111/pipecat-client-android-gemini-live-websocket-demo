@@ -398,6 +398,30 @@ class GeminiProtocol {
         
         return json.encodeToString(response)
     }
+    
+    /**
+     * Serialize an image input to JSON.
+     * 
+     * Sends an image to Gemini using the realtime_input format.
+     * The image must be Base64-encoded.
+     * 
+     * @param base64Image Base64-encoded image data
+     * @param mimeType MIME type of the image (e.g., "image/jpeg")
+     */
+    fun serializeImageInput(base64Image: String, mimeType: String = "image/jpeg"): String {
+        val message = buildJsonObject {
+            putJsonObject("realtime_input") {
+                putJsonArray("media_chunks") {
+                    add(buildJsonObject {
+                        put("mime_type", mimeType)
+                        put("data", base64Image)
+                    })
+                }
+            }
+        }
+        
+        return json.encodeToString(message)
+    }
 }
 
 // Data classes for serialization (moved from VoiceClientManager)

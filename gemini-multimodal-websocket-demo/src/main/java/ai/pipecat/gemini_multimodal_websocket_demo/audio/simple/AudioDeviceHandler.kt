@@ -154,4 +154,43 @@ class AudioDeviceHandler(private val context: Context) {
             else -> "Unknown ($type)"
         }
     }
+    
+    /**
+     * Check if speakerphone is currently enabled.
+     */
+    fun isSpeakerphoneOn(): Boolean {
+        return audioManager.isSpeakerphoneOn
+    }
+    
+    /**
+     * Enable or disable speakerphone manually.
+     * This overrides automatic routing.
+     * 
+     * @param enabled true to enable speakerphone, false to disable
+     */
+    fun setSpeakerphone(enabled: Boolean) {
+        try {
+            Log.i(TAG, "🔊 ${if (enabled) "Enabling" else "Disabling"} speakerphone manually")
+            audioManager.isSpeakerphoneOn = enabled
+            
+            if (enabled) {
+                Log.i(TAG, "   ✅ Speakerphone enabled")
+            } else {
+                Log.i(TAG, "   ✅ Speakerphone disabled, reverting to automatic routing")
+                // After disabling speakerphone, update routing to use best available device
+                updateAudioDevice()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "   ❌ Error setting speakerphone: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Toggle speakerphone on/off.
+     */
+    fun toggleSpeakerphone() {
+        val currentState = isSpeakerphoneOn()
+        Log.i(TAG, "🔊 Toggling speakerphone: $currentState -> ${!currentState}")
+        setSpeakerphone(!currentState)
+    }
 }
