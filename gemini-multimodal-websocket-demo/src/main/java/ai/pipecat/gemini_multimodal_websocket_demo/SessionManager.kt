@@ -36,7 +36,7 @@ class SessionManager(
     private val geminiSummaryService = GeminiSummaryService(context)
     
     // VoiceClientManager reference (set after construction to avoid circular dependency)
-    var voiceClientManager: VoiceClientManagerSimple? = null
+    var voiceClientManager: VoiceClientManager? = null
     
     // Transcript sync manager for reliable transcript synchronization
     private val transcriptSyncManager = TranscriptSyncManager()

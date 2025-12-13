@@ -2,7 +2,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo.navigation
 
 import ai.pipecat.gemini_multimodal_websocket_demo.AuthManager
 import ai.pipecat.gemini_multimodal_websocket_demo.SessionManager
-import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManagerSimple
+import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManager
 import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +31,7 @@ enum class Screen {
 class NavigationController(
     private val authManager: AuthManager,
     private val sessionManager: SessionManager,
-    private val voiceClientManager: VoiceClientManagerSimple,
+    private val voiceClientManager: VoiceClientManager,
     private val scope: CoroutineScope
 ) {
     companion object {
