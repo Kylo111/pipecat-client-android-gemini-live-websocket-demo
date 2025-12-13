@@ -4,80 +4,137 @@ This document describes the state machines and lifecycle management in the voice
 
 ## Overview
 
-The system uses multiple coordinated state machines to manage connection lifecycle, service lifecycle, and audio pipeline states. Understanding these state transitions is critical for debugging and extending the system.
+The system has been refactored to use a proper state machine architecture with VoiceSessionState sealed class. The complex boolean flag system has been replaced with mutually exclusive states that prevent race conditions and make the system more predictable. The state machine is now the central coordination mechanism for all voice session operations.
 
-## ConnectionState State Machine
+## VoiceSessionState State Machine (New Architecture)
 
 ### States
 
-**DISCONNECTED**
-- **Description:** No active connection, system idle
+**Idle**
+- **Description:** No active session, system idle
 - **Characteristics:**
-  - WebSocket is null
+  - No WebSocket connection
   - Audio resources released
   - Wake lock released
   - No foreground service running
 - **UI Indicators:** Connect button enabled, status shows "Disconnected"
+- **Valid Transitions:** StartRequested → Connecting
 
-**CONNECTING**
-- **Description:** Initial connection attempt in progress
+**Connecting**
+- **Description:** WebSocket connecting, waiting for setupComplete
 - **Characteristics:**
-  - WebSocket connection initiated
-  - Waiting for setupComplete message
+  - WebSocket connection in progress
+  - Waiting for Gemini setupComplete message
   - Audio resources not yet allocated
+  - Optional ThreadSettings for session configuration
 - **UI Indicators:** Loading spinner, status shows "Connecting..."
+- **Valid Transitions:** 
+  - SetupComplete → Listening
+  - WebSocketError → Error
+  - StopRequested → Idle
 
-**CONNECTED**
-- **Description:** Active conversation, audio streaming
+**Listening**
+- **Description:** Connected and ready - user can speak, bot waiting
 - **Characteristics:**
-  - WebSocket open and receiving messages
-  - AudioRecord capturing microphone
-  - AudioTrack playing bot audio
-  - Wake lock held
-  - Foreground service running
-- **UI Indicators:** Disconnect button enabled, audio indicators active
+  - WebSocket connected and active
+  - AudioEngine recording (if mic enabled)
+  - Bot waiting for user input
+  - Full-duplex or half-duplex mode
+- **UI Indicators:** Mic button active, audio level indicators
+- **Valid Transitions:**
+  - AudioInput → Listening (self-transition)
+  - BotStartedSpeaking → Speaking
+  - MicToggled → Listening (with updated mic state)
+  - PauseRequested → Paused
+  - StopRequested → Idle
+  - AutoPauseTriggered → Paused
 
-**RECONNECTING**
-- **Description:** Connection lost, automatic reconnection in progress
+**Speaking**
+- **Description:** Bot is playing audio response
 - **Characteristics:**
-  - WebSocket closed
-  - Audio resources released temporarily
-  - Exponential backoff delay between attempts
-  - Attempt counter incremented
-- **UI Indicators:** Reconnection dialog with attempt count
+  - WebSocket active, receiving bot audio
+  - AudioEngine playing bot audio
+  - Mic behavior depends on duplex mode:
+    - Half-duplex: Mic paused
+    - Full-duplex: Mic continues
+- **UI Indicators:** Bot audio indicator active, mic state varies
+- **Valid Transitions:**
+  - TurnComplete → Listening
+  - BotStoppedSpeaking → Listening
+  - Interrupted → Listening
+  - MicToggled → Speaking (with updated mic state)
+  - StopRequested → Idle
 
-**DISCONNECTING**
-- **Description:** User-initiated disconnect, cleanup in progress
+**Paused**
+- **Description:** Session paused but can be resumed
 - **Characteristics:**
-  - WebSocket closing
-  - Audio resources being released
-  - Session ending
-  - Transcript being sent
-- **UI Indicators:** Loading spinner, status shows "Disconnecting..."
+  - WebSocket disconnected
+  - Audio resources released
+  - Session handle preserved (if resumable)
+  - Foreground service may continue
+- **UI Indicators:** Resume button enabled, status shows "Paused"
+- **Valid Transitions:**
+  - ResumeRequested → Connecting (if canResume)
+  - StopRequested → Idle
+
+**Error**
+- **Description:** Critical error requiring user intervention
+- **Characteristics:**
+  - WebSocket disconnected
+  - Audio resources released
+  - Error message available
+  - Recovery possible if error is recoverable
+- **UI Indicators:** Error message displayed, retry button (if recoverable)
+- **Valid Transitions:**
+  - StartRequested → Connecting (retry)
+  - StopRequested → Idle
 
 ### State Transition Diagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DISCONNECTED
+    [*] --> Idle
     
-    DISCONNECTED --> CONNECTING : start()
+    Idle --> Connecting : StartRequested
     
-    CONNECTING --> CONNECTED : setupComplete received
-    CONNECTING --> DISCONNECTED : connection failed
-    CONNECTING --> RECONNECTING : unexpected close
+    Connecting --> Listening : SetupComplete
+    Connecting --> Error : WebSocketError
+    Connecting --> Idle : StopRequested
     
-    CONNECTED --> DISCONNECTING : stop() called
-    CONNECTED --> DISCONNECTED : pause() called
-    CONNECTED --> RECONNECTING : connection lost
+    Listening --> Speaking : BotStartedSpeaking
+    Listening --> Listening : AudioInput / MicToggled
+    Listening --> Paused : PauseRequested / AutoPauseTriggered
+    Listening --> Idle : StopRequested
     
-    RECONNECTING --> CONNECTED : reconnection successful
-    RECONNECTING --> DISCONNECTED : max attempts reached
-    RECONNECTING --> DISCONNECTED : user cancels
+    Speaking --> Listening : TurnComplete / BotStoppedSpeaking / Interrupted
+    Speaking --> Speaking : MicToggled
+    Speaking --> Idle : StopRequested
     
-    DISCONNECTING --> DISCONNECTED : cleanup complete
+    Paused --> Connecting : ResumeRequested (if canResume)
+    Paused --> Idle : StopRequested
     
-    DISCONNECTED --> [*]
+    Error --> Connecting : StartRequested (retry)
+    Error --> Idle : StopRequested
+    
+    Idle --> [*]
+    
+    note right of Listening
+        Mic enabled/disabled
+        Full-duplex or half-duplex
+        User can speak
+    end note
+    
+    note right of Speaking
+        Bot audio playing
+        Half-duplex: mic paused
+        Full-duplex: mic continues
+    end note
+    
+    note right of Paused
+        Session handle preserved
+        Can resume within 2 hours
+        WebSocket disconnected
+    end note
 ```
 
 ### Transition Triggers and Conditions
@@ -189,7 +246,60 @@ stateDiagram-v2
 - Clear isPaused flag
 - Reconnect with session handle
 - Restore audio resources
-**Code Reference:** `VoiceClientManager.kt:2900`
+**Code Reference:** `state/VoiceSessionStateMachine.kt:50`
+
+---
+
+## Event-Driven Architecture (New)
+
+### VoiceEvent System
+
+The new architecture uses an event-driven approach where all state changes are triggered by VoiceEvent objects:
+
+**Event Types:**
+- `StartRequested(threadSettings)` - User wants to start session
+- `SetupComplete` - WebSocket setup completed
+- `AudioInput(data, level)` - Audio data from microphone
+- `BotStartedSpeaking` - Bot began audio response
+- `BotStoppedSpeaking` - Bot finished audio response
+- `TurnComplete` - Conversation turn completed
+- `Interrupted` - Bot audio interrupted by user
+- `MicToggled` - User toggled microphone
+- `PauseRequested` - User requested pause
+- `ResumeRequested` - User requested resume
+- `StopRequested` - User requested stop
+- `AutoPauseTriggered` - Automatic pause due to inactivity
+- `WebSocketError(error)` - WebSocket connection error
+
+### Event Processing
+
+```kotlin
+suspend fun processEvent(event: VoiceEvent) {
+    eventProcessingMutex.withLock {
+        val currentState = _sessionState.value
+        val transition = stateMachine.processEvent(currentState, event)
+        
+        // Update state
+        _sessionState.value = transition.newState
+        
+        // Execute side effects
+        sideEffectExecutor?.execute(transition.sideEffects)
+        
+        // Update UI state
+        updateUiState()
+    }
+}
+```
+
+### Benefits of Event-Driven Architecture
+
+1. **Predictable State Changes:** All state changes go through the same event processing pipeline
+2. **Race Condition Prevention:** Mutex ensures events are processed sequentially
+3. **Testability:** Events can be easily mocked and tested
+4. **Debugging:** All state changes are logged and traceable
+5. **Extensibility:** New events can be added without changing existing code
+
+**Code Reference:** `VoiceClientManager.kt:200`
 
 ---
 

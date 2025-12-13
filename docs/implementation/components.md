@@ -4,54 +4,52 @@ This document provides detailed technical documentation for all major components
 
 ## Core Components
 
-### VoiceClientManager
+### VoiceClientManager (Refactored)
 
-**Role:** Central coordinator for WebSocket communication, audio streaming, and conversation state management.
+**Role:** Orchestrates voice conversation using composition pattern and event-driven state machine.
 
-**Location:** `VoiceClientManager.kt:170`
+**Location:** `VoiceClientManager.kt:61`
 
-**Main Fields:**
+**New Architecture:**
 
-- `webSocket: WebSocket?` - Active OkHttp WebSocket connection to Gemini API
-  - **Invariant:** Non-null only when state is CONNECTED or CONNECTING
-  
-- `audioRecord: AudioRecord?` - Microphone input recorder
-  - **Configuration:** 16kHz sample rate, MONO channel, PCM 16-bit encoding
-  - **Invariant:** Non-null only when state is CONNECTED
-  
-- `audioTrack: AudioTrack?` - Audio output player
-  - **Configuration:** 24kHz sample rate, MONO channel, PCM 16-bit encoding
-  - **Invariant:** Non-null only when state is CONNECTED
-  
-- `state: MutableState<ConnectionState>` - Current connection state
-  - **Type:** Compose mutable state for reactive UI updates
-  - **Values:** DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, DISCONNECTING
-  
+The VoiceClientManager has been completely refactored from a monolithic class to a composition-based orchestrator:
+
+**Injected Components:**
+- `audioEngine: AudioEngine` - Simplified audio recording/playback
+- `webSocketClient: WebSocketClient` - WebSocket connection management  
+- `bluetoothAudioController: BluetoothAudioController` - Bluetooth device handling
+- `reconnectionManager: ReconnectionManager` - Automatic reconnection logic
+- `sessionStateManager: SessionStateManager` - Session lifecycle management
+- `toolExecutor: ToolExecutor` - Function calling execution
+
+**State Management:**
+- `_sessionState: MutableStateFlow<VoiceSessionState>` - Current session state (sealed class)
+- `_auxiliaryState: MutableStateFlow<AuxiliaryState>` - Cross-cutting concerns (tools, images)
+- `_uiState: MutableStateFlow<VoiceUiState>` - Derived UI state for Compose
+- `stateMachine: VoiceSessionStateMachine` - State transition logic and validation
+
+**Event Processing:**
+- `eventProcessingMutex: Mutex` - Ensures sequential event processing
+- `processEvent(VoiceEvent)` - Central event processing method
+- `sideEffectExecutor: SideEffectExecutor` - Executes state transition side effects
+
+**Legacy Fields (Maintained for Compatibility):**
 - `scope: CoroutineScope?` - Coroutine scope for async operations
-  - **Dispatcher:** Dispatchers.IO for network and audio operations
-  - **Lifecycle:** Created on start(), cancelled on stop()
-  
 - `wakeLock: PowerManager.WakeLock?` - Keeps CPU active during conversation
-  - **Type:** PARTIAL_WAKE_LOCK
-  - **Timeout:** 4 hours maximum
-  - **Invariant:** Held only when state is CONNECTED
-  
-- `sessionManager: SessionManager?` - Manages session context and transcripts
-  - **Relationship:** Composition (optional for offline mode)
-  
-- `reconnectionManager: ReconnectionManager` - Handles automatic reconnection
-  - **Relationship:** Composition
-  - **Strategy:** Exponential backoff with max 5 attempts
+- `currentThreadSettings: ThreadSettings?` - Per-conversation settings
+- `errors: MutableStateList<Error>` - Error collection for UI
 
 **Main Methods:**
 
 #### `start(threadSettings: ThreadSettings?): Unit`
-**Role:** Initiates WebSocket connection and starts audio streaming
+**Role:** Initiates voice session using event-driven state machine
+
+**New Implementation:**
+The start method now uses the event-driven architecture instead of direct state manipulation:
 
 **Preconditions:**
 - API key must be configured in Preferences
-- State must be DISCONNECTED, RECONNECTING, or stuck in CONNECTING
-- Not currently in DISCONNECTING state
+- Current state must allow StartRequested event (typically Idle or Error)
 
 **Parameters:**
 - `threadSettings: ThreadSettings?` - Optional per-conversation settings
@@ -62,27 +60,27 @@ This document provides detailed technical documentation for all major components
 
 **Returns:** Unit (void)
 
-**Postconditions:**
-- State transitions to CONNECTING (or remains RECONNECTING)
-- WebSocket connection initiated
-- Scope created if null
-- On successful connection (setupComplete):
-  - State transitions to CONNECTED
-  - AudioRecord and AudioTrack started
-  - Wake lock acquired
-  - Monitoring jobs started (auto-pause, bot timeout, health check)
+**New Flow:**
+1. Validates API key configuration
+2. Creates `VoiceEvent.StartRequested(threadSettings)`
+3. Processes event through state machine
+4. State machine validates transition (Idle → Connecting)
+5. Side effects executed:
+   - WebSocketClient.connect()
+   - AudioEngine initialization
+   - VoiceService start
+   - Wake lock acquisition
 
-**Side-effects:**
-- Creates OkHttp WebSocket connection
-- Registers Bluetooth SCO receiver
-- Starts foreground VoiceService
-- Acquires wake lock
-- Increases audio volume
-- Sends setup message with system prompt and tools
+**Side-effects (via SideEffectExecutor):**
+- `SideEffect.StartWebSocket` - Initiates WebSocket connection
+- `SideEffect.StartAudioEngine` - Prepares audio recording/playback
+- `SideEffect.StartVoiceService` - Starts foreground service
+- `SideEffect.AcquireWakeLock` - Keeps CPU active
+- `SideEffect.RegisterBluetoothReceiver` - Handles Bluetooth audio
 
 **Possible Errors:**
 - Adds Error("API key required") if key missing
-- WebSocket connection failures handled in onFailure callback
+- State transition errors logged and handled gracefully
 
 **Example:**
 ```kotlin
@@ -93,9 +91,10 @@ val settings = ThreadSettings(
     temperature = 0.8f
 )
 voiceClientManager.start(settings)
+// Internally: processEvent(VoiceEvent.StartRequested(settings))
 ```
 
-**Code Reference:** `VoiceClientManager.kt:560-850`
+**Code Reference:** `VoiceClientManager.kt:300`
 
 ---
 
@@ -343,7 +342,169 @@ voiceClientManager.sendImage(imageUri)
   - Audio device conflicts (Bluetooth, headphones)
   - Session handle expiration
   - Memory pressure during conversation
-  - Interruption handling (phone calls, other apps)
+  - State transition validation
+  - Event processing coordination
+  - Component integration testing
+
+---
+
+### AudioEngine (New Simplified Component)
+
+**Role:** Handles audio recording and playback with simplified, Gemini-centric architecture.
+
+**Location:** `audio/AudioEngine.kt:150`
+
+**Key Simplifications:**
+- **No Complex State Machine:** Uses simple start/stop operations instead of complex audio pipeline states
+- **Gemini-Centric:** Most audio processing (VAD, transcription, synthesis) handled by Gemini API
+- **Standard Android Audio:** Direct use of AudioRecord/AudioTrack without custom buffering
+- **Event-Based:** Notifies listeners of audio events instead of managing state internally
+
+**Main Fields:**
+- `context: Context` - Android context for audio services
+- `scope: CoroutineScope` - Coroutine scope for audio operations (Dispatchers.Default)
+- `config: AudioConfig` - Audio configuration (sample rates, formats, buffer sizes)
+- `listener: AudioEngineListener?` - Callback interface for audio events
+
+**Internal State:**
+- `_isRecording: MutableStateFlow<Boolean>` - Recording state for UI observation
+- `_isPlaying: MutableStateFlow<Boolean>` - Playback state for UI observation
+- `audioRecord: AudioRecord?` - Android audio recorder (16kHz, mono, PCM 16-bit)
+- `audioTrack: AudioTrack?` - Android audio player (24kHz, mono, PCM 16-bit)
+- `currentGenerationId: AtomicInteger` - Generation tracking for audio interruption
+
+**Main Methods:**
+
+#### `startRecording(): Result<Unit>`
+**Role:** Starts audio recording from microphone
+**Preconditions:** Microphone permission granted, no other app using microphone
+**Postconditions:** AudioRecord active, recording loop started, _isRecording = true
+**Side-effects:** 
+- Acquires microphone resource
+- Starts coroutine for continuous audio capture
+- Enables echo cancellation and noise suppression (if available)
+**Errors:** Returns failure if AudioRecord initialization fails
+**Code Reference:** `audio/AudioEngine.kt:200`
+
+#### `stopRecording(): Result<Unit>`
+**Role:** Stops audio recording and releases microphone
+**Preconditions:** Recording must be active
+**Postconditions:** AudioRecord stopped and released, _isRecording = false
+**Side-effects:** Releases microphone resource, cancels recording coroutine
+**Code Reference:** `audio/AudioEngine.kt:250`
+
+#### `playAudio(audioChunk: AudioChunk): Result<Unit>`
+**Role:** Plays audio chunk through speaker/headphones
+**Parameters:** `audioChunk: AudioChunk` - Audio data with generation ID for interruption handling
+**Preconditions:** AudioTrack must be initialized
+**Postconditions:** Audio queued for playback, _isPlaying updated
+**Side-effects:** 
+- Writes audio data to AudioTrack
+- Handles generation-based interruption (discards old audio)
+- Routes audio to Bluetooth if connected
+**Code Reference:** `audio/AudioEngine.kt:300`
+
+---
+
+### WebSocketClient (Separated Component)
+
+**Role:** Manages WebSocket connection independently from VoiceClientManager.
+
+**Location:** `network/WebSocketClient.kt`
+
+**Separation Benefits:**
+- **Single Responsibility:** Only handles WebSocket communication
+- **Testability:** Can be mocked independently for unit tests
+- **Reusability:** Can be used by other components
+- **Error Handling:** Dedicated WebSocket error classification
+
+**Main Fields:**
+- `scope: CoroutineScope` - Coroutine scope for network operations (Dispatchers.IO)
+- `reconnectionManager: ReconnectionManager` - Handles automatic reconnection
+- `webSocket: WebSocket?` - Active OkHttp WebSocket connection
+- `listener: WebSocketClientListener?` - Callback interface for WebSocket events
+
+**Main Methods:**
+
+#### `connect(url: String, headers: Map<String, String>): Result<Unit>`
+**Role:** Establishes WebSocket connection to Gemini API
+**Parameters:** 
+- `url: String` - WebSocket URL for Gemini Live API
+- `headers: Map<String, String>` - Authentication and configuration headers
+**Postconditions:** WebSocket connection initiated, listener notified of events
+**Side-effects:** Creates OkHttp WebSocket, starts ping/pong heartbeat
+**Code Reference:** `network/WebSocketClient.kt:100`
+
+#### `sendMessage(message: String): Result<Unit>`
+**Role:** Sends text message through WebSocket
+**Parameters:** `message: String` - JSON message to send to Gemini
+**Preconditions:** WebSocket must be connected
+**Side-effects:** Sends message via WebSocket, logs message if debug enabled
+**Code Reference:** `network/WebSocketClient.kt:150`
+
+#### `sendAudio(audioData: ByteArray): Result<Unit>`
+**Role:** Sends audio data through WebSocket
+**Parameters:** `audioData: ByteArray` - PCM audio data (16kHz, mono, 16-bit)
+**Preconditions:** WebSocket must be connected
+**Side-effects:** Base64 encodes audio, sends via WebSocket
+**Code Reference:** `network/WebSocketClient.kt:180`
+
+---
+
+### VoiceSessionStateMachine (New Component)
+
+**Role:** Manages state transitions and validates events in the voice session.
+
+**Location:** `state/VoiceSessionStateMachine.kt`
+
+**Key Features:**
+- **Type Safety:** Compiler enforces valid state transitions
+- **Event Validation:** Rejects invalid events for current state
+- **Side Effect Generation:** Returns side effects to execute for each transition
+- **Full-Duplex Support:** Handles both full-duplex and half-duplex modes
+
+**Main Methods:**
+
+#### `processEvent(currentState: VoiceSessionState, event: VoiceEvent): StateTransition`
+**Role:** Processes event and returns new state with side effects
+**Parameters:**
+- `currentState: VoiceSessionState` - Current session state
+- `event: VoiceEvent` - Event to process
+**Returns:** `StateTransition` containing new state and side effects to execute
+**Validation:** Ensures only valid transitions are allowed, logs invalid attempts
+**Side-effects:** None (pure function, side effects returned for execution)
+**Code Reference:** `state/VoiceSessionStateMachine.kt:50`
+
+#### `validateTransition(from: VoiceSessionState, event: VoiceEvent): Boolean`
+**Role:** Validates if event is allowed in current state
+**Returns:** Boolean indicating if transition is valid
+**Code Reference:** `state/VoiceSessionStateMachine.kt:200`
+
+---
+
+### BluetoothAudioController (New Component)
+
+**Role:** Handles Bluetooth audio device connection and routing.
+
+**Location:** `audio/BluetoothAudioController.kt`
+
+**Responsibilities:**
+- Bluetooth SCO (Synchronous Connection-Oriented) management
+- Audio routing between speaker and Bluetooth headset
+- Bluetooth device connection/disconnection handling
+- Audio focus management for Bluetooth devices
+
+**Main Methods:**
+
+#### `handleBluetoothConnection(): Unit`
+**Role:** Manages Bluetooth audio device connection
+**Side-effects:** Registers Bluetooth receivers, starts SCO connection
+**Code Reference:** `audio/BluetoothAudioController.kt:50`
+
+#### `routeAudioToBluetooth(): Boolean`
+**Role:** Routes audio to connected Bluetooth device
+**Returns:** Boolean indicating if routing was successful
+**Code Reference:** `audio/BluetoothAudioController.kt:100`
 
 ---
 
@@ -1266,15 +1427,20 @@ val help = OfflineConversationManager.getHelpConversation()
 
 | Component | File | Key Lines |
 |-----------|------|-----------|
-| VoiceClientManager | VoiceClientManager.kt | 170-3061 |
+| VoiceClientManager (Refactored) | VoiceClientManager.kt | 61-500 |
+| AudioEngine (New) | audio/AudioEngine.kt | 150-400 |
+| WebSocketClient (New) | network/WebSocketClient.kt | 1-300 |
+| VoiceSessionStateMachine (New) | state/VoiceSessionStateMachine.kt | 1-200 |
+| VoiceSessionState (New) | state/VoiceSessionState.kt | 28-100 |
+| BluetoothAudioController (New) | audio/BluetoothAudioController.kt | 1-150 |
 | SessionManager | SessionManager.kt | 25-972 |
 | VoiceService | VoiceService.kt | 20-300 |
 | PorcupineService | PorcupineService.kt | 20-400 |
-| ReconnectionManager | VoiceClientManager.kt | 2950-3050 |
+| ReconnectionManager | network/ReconnectionManager.kt | 1-200 |
 | MainActivity | MainActivity.kt | 100-1417 |
 | PicovoiceManager | PicovoiceManager.kt | 15-400 |
 | WebSocketErrorClassifier | utils/WebSocketErrorClassifier.kt | 10-80 |
 | OfflineConversationManager | OfflineConversationManager.kt | 1-200 |
 
-**Last Updated:** 2025-12-04
+**Last Updated:** 2025-12-13
 

@@ -1,17 +1,18 @@
 # System Architecture
 
 **Source Documents:**
-- README.md (Core Components, Code Structure)
-- REFACTORING_PLAN.md (Architecture Docelowa)
-- AUDYT_GEMINI_LIVE_FULL_DUPLEX.md (WebSocket and Audio architecture)
+- VoiceClientManagerSimple.kt (actual wrapper used by MainActivity)
+- audio/simple/VoiceClientManager.kt (simplified manager)
+- audio/simple/AudioEngine.kt (simplified audio engine)
+- Gemini Live API integration
 
-**Last Updated:** 2025-12-01
+**Last Updated:** 2025-12-13
 
 ---
 
 ## Overview
 
-This document describes the system architecture of the Android Gemini Multimodal Live WebSocket Demo application. The application follows a layered architecture with clear separation between UI, business logic, and system services.
+This document describes the system architecture of the Android Gemini Multimodal Live WebSocket Demo application. The application uses a **simplified architecture** that delegates most audio processing to the Gemini Live API. The complex state machine and audio pipeline have been replaced with a straightforward composition of GeminiClient, AudioEngine, and AudioDeviceHandler (~300 lines total).
 
 ---
 
@@ -24,18 +25,15 @@ This document describes the system architecture of the Android Gemini Multimodal
 │  - Memory callbacks (onTrimMemory, onLowMemory)        │
 └────────────────┬────────────────────────────────────────┘
                  │
-                 ├──> VoiceClientManager
-                 │    - WebSocket lifecycle
-                 │    - Audio recording lifecycle
-                 │    - Wake lock management
+                 ├──> VoiceClientManagerSimple (Wrapper)
+                 │    └─> SimpleVoiceClientManager (~300 lines)
+                 │         ├─> GeminiClient (WebSocket + Protocol)
+                 │         ├─> AudioEngine (Recording + Playback)
+                 │         └─> AudioDeviceHandler (Bluetooth routing)
                  │
                  ├──> SessionManager
                  │    - Transcript sync lifecycle
                  │    - Cleanup on destroy
-                 │
-                 ├──> NetworkMonitor
-                 │    - Network connectivity tracking
-                 │    - Connection state changes
                  │
                  └──> Services
                       ├─> VoiceService (Foreground)
@@ -48,45 +46,103 @@ This document describes the system architecture of the Android Gemini Multimodal
                           - Independent audio processing
 ```
 
-**Source:** README.md, REFACTORING_PLAN.md
+**Key Simplifications:**
+- **No Complex State Machine** - Simple boolean flags instead
+- **Gemini-Centric Processing** - Audio processing delegated to Gemini API
+- **Direct Event Handling** - Events handled directly by Gemini client
+- **Minimal Code** - ~300 lines vs ~3000 lines in old architecture
 
 ---
 
 ## Core Components
 
-### 1. VoiceClientManager
+### 1. VoiceClientManagerSimple (Actual Implementation)
 
-**Role:** Central component managing WebSocket connections, audio streaming, and client state.
+**Role:** Wrapper that provides compatibility with MainActivity while using simplified architecture.
+
+**Location:** `VoiceClientManagerSimple.kt`
+
+**Architecture:**
+- **Wrapper Pattern:** Adapts SimpleVoiceClientManager to existing MainActivity interface
+- **Simplified State:** Uses boolean flags instead of complex state machine
+- **Direct Delegation:** Most operations delegated to SimpleVoiceClientManager
+
+**Key Responsibilities:**
+- API key validation and configuration
+- System prompt setup from preferences
+- Tool declarations configuration
+- Error handling and UI state mapping
+- Lifecycle management (start/stop/pause/resume)
+
+### 2. SimpleVoiceClientManager (Core Implementation)
+
+**Role:** Simplified voice client that coordinates GeminiClient, AudioEngine, and AudioDeviceHandler.
+
+**Location:** `audio/simple/VoiceClientManager.kt`
+
+**Architecture (~300 lines):**
+- **GeminiClient** - WebSocket connection and protocol handling
+- **AudioEngine** - Audio recording and playback
+- **AudioDeviceHandler** - Bluetooth audio routing
+- **Simple State** - Boolean flags (isConnected, isMuted, isBotSpeaking)
+
+**Key Benefits:**
+- **Minimal Complexity** - No state machine, direct event handling
+- **Gemini-Centric** - Delegates processing to Gemini Live API
+- **Easy Testing** - Simple composition, clear responsibilities
+- **Fast Development** - Straightforward logic, fewer abstractions
+
+**Code Reference:** `audio/simple/VoiceClientManager.kt`
+
+### 3. AudioEngine (Simplified Component)
+
+**Role:** Handles audio recording and playback with minimal complexity.
+
+**Location:** `audio/simple/AudioEngine.kt`
+
+**Key Simplifications:**
+- **Direct Android Audio:** Uses AudioRecord/AudioTrack without complex buffering
+- **Simple Operations:** start/stop recording, queue/play audio
+- **No State Machine:** Boolean flags for recording/playing state
+- **Gemini Integration:** Optimized for Gemini Live API requirements
 
 **Responsibilities:**
-- WebSocket connection management
-- Audio recording and playback
-- Connection state management
-- Automatic reconnection
-- Image processing and transmission
-- Wake lock management
-- Error classification and handling
-
-**Key States:**
-- DISCONNECTED - No active connection
-- CONNECTING - Establishing connection
-- CONNECTED - Active conversation
-- RECONNECTING - Attempting to reconnect
-- DISCONNECTING - Closing connection
+- Audio recording from microphone (16kHz, mono, PCM 16-bit)
+- Audio playback to speaker (24kHz, mono, PCM 16-bit)
+- Audio level calculation for UI indicators
+- Simple audio queue management
+- Echo cancellation (when available)
 
 **Configuration:**
-- WebSocket read timeout: 60 seconds
-- Ping interval: 30 seconds (faster connection problem detection)
-- Max reconnection attempts: 5
-- Exponential backoff: 1s, 2s, 4s, 8s, 16s
+- Input sample rate: 16000 Hz (Gemini Live requirement)
+- Output sample rate: 24000 Hz (Gemini Live output)
+- Audio format: PCM 16-bit
+- Channel: Mono
+- Buffer size: Android minimum * 2
 
-**Code Reference:** `VoiceClientManager.kt`
+**Code Reference:** `audio/simple/AudioEngine.kt`
 
-**Source:** README.md - Architecture
+### 4. GeminiClient (Integrated Component)
+
+**Role:** Handles WebSocket connection and Gemini Live protocol.
+
+**Location:** Part of `audio/simple/VoiceClientManager.kt`
+
+**Responsibilities:**
+- WebSocket connection to Gemini Live API
+- Protocol message handling (setup, audio, text, tools)
+- Connection state management
+- Error handling and reconnection
+- Tool calling integration
+
+**Integration Benefits:**
+- **Simplified Architecture:** No separate WebSocket abstraction
+- **Direct Protocol Handling:** Gemini-specific message processing
+- **Reduced Complexity:** Fewer components to coordinate
 
 ---
 
-### 2. VoiceService
+### 5. VoiceService
 
 **Role:** Foreground service enabling background operation during active conversations.
 
@@ -312,39 +368,40 @@ Shows progress during image processing.
 
 ## Data Flow
 
-### Audio Streaming Flow
+### Audio Streaming Flow (Simplified)
 
 ```
 User Microphone
       ↓
-AudioRecord (24kHz, 16-bit PCM)
+AudioEngine.startRecording()
       ↓
-Audio Buffer (4x minimum size)
+AudioRecord (16kHz, 16-bit PCM, Mono)
       ↓
-[Check: Bot is NOT talking] ← Half-Duplex Control
+Audio Level Calculation
+      ↓
+GeminiClient.sendAudio() [if not muted]
       ↓
 Base64 Encoding
-      ↓
-WebSocket Message
       ↓
 Gemini Live API
       ↓
 WebSocket Response (Audio Chunks)
       ↓
+AudioEngine.queueAudio()
+      ↓
 Base64 Decoding
       ↓
-AudioTrack Buffer
+AudioTrack (24kHz, 16-bit PCM, Mono)
       ↓
-Device Speakers
+Device Speakers/Bluetooth
 ```
 
-**Key Points:**
-- Half-duplex mode: Audio NOT sent while bot is talking
-- Prevents acoustic echo and VAD false positives
-- Bot silence detection: 1500ms threshold
-- Audio chunks: ~2768 bytes each
-
-**Source:** AUDYT_GEMINI_LIVE_FULL_DUPLEX.md
+**Key Simplifications:**
+- **No State Machine:** Simple boolean checks (isMuted, isConnected)
+- **Direct Processing:** Audio sent directly to Gemini without complex routing
+- **Simple Queue:** Basic audio queue without generation tracking
+- **Gemini Handles Complexity:** VAD, transcription, synthesis done server-side
+- **Minimal Buffering:** Standard Android audio buffers only
 
 ---
 

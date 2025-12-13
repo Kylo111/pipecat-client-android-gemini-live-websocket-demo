@@ -1,7 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.VoiceClientManager as SimpleVoiceClientManager
-import ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.ConnectionState as SimpleConnectionState
+import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
 import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceUiState
 import android.content.Context
 import android.net.Uri
@@ -291,17 +291,8 @@ class VoiceClientManagerSimple(
             snapshotFlow { manager.connectionState.value }
                 .collect { connectionState ->
                     _uiState.value = _uiState.value.copy(
-                        connectionState = when (connectionState) {
-                            SimpleConnectionState.DISCONNECTED -> 
-                                ConnectionState.DISCONNECTED
-                            SimpleConnectionState.CONNECTING -> 
-                                ConnectionState.CONNECTING
-                            SimpleConnectionState.CONNECTED -> 
-                                ConnectionState.CONNECTED
-                            SimpleConnectionState.ERROR -> 
-                                ConnectionState.DISCONNECTED
-                        },
-                        isConnected = connectionState == SimpleConnectionState.CONNECTED
+                        connectionState = connectionState,
+                        isConnected = connectionState == ConnectionState.CONNECTED
                     )
                 }
         }

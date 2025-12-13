@@ -36,8 +36,7 @@ class SessionManager(
     private val geminiSummaryService = GeminiSummaryService(context)
     
     // VoiceClientManager reference (set after construction to avoid circular dependency)
-    // Can be either old VoiceClientManager or new VoiceClientManagerSimple
-    var voiceClientManager: Any? = null
+    var voiceClientManager: VoiceClientManagerSimple? = null
     
     // Transcript sync manager for reliable transcript synchronization
     private val transcriptSyncManager = TranscriptSyncManager()
@@ -725,10 +724,7 @@ class SessionManager(
             }
             
             // Stop the voice client
-            when (val manager = voiceClientManager) {
-                is VoiceClientManager -> manager.stop()
-                is ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.VoiceClientManager -> manager.stop()
-            }
+            voiceClientManager?.stop()
             return@withContext Result.success(Unit)
         }
         
@@ -746,10 +742,7 @@ class SessionManager(
             Log.d(TAG, "  Bot transcripts: ${session.transcripts.count { it.speaker == Speaker.BOT }}")
             
             // Stop the voice client connection
-            when (val manager = voiceClientManager) {
-                is VoiceClientManager -> manager.stop()
-                is ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.VoiceClientManager -> manager.stop()
-            }
+            voiceClientManager?.stop()
             
             // End database session
             currentDbSessionId?.let { dbSessionId ->

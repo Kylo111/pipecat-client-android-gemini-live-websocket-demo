@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.audio.simple
 
+import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
 import ai.pipecat.gemini_multimodal_websocket_demo.Error
 import android.content.Context
 import android.util.Log
@@ -472,12 +473,4 @@ class VoiceClientManager(
     }
 }
 
-/**
- * Connection state enum.
- */
-enum class ConnectionState {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED,
-    ERROR
-}
+

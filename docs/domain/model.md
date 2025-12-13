@@ -4,35 +4,45 @@ This document describes the core domain objects and their relationships in the v
 
 ## Overview
 
-The system is built around real-time voice interaction with Google's Gemini Multimodal Live API. The domain model consists of managers, services, state objects, and data entities that work together to provide continuous voice conversation capabilities.
+The system has been significantly refactored to use a modular, state machine-based architecture. The complex Core audio system has been replaced with a simplified AudioEngine, and state management now uses a proper state machine pattern with VoiceSessionState. The domain model emphasizes composition over inheritance and clear separation of concerns.
 
 ## Core Domain Objects
 
-### VoiceClientManager
+### VoiceClientManager (Refactored)
 
-**Role:** Central coordinator for WebSocket connection, audio streaming, and conversation state management.
+**Role:** Orchestrates voice conversation using composition pattern and state machine architecture.
 
-**Location:** `VoiceClientManager.kt:170`
+**Location:** `VoiceClientManager.kt:61`
 
-**Main Fields:**
-- `webSocket: WebSocket?` - Active WebSocket connection to Gemini API
-- `audioRecord: AudioRecord?` - Microphone input recorder (16kHz, mono, PCM 16-bit)
-- `audioTrack: AudioTrack?` - Audio output player (24kHz, mono, PCM 16-bit)
-- `state: MutableState<ConnectionState>` - Current connection state (DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, DISCONNECTING)
-- `botIsTalking: MutableState<Boolean>` - Indicates if bot is currently speaking
-- `userIsTalking: MutableState<Boolean>` - Indicates if user is currently speaking
-- `isPaused: MutableState<Boolean>` - Session paused state (can be resumed)
-- `sessionResumptionHandle: String?` - Handle for resuming paused sessions
+**New Architecture:**
+The VoiceClientManager has been completely refactored to use composition and dependency injection:
+
+**Injected Components:**
+- `audioEngine: AudioEngine` - Simplified audio recording/playback
+- `webSocketClient: WebSocketClient` - WebSocket connection management
+- `bluetoothAudioController: BluetoothAudioController` - Bluetooth device handling
+- `reconnectionManager: ReconnectionManager` - Automatic reconnection logic
+- `sessionStateManager: SessionStateManager` - Session lifecycle management
+- `toolExecutor: ToolExecutor` - Function calling execution
+
+**State Management:**
+- `_sessionState: MutableStateFlow<VoiceSessionState>` - Current session state (sealed class)
+- `_auxiliaryState: MutableStateFlow<AuxiliaryState>` - Cross-cutting concerns (tools, images)
+- `_uiState: MutableStateFlow<VoiceUiState>` - Derived UI state for Compose
+- `stateMachine: VoiceSessionStateMachine` - State transition logic
+
+**Legacy Fields (Maintained for Compatibility):**
 - `scope: CoroutineScope?` - Coroutine scope for async operations
 - `wakeLock: PowerManager.WakeLock?` - Keeps CPU active during conversation
-- `reconnectionManager: ReconnectionManager` - Handles automatic reconnection with exponential backoff
-- `sessionManager: SessionManager?` - Manages session context and transcripts
+- `currentThreadSettings: ThreadSettings?` - Per-conversation settings
+- `errors: MutableStateList<Error>` - Error collection for UI
 
-**Invariants:**
-- `audioRecord` and `audioTrack` are null when disconnected
-- `webSocket` is non-null only when state is CONNECTED or CONNECTING
-- `wakeLock` is held only when state is CONNECTED
-- `sessionResumptionHandle` is valid for 2 hours after session creation
+**Key Changes:**
+- **No Direct Audio Management:** AudioEngine handles all audio operations
+- **No WebSocket Management:** WebSocketClient handles all network operations
+- **State Machine:** VoiceSessionState replaces boolean flags
+- **Event-Driven:** Processes VoiceEvent through state machine
+- **Composition:** Uses injected dependencies instead of direct instantiation
 
 **Main Methods:**
 
@@ -104,8 +114,114 @@ The system is built around real-time voice interaction with Google's Gemini Mult
 3. **Destruction:** stop() releases all resources, scope cancelled
 
 **Testability:**
-- **Mocking:** Requires mocking WebSocket, AudioRecord, AudioTrack, PowerManager
-- **Edge cases:** Network failures, audio device conflicts, session expiration, rapid pause/resume cycles
+- **Mocking:** Mock injected components (AudioEngine, WebSocketClient, etc.)
+- **Edge cases:** State transition validation, event processing, component coordination
+
+---
+
+### AudioEngine (New Simplified Component)
+
+**Role:** Handles audio recording and playback with simplified, Gemini-centric architecture.
+
+**Location:** `audio/AudioEngine.kt:150`
+
+**Main Fields:**
+- `context: Context` - Android context for audio services
+- `scope: CoroutineScope` - Coroutine scope for audio operations
+- `config: AudioConfig` - Audio configuration (sample rates, formats)
+- `listener: AudioEngineListener?` - Callback interface for audio events
+
+**Internal State:**
+- `_isRecording: MutableStateFlow<Boolean>` - Recording state
+- `_isPlaying: MutableStateFlow<Boolean>` - Playback state
+- `audioRecord: AudioRecord?` - Android audio recorder
+- `audioTrack: AudioTrack?` - Android audio player
+- `currentGenerationId: AtomicInteger` - Generation tracking for interruption
+
+**Key Simplifications:**
+- **No Complex State Machine:** Simple start/stop operations
+- **Gemini-Centric:** Audio processing delegated to Gemini API
+- **Standard Android Audio:** Direct use of AudioRecord/AudioTrack
+- **Event-Based:** Notifies listeners of audio events
+
+**Main Methods:**
+
+#### `startRecording(): Result<Unit>`
+**Role:** Starts audio recording from microphone
+**Postconditions:** AudioRecord active, recording loop started
+**Side-effects:** Acquires microphone, starts coroutine for audio capture
+**Code Reference:** `audio/AudioEngine.kt:200`
+
+#### `stopRecording(): Result<Unit>`
+**Role:** Stops audio recording and releases microphone
+**Postconditions:** AudioRecord stopped and released
+**Code Reference:** `audio/AudioEngine.kt:250`
+
+#### `playAudio(audioChunk: AudioChunk): Result<Unit>`
+**Role:** Plays audio chunk through speaker/headphones
+**Parameters:** `audioChunk: AudioChunk` - Audio data with generation ID
+**Side-effects:** Writes to AudioTrack, handles generation interruption
+**Code Reference:** `audio/AudioEngine.kt:300`
+
+---
+
+### VoiceSessionState (New State Machine)
+
+**Role:** Sealed class hierarchy representing mutually exclusive session states.
+
+**Location:** `state/VoiceSessionState.kt:28`
+
+**States:**
+- `Idle` - No active session, disconnected
+- `Connecting(threadSettings)` - WebSocket connecting, waiting for setup
+- `Listening(isMicEnabled, isFullDuplex)` - Connected, user can speak
+- `Speaking(isMicEnabled, isFullDuplex)` - Bot is responding
+- `Paused(canResume, resumptionHandle)` - Session paused, can resume
+- `Error(message, isRecoverable)` - Critical error state
+
+**Key Benefits:**
+- **Mutually Exclusive:** Only one state active at a time
+- **Type Safety:** Compiler enforces valid state transitions
+- **Clear Semantics:** Each state has specific meaning and allowed operations
+- **Testability:** Easy to test state transitions and invariants
+
+**Code Reference:** `state/VoiceSessionState.kt:28`
+
+---
+
+### VoiceSessionStateMachine (New Component)
+
+**Role:** Manages state transitions and validates events.
+
+**Location:** `state/VoiceSessionStateMachine.kt`
+
+**Main Methods:**
+
+#### `processEvent(currentState: VoiceSessionState, event: VoiceEvent): StateTransition`
+**Role:** Processes event and returns new state with side effects
+**Returns:** `StateTransition` containing new state and side effects to execute
+**Validation:** Ensures only valid transitions are allowed
+**Code Reference:** `state/VoiceSessionStateMachine.kt:50`
+
+---
+
+### WebSocketClient (Separated Component)
+
+**Role:** Manages WebSocket connection independently from VoiceClientManager.
+
+**Location:** `network/WebSocketClient.kt`
+
+**Responsibilities:**
+- WebSocket connection lifecycle
+- Message sending/receiving
+- Connection health monitoring
+- Error classification and reporting
+
+**Benefits of Separation:**
+- **Single Responsibility:** Only handles WebSocket operations
+- **Testability:** Can be mocked independently
+- **Reusability:** Can be used by other components
+- **Error Handling:** Dedicated error classification
 
 ---
 
@@ -313,16 +429,56 @@ The system is built around real-time voice interaction with Google's Gemini Mult
 ```mermaid
 classDiagram
     class VoiceClientManager {
-        -WebSocket webSocket
-        -AudioRecord audioRecord
-        -AudioTrack audioTrack
-        -ConnectionState state
-        -SessionManager sessionManager
-        -ReconnectionManager reconnectionManager
+        -VoiceSessionState sessionState
+        -AuxiliaryState auxiliaryState
+        -VoiceUiState uiState
+        -VoiceSessionStateMachine stateMachine
+        +processEvent(VoiceEvent)
         +start(ThreadSettings)
         +stop()
         +pause()
         +resume()
+    }
+    
+    class AudioEngine {
+        -AudioRecord audioRecord
+        -AudioTrack audioTrack
+        -AudioConfig config
+        -AtomicInteger generationId
+        +startRecording()
+        +stopRecording()
+        +playAudio(AudioChunk)
+    }
+    
+    class WebSocketClient {
+        -WebSocket webSocket
+        -ReconnectionManager reconnectionManager
+        +connect()
+        +disconnect()
+        +sendMessage(String)
+        +sendAudio(ByteArray)
+    }
+    
+    class VoiceSessionState {
+        <<sealed class>>
+        Idle
+        Connecting
+        Listening
+        Speaking
+        Paused
+        Error
+    }
+    
+    class VoiceSessionStateMachine {
+        -Boolean isFullDuplex
+        +processEvent(VoiceSessionState, VoiceEvent)
+        +validateTransition(VoiceSessionState, VoiceEvent)
+    }
+    
+    class BluetoothAudioController {
+        -AudioManager audioManager
+        +handleBluetoothConnection()
+        +routeAudioToBluetooth()
     }
     
     class SessionManager {
@@ -334,22 +490,6 @@ classDiagram
         +captureUserTranscript(String)
         +captureBotTranscript(String)
         +endSession()
-    }
-    
-    class ConnectionState {
-        <<enumeration>>
-        DISCONNECTED
-        CONNECTING
-        CONNECTED
-        RECONNECTING
-        DISCONNECTING
-    }
-    
-    class ReconnectionManager {
-        -int attemptCount
-        -int maxAttempts
-        +startReconnection()
-        +reset()
     }
     
     class VoiceService {
@@ -371,10 +511,14 @@ classDiagram
         +handleResume()
     }
     
+    VoiceClientManager *-- AudioEngine : uses
+    VoiceClientManager *-- WebSocketClient : uses
+    VoiceClientManager *-- BluetoothAudioController : uses
+    VoiceClientManager *-- VoiceSessionStateMachine : uses
     VoiceClientManager *-- SessionManager : manages
-    VoiceClientManager *-- ReconnectionManager : uses
-    VoiceClientManager --> ConnectionState : has state
+    VoiceClientManager --> VoiceSessionState : has state
     VoiceClientManager ..> VoiceService : controls
+    WebSocketClient *-- ReconnectionManager : uses
     MainActivity *-- VoiceClientManager : owns
     MainActivity *-- SessionManager : owns
     VoiceService ..> VoiceClientManager : observes
