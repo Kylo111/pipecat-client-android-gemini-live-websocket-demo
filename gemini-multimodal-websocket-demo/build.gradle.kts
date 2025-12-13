@@ -72,12 +72,14 @@ android {
     testOptions {
         unitTests {
             isReturnDefaultValues = true
+            isIncludeAndroidResources = true
         }
     }
 }
 
 dependencies {
     implementation(libs.okhttp)
+    implementation(libs.retrofit)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -123,6 +125,12 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.3.1")
     testImplementation("org.mockito:mockito-inline:5.2.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    
+    // Kotest dependencies for property-based testing
+    testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
+    testImplementation("io.kotest:kotest-assertions-core:5.8.0")
+    testImplementation("io.kotest:kotest-property:5.8.0")
+    testImplementation("io.kotest:kotest-framework-datatest:5.8.0")
     
     androidTestImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.androidx.ui.tooling)

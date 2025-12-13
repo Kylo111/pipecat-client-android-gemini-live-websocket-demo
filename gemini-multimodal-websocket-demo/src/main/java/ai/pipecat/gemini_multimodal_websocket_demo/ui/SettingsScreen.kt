@@ -297,6 +297,34 @@ fun SettingsScreen(
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // OpenRouter API Key
+                    var openRouterApiKey by remember { mutableStateOf(Preferences.openRouterApiKey.value ?: "") }
+                    
+                    Column {
+                        SettingsTextField(
+                            label = "Klucz API OpenRouter (opcjonalny)",
+                            value = openRouterApiKey,
+                            onValueChange = { 
+                                openRouterApiKey = it
+                                Preferences.openRouterApiKey.value = it
+                            },
+                            isPassword = true
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "OpenRouter API zapewnia dostęp do zaawansowanych modeli AI (Claude, GPT-4, etc.) dla Reasoning Agent. Zdobądź klucz na: https://openrouter.ai/keys",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Tools Instruction
                     Column {
@@ -767,6 +795,131 @@ fun SettingsScreen(
                             style = TextStyles.base,
                             lineHeight = 14.sp
                         )
+                    }
+                }
+
+                // Control Agent Section
+                SettingsSection(title = "Agent sterowania głosowego") {
+                    // Control Agent enabled state
+                    var controlAgentEnabled by remember { mutableStateOf(Preferences.controlAgentEnabled.value) }
+                    
+                    SettingsToggle(
+                        label = "Włącz agenta sterowania",
+                        checked = controlAgentEnabled,
+                        onCheckedChange = { enabled ->
+                            controlAgentEnabled = enabled
+                            Preferences.controlAgentEnabled.value = enabled
+                            
+                            // Immediately update ControlAgentManager state
+                            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+                            val controlAgent = voiceService?.getControlAgentManager()
+                            controlAgent?.setEnabled(enabled)
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (controlAgentEnabled) {
+                            "✅ WŁĄCZONY: Agent nasłuchuje komend głosowych (\"wycisz\", \"rozłącz\", \"przełącz na...\") i wykonuje akcje systemowe w tle."
+                        } else {
+                            "❌ WYŁĄCZONY: Wszystkie komendy głosowe są przekazywane do głównego agenta Gemini Live."
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = if (controlAgentEnabled) Color(0xFF4CAF50) else Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Detailed explanation
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️ Jak działa agent sterowania:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "• Działa równolegle do głównego agenta Gemini Live (nie blokuje rozmowy)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Rozpoznaje komendy: \"wycisz\", \"rozłącz\", \"przełącz na [nazwa konwersacji]\"",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• W razie wątpliwości przekazuje kontrolę do głównego agenta (fail-safe)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Obsługuje polskie i angielskie komendy",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    if (controlAgentEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Status indicator
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFE8F5E8), RoundedCornerShape(8.dp))
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🟢",
+                                fontSize = 16.sp
+                            )
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            Text(
+                                text = "Agent sterowania jest aktywny",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color(0xFF2E7D32),
+                                style = TextStyles.base
+                            )
+                        }
                     }
                 }
 

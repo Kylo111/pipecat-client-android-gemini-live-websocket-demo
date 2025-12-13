@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.ControlAgentManager
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.BatteryProfiler
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.PerformanceLogger
 import android.app.Notification
@@ -20,6 +21,7 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -65,6 +67,9 @@ class VoiceService : Service() {
     
     // Clipboard event observation
     private var clipboardJob: Job? = null
+    
+    // Control Agent Manager - initialized when VoiceClientManager is available
+    private var controlAgentManager: ControlAgentManager? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -72,7 +77,7 @@ class VoiceService : Service() {
         Log.d(TAG, "VoiceService created")
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         batteryProfiler = BatteryProfiler(this)
-        serviceScope = CoroutineScope(Dispatchers.Default + Job())
+        serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         createNotificationChannel()
     }
 
@@ -138,6 +143,39 @@ class VoiceService : Service() {
     }
     
     /**
+     * Initialize ControlAgentManager with VoiceClientManager and SessionManager.
+     * Must be called after both managers are available.
+     * 
+     * @param voiceClientManager The VoiceClientManager instance
+     * @param sessionManager The SessionManager instance
+     */
+    fun initializeControlAgent(voiceClientManager: VoiceClientManager, sessionManager: SessionManager) {
+        try {
+            // Only initialize if not already initialized
+            if (controlAgentManager == null) {
+                controlAgentManager = ControlAgentManager(
+                    context = this,
+                    voiceClientManager = voiceClientManager,
+                    sessionManager = sessionManager,
+                    scope = serviceScope  // Use service scope with SupervisorJob
+                )
+                Log.i(TAG, "ControlAgentManager initialized with service scope")
+            } else {
+                Log.d(TAG, "ControlAgentManager already initialized, skipping")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize ControlAgentManager", e)
+        }
+    }
+    
+    /**
+     * Get the ControlAgentManager instance.
+     * 
+     * @return ControlAgentManager instance or null if not initialized
+     */
+    fun getControlAgentManager(): ControlAgentManager? = controlAgentManager
+    
+    /**
      * Copies text to the Android clipboard.
      * Handles SecurityException gracefully and shows Toast only on Android < 12.
      * 
@@ -171,6 +209,15 @@ class VoiceService : Service() {
             Log.d(TAG, "VoiceService.onDestroy: Clipboard job cancelled")
         } catch (e: Exception) {
             Log.e(TAG, "VoiceService.onDestroy: Error cancelling clipboard job", e)
+        }
+        
+        // Release ControlAgentManager
+        try {
+            controlAgentManager?.release()
+            controlAgentManager = null
+            Log.d(TAG, "VoiceService.onDestroy: ControlAgentManager released")
+        } catch (e: Exception) {
+            Log.e(TAG, "VoiceService.onDestroy: Error releasing ControlAgentManager", e)
         }
         
         // Cancel timeout job and scope first

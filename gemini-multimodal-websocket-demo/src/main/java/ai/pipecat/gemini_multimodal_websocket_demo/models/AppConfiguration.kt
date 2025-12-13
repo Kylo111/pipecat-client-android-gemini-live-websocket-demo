@@ -14,7 +14,8 @@ data class AppConfiguration(
     val globalSettings: GlobalSettings,
     val helpConversation: HelpConversationConfig,
     val appUpdate: AppUpdateInfo? = null,
-    val logging: LoggingConfig
+    val logging: LoggingConfig,
+    val remoteConfig: RemoteConfigSettings? = null
 )
 
 /**
@@ -75,4 +76,17 @@ data class AppUpdateInfo(
 data class LoggingConfig(
     val enabled: Boolean,
     val endpoint: String?
+)
+
+/**
+ * Remote configuration settings for agent configuration fetching.
+ * Supports Firebase Remote Config or HTTP endpoints.
+ */
+@Serializable
+data class RemoteConfigSettings(
+    val enabled: Boolean = true,
+    val url: String? = null,
+    val fallbackToDefaults: Boolean = true,
+    val cacheValidityHours: Int = 1,
+    val supportedProviders: List<String> = listOf("firebase", "http")
 )

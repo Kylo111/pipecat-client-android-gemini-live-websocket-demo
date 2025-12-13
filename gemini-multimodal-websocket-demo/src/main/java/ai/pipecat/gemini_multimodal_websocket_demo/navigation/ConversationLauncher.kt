@@ -210,7 +210,24 @@ class ConversationLauncher(
      */
     suspend fun launchFromWakeWord(threadId: String) {
         try {
-            Log.d(TAG, "Launching thread from wake word: $threadId")
+            Log.d(TAG, "Launching conversation from Control Agent: $threadId")
+            
+            // Check if this is an offline conversation or LibreChat thread
+            val offlineConversation = OfflineConversationManager.getById(threadId)
+            
+            if (offlineConversation != null) {
+                // This is an offline conversation
+                Log.d(TAG, "Detected offline conversation: ${offlineConversation.title}")
+                launchOfflineConversation(ConversationItem.Offline(
+                    id = offlineConversation.id,
+                    title = offlineConversation.title,
+                    systemPrompt = offlineConversation.systemPrompt
+                ))
+                return
+            }
+            
+            // This is a LibreChat thread
+            Log.d(TAG, "Detected LibreChat thread: $threadId")
             
             // Check authentication
             if (!authManager.isTokenValid()) {
@@ -244,13 +261,13 @@ class ConversationLauncher(
                 Preferences.systemPrompt.value = sessionContext.systemPrompt
                 voiceClientManager.start(threadSettings)
                 navigationController.navigateTo(Screen.IN_CALL)
-                Log.d(TAG, "Thread launched successfully from wake word")
+                Log.d(TAG, "Thread launched successfully from Control Agent")
             }.onFailure { error ->
-                Log.e(TAG, "Failed to start session from wake word", error)
+                Log.e(TAG, "Failed to start session from Control Agent", error)
                 voiceClientManager.errors.add(Error("Nie udało się uruchomić rozmowy: ${error.message}"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error launching thread from wake word", e)
+            Log.e(TAG, "Error launching conversation from Control Agent", e)
             voiceClientManager.errors.add(Error("Błąd uruchamiania rozmowy: ${e.message}"))
         }
     }

@@ -28,16 +28,26 @@ class AudioDeviceHandler(private val context: Context) {
     
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     
+    // Callback to notify when audio routing changes (for UI state sync)
+    var onAudioRoutingChanged: (() -> Unit)? = null
+    
+    // Flag to track if speakerphone was manually enabled (to prevent auto-routing from overriding it)
+    private var isSpeakerphoneManuallyEnabled = false
+    
     // Callback for hot-plugging (device connected/disconnected during call)
     private val deviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>?) {
             Log.i(TAG, "🔌 Audio device added")
             updateAudioDevice()
+            // Notify that routing changed
+            onAudioRoutingChanged?.invoke()
         }
         
         override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>?) {
             Log.i(TAG, "🔌 Audio device removed")
             updateAudioDevice()
+            // Notify that routing changed
+            onAudioRoutingChanged?.invoke()
         }
     }
     
@@ -93,6 +103,9 @@ class AudioDeviceHandler(private val context: Context) {
      * Uses setCommunicationDevice (API 31+) for explicit routing.
      * On older APIs, system handles routing automatically.
      * 
+     * IMPORTANT: If speakerphone is manually enabled, don't override it unless headset is connected.
+     * When headset is removed, automatically re-enable speakerphone.
+     * 
      * Requirements: 11.1, 11.2, 11.3, 12.2
      */
     private fun updateAudioDevice() {
@@ -104,6 +117,41 @@ class AudioDeviceHandler(private val context: Context) {
         
         try {
             val devices = audioManager.availableCommunicationDevices
+            
+            // Check if Bluetooth or wired headset is connected
+            val hasBluetoothHeadset = devices.any { 
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || 
+                it.type == AudioDeviceInfo.TYPE_BLE_HEADSET 
+            }
+            val hasWiredHeadset = devices.any { 
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || 
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES 
+            }
+            
+            val hasAnyHeadset = hasBluetoothHeadset || hasWiredHeadset
+            
+            // If speakerphone is manually enabled and no headset is connected, keep it enabled
+            if (isSpeakerphoneManuallyEnabled && !hasAnyHeadset) {
+                Log.d(TAG, "   🔊 Keeping speakerphone enabled (manually set, no headset)")
+                return
+            }
+            
+            // If headset is connected, disable manual speakerphone flag and route to headset
+            if (hasAnyHeadset) {
+                if (isSpeakerphoneManuallyEnabled) {
+                    Log.i(TAG, "   🎧 Headset connected, disabling speakerphone")
+                    isSpeakerphoneManuallyEnabled = false
+                    setSpeakerphone(false)  // Explicitly disable speakerphone
+                }
+            } else {
+                // No headset connected - enable speakerphone automatically
+                if (!isSpeakerphoneManuallyEnabled) {
+                    Log.i(TAG, "   🔊 No headset detected, auto-enabling speakerphone")
+                    isSpeakerphoneManuallyEnabled = true
+                    setSpeakerphone(true)
+                    return  // Don't do further routing, speakerphone is now active
+                }
+            }
             
             // Priority: Bluetooth > Wired Headset > Earpiece > Speaker
             val targetDevice = devices.firstOrNull { 
@@ -172,6 +220,7 @@ class AudioDeviceHandler(private val context: Context) {
         try {
             Log.i(TAG, "🔊 ${if (enabled) "Enabling" else "Disabling"} speakerphone manually")
             audioManager.isSpeakerphoneOn = enabled
+            isSpeakerphoneManuallyEnabled = enabled  // Update flag
             
             if (enabled) {
                 Log.i(TAG, "   ✅ Speakerphone enabled")
@@ -180,6 +229,9 @@ class AudioDeviceHandler(private val context: Context) {
                 // After disabling speakerphone, update routing to use best available device
                 updateAudioDevice()
             }
+            
+            // Notify that routing changed
+            onAudioRoutingChanged?.invoke()
         } catch (e: Exception) {
             Log.e(TAG, "   ❌ Error setting speakerphone: ${e.message}", e)
         }
@@ -192,5 +244,35 @@ class AudioDeviceHandler(private val context: Context) {
         val currentState = isSpeakerphoneOn()
         Log.i(TAG, "🔊 Toggling speakerphone: $currentState -> ${!currentState}")
         setSpeakerphone(!currentState)
+    }
+    
+    /**
+     * Enable speakerphone automatically if no headset is connected.
+     * Called when starting a new conversation.
+     */
+    fun enableSpeakerphoneIfNoHeadset() {
+        try {
+            // Check if any headset is ACTUALLY connected (not just available)
+            // isBluetoothScoAvailableOffCall only means BT is available in system, not connected
+            // We need to check if A2DP is actually ON
+            val isBluetoothConnected = audioManager.isBluetoothA2dpOn
+            val isWiredHeadsetConnected = audioManager.isWiredHeadsetOn
+            
+            Log.i(TAG, "🎧 Checking headset status:")
+            Log.i(TAG, "  - Bluetooth A2DP ON: $isBluetoothConnected")
+            Log.i(TAG, "  - Wired headset ON: $isWiredHeadsetConnected")
+            
+            // If no headset is connected, enable speakerphone using setSpeakerphone()
+            if (!isBluetoothConnected && !isWiredHeadsetConnected) {
+                Log.i(TAG, "🔊 Auto-enabling speakerphone (no headset detected)")
+                isSpeakerphoneManuallyEnabled = true  // Set flag to prevent auto-routing from overriding
+                setSpeakerphone(true)
+            } else {
+                Log.i(TAG, "🎧 Headset detected, keeping speakerphone OFF")
+                isSpeakerphoneManuallyEnabled = false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error checking headset status: ${e.message}", e)
+        }
     }
 }

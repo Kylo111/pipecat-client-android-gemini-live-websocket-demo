@@ -150,26 +150,32 @@ class MainActivity : ComponentActivity() {
         
         // Set up connection state observer to manage VoiceService lifecycle
         lifecycleScope.launch {
+            var previousConnectionState: ConnectionState? = null
             voiceClientManager.uiState.collect { uiState ->
-                when (uiState.connectionState) {
-                    ConnectionState.CONNECTED -> {
-                        // Start VoiceService when connection is established
-                        startVoiceService()
-                        updateVoiceServiceNotification("Połączono - rozmowa aktywna")
-                        Log.d(TAG, "Connection established - VoiceService started")
-                    }
-                    ConnectionState.RECONNECTING -> {
-                        // Update notification during reconnection
-                        updateVoiceServiceNotification("Ponowne łączenie...")
-                        Log.d(TAG, "Reconnecting - updating VoiceService notification")
-                    }
-                    ConnectionState.DISCONNECTED -> {
-                        // Stop VoiceService when connection is terminated
-                        stopVoiceService()
-                        Log.d(TAG, "Disconnected - VoiceService stopped")
-                    }
-                    else -> {
-                        // Do nothing for CONNECTING state
+                // Only react to connection state changes, not other UI state changes
+                if (uiState.connectionState != previousConnectionState) {
+                    previousConnectionState = uiState.connectionState
+                    
+                    when (uiState.connectionState) {
+                        ConnectionState.CONNECTED -> {
+                            // Start VoiceService when connection is established
+                            startVoiceService()
+                            updateVoiceServiceNotification("Połączono - rozmowa aktywna")
+                            Log.d(TAG, "Connection established - VoiceService started")
+                        }
+                        ConnectionState.RECONNECTING -> {
+                            // Update notification during reconnection
+                            updateVoiceServiceNotification("Ponowne łączenie...")
+                            Log.d(TAG, "Reconnecting - updating VoiceService notification")
+                        }
+                        ConnectionState.DISCONNECTED -> {
+                            // Stop VoiceService when connection is terminated
+                            stopVoiceService()
+                            Log.d(TAG, "Disconnected - VoiceService stopped")
+                        }
+                        else -> {
+                            // Do nothing for CONNECTING state
+                        }
                     }
                 }
             }
@@ -538,6 +544,80 @@ class MainActivity : ComponentActivity() {
                 startService(intent)
             }
             Log.d(TAG, "VoiceService start requested")
+            
+            // Initialize ControlAgentManager after VoiceService is started (only once)
+            lifecycleScope.launch {
+                // Wait a bit for VoiceService to initialize
+                kotlinx.coroutines.delay(100)
+                
+                val voiceService = VoiceService.getInstance()
+                if (voiceService != null && voiceService.getControlAgentManager() == null) {
+                    val sessionManager = voiceClientManager.sessionManager
+                    if (sessionManager != null) {
+                        voiceService.initializeControlAgent(voiceClientManager, sessionManager)
+                        Log.d(TAG, "ControlAgentManager initialized")
+                        
+                        // Set callbacks for navigation
+                        voiceService.getControlAgentManager()?.setOnEndSessionCallback {
+                            navigationController.endSessionAndNavigate()
+                        }
+                        voiceService.getControlAgentManager()?.setOnSwitchConversationCallback { targetId ->
+                            lifecycleScope.launch {
+                                Log.d(TAG, "Control Agent: Switching to conversation: $targetId")
+                                
+                                // Check if already in this conversation
+                                val currentConversationId = voiceClientManager.sessionManager?.getCurrentSession()?.conversationId
+                                if (currentConversationId == targetId) {
+                                    Log.d(TAG, "Already in conversation $targetId, ignoring switch command")
+                                    return@launch
+                                }
+                                
+                                // 1. End current session (same as "End" button)
+                                navigationController.endSessionAndNavigate()
+                                
+                                // 2. Wait for cleanup
+                                kotlinx.coroutines.delay(500)
+                                
+                                // 3. Launch new conversation (same as clicking conversation in list)
+                                conversationLauncher.launchFromWakeWord(targetId)
+                            }
+                        }
+                        Log.d(TAG, "ControlAgentManager callbacks set")
+                    } else {
+                        Log.w(TAG, "SessionManager not available for ControlAgent initialization")
+                    }
+                } else if (voiceService?.getControlAgentManager() != null) {
+                    Log.d(TAG, "ControlAgentManager already initialized, skipping")
+                    
+                    // Ensure callbacks are set even if already initialized
+                    voiceService.getControlAgentManager()?.setOnEndSessionCallback {
+                        navigationController.endSessionAndNavigate()
+                    }
+                    voiceService.getControlAgentManager()?.setOnSwitchConversationCallback { targetId ->
+                        lifecycleScope.launch {
+                            Log.d(TAG, "Control Agent: Switching to conversation: $targetId")
+                            
+                            // Check if already in this conversation
+                            val currentConversationId = voiceClientManager.sessionManager?.getCurrentSession()?.conversationId
+                            if (currentConversationId == targetId) {
+                                Log.d(TAG, "Already in conversation $targetId, ignoring switch command")
+                                return@launch
+                            }
+                            
+                            // 1. End current session (same as "End" button)
+                            navigationController.endSessionAndNavigate()
+                            
+                            // 2. Wait for cleanup
+                            kotlinx.coroutines.delay(500)
+                            
+                            // 3. Launch new conversation (same as clicking conversation in list)
+                            conversationLauncher.launchFromWakeWord(targetId)
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "VoiceService not available for ControlAgent initialization")
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start VoiceService", e)
             // Show error to user if service fails to start

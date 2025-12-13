@@ -31,6 +31,7 @@ object Preferences {
     private const val PREF_SUMMARY_MODEL = "summary_model"
     private const val PREF_PARENTAL_LOCK_ENABLED = "parental_lock_enabled"
     private const val PREF_FULL_DUPLEX_MODE = "full_duplex_mode"
+    private const val PREF_CONTROL_AGENT_ENABLED = "control_agent_enabled"
     private const val PREF_VERSION = "preferences_version"
     private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
 
@@ -44,8 +45,8 @@ object Preferences {
 
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
-            geminiApiKey, googleCloudApiKey, perplexityApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
-            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode
+            geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
+            selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, controlAgentEnabled
         ).forEach { it.init() }
     }
 
@@ -201,6 +202,7 @@ object Preferences {
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
     val googleCloudApiKey = StringPref(PREF_GOOGLE_CLOUD_API_KEY) // For Google Cloud Speech-to-Text API (optional)
     val perplexityApiKey = StringPref("perplexity_api_key") // For Perplexity Sonar API
+    val openRouterApiKey = StringPref("openrouter_api_key") // For OpenRouter API (Reasoning Agent)
     val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Legacy - kept for compatibility
     val autoPauseTimeoutSeconds = IntPref(PREF_AUTO_PAUSE_TIMEOUT_SECONDS, 60) // Auto-pause after X seconds of user inactivity
     val botResponseTimeoutMinutes = IntPref("bot_response_timeout_minutes", 5) // Auto-pause after X minutes without bot response
@@ -223,4 +225,7 @@ object Preferences {
     
     // Audio mode (full-duplex vs half-duplex)
     val fullDuplexMode = BooleanPref(PREF_FULL_DUPLEX_MODE, true) // Default: full-duplex
+    
+    // Control Agent settings
+    val controlAgentEnabled = BooleanPref(PREF_CONTROL_AGENT_ENABLED, true) // Default: enabled
 }

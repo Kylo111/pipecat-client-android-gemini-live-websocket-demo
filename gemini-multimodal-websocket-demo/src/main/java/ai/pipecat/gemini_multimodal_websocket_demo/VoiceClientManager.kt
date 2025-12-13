@@ -1,7 +1,10 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.*
+import ai.pipecat.gemini_multimodal_websocket_demo.models.AudioState
+import ai.pipecat.gemini_multimodal_websocket_demo.models.SystemState
 import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceUiState
+import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -90,8 +93,14 @@ class VoiceClientManager(
         val systemPrompt = Preferences.systemPrompt.value ?: ""
         Log.d(TAG, "🔍 [DIAGNOSTIC] System prompt from Preferences: ${systemPrompt.length} chars")
         
-        // Get tool declarations
-        val toolDeclarations = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
+        // Get tool declarations - use special tools for Help conversation
+        val isHelpConversation = settings?.conversationId == "system_help_conversation"
+        val toolDeclarations = if (isHelpConversation) {
+            Log.d(TAG, "🔧 [DIAGNOSTIC] Using Help conversation tools (includes create_offline_conversation)")
+            ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getHelpConversationTools(context)
+        } else {
+            ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
+        }
         Log.d(TAG, "🔧 [DIAGNOSTIC] Configuring ${toolDeclarations.size} tools for function calling")
         
         // Get model from preferences (default to gemini-2.5-flash-exp for Gemini Live)
@@ -118,6 +127,11 @@ class VoiceClientManager(
             botResponseTimeoutMinutes,
             activityThreshold
         )
+        
+        // Set up callback to sync UI state with actual speakerphone state
+        audioDeviceHandler?.onAudioRoutingChanged = {
+            syncSpeakerphoneState()
+        }
         
         // Wire events
         wireEvents()
@@ -208,6 +222,27 @@ class VoiceClientManager(
             if (text.isNotBlank()) {
                 sessionManager?.captureUserTranscript(text)
             }
+            
+            // Send to ControlAgentManager in parallel (fire-and-forget)
+            // Send all transcripts (Gemini Live doesn't provide isFinal flag)
+            // ControlAgentManager will handle debouncing internally
+            if (text.isNotBlank() && text.length > 3) { // Only process if text is meaningful
+                Log.d(TAG, "📝 Transcript received: '$text' - forwarding to ControlAgent")
+                
+                // Get ControlAgentManager from VoiceService
+                val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+                val controlAgent = voiceService?.getControlAgentManager()
+                
+                if (voiceService == null) {
+                    Log.w(TAG, "⚠️ VoiceService.getInstance() returned null - ControlAgent not available")
+                } else if (controlAgent == null) {
+                    Log.w(TAG, "⚠️ ControlAgentManager not initialized in VoiceService")
+                } else {
+                    // Collect transcript fragment (will be processed after user stops speaking)
+                    Log.d(TAG, "📝 Collecting transcript fragment for Control Agent")
+                    controlAgent.onUserTranscript(text)
+                }
+            }
         }
         
         client.onOutputTranscription = { text, isFinal ->
@@ -293,11 +328,18 @@ class VoiceClientManager(
      * Update user audio level from recorded audio data.
      */
     private fun updateUserAudioLevel(audioData: ByteArray): Float {
+        val wasUserTalking = _uiState.value.isUserTalking
+        
         if (audioData.isEmpty()) {
             _uiState.value = _uiState.value.copy(
                 userAudioLevel = 0f,
                 isUserTalking = false
             )
+            
+            // Update system state if user stopped talking
+            if (wasUserTalking) {
+                updateSystemState()
+            }
             return 0f
         }
         
@@ -312,11 +354,17 @@ class VoiceClientManager(
         
         val rms = Math.sqrt(sum / (audioData.size / 2))
         val normalized = (rms / 32768.0).toFloat().coerceIn(0f, 1f)
+        val isUserTalking = normalized > 0.1f
         
         _uiState.value = _uiState.value.copy(
             userAudioLevel = normalized,
-            isUserTalking = normalized > 0.1f
+            isUserTalking = isUserTalking
         )
+        
+        // Update system state if user talking state changed
+        if (wasUserTalking != isUserTalking) {
+            updateSystemState()
+        }
         
         return normalized
     }
@@ -329,6 +377,9 @@ class VoiceClientManager(
             _uiState.value = _uiState.value.copy(isBotTalking = true)
             autoMuteMonitor?.setBotTalking(true)
             Log.d(TAG, "🤖 Bot started speaking")
+            
+            // Update system state when bot starts talking
+            updateSystemState()
         }
         
         audioEngine?.queueAudio(audioData)
@@ -372,6 +423,9 @@ class VoiceClientManager(
         audioEngine?.flush()
         _uiState.value = _uiState.value.copy(isBotTalking = false)
         autoMuteMonitor?.setBotTalking(false)
+        
+        // Update system state when bot is interrupted
+        updateSystemState()
     }
     
     /**
@@ -389,6 +443,9 @@ class VoiceClientManager(
             Log.i(TAG, "🎵 Playback finished")
             _uiState.value = _uiState.value.copy(isBotTalking = false)
             autoMuteMonitor?.setBotTalking(false)
+            
+            // Update system state when bot finishes talking
+            updateSystemState()
         }
     }
     
@@ -412,6 +469,12 @@ class VoiceClientManager(
         try {
             // Start audio device handler BEFORE audio
             audioDeviceHandler?.start()
+            
+            // Enable speakerphone if no headset is connected (AFTER start() so it overrides routing)
+            audioDeviceHandler?.enableSpeakerphoneIfNoHeadset()
+            
+            // Initial sync of speakerphone state
+            syncSpeakerphoneState()
             
             // Connect to Gemini
             geminiClient?.connect(
@@ -496,10 +559,14 @@ class VoiceClientManager(
      */
     fun pause() {
         Log.d(TAG, "pause() called")
+        playBeep()
         _uiState.value = _uiState.value.copy(
             isPaused = true,
             isMicEnabled = false
         )
+        
+        // Update system state when paused
+        updateSystemState()
     }
     
     /**
@@ -507,6 +574,10 @@ class VoiceClientManager(
      */
     fun resume() {
         Log.d(TAG, "resume() called")
+        
+        // Play beep for resume
+        playBeep()
+        
         _uiState.value = _uiState.value.copy(
             isPaused = false,
             isMicEnabled = true
@@ -517,6 +588,9 @@ class VoiceClientManager(
             autoMuteMonitor?.startAutoMuteTimer()
             autoMuteMonitor?.startBotResponseTimer()
         }
+        
+        // Update system state when resumed
+        updateSystemState()
     }
     
     /**
@@ -531,15 +605,24 @@ class VoiceClientManager(
     }
     
     /**
+     * Sync UI state with actual speakerphone state from AudioManager.
+     * This ensures the icon is always accurate.
+     */
+    private fun syncSpeakerphoneState() {
+        val isSpeakerOn = audioDeviceHandler?.isSpeakerphoneOn() ?: false
+        _uiState.value = _uiState.value.copy(isSpeakerphoneOn = isSpeakerOn)
+        Log.d(TAG, "🔊 Speakerphone state synced: $isSpeakerOn")
+    }
+    
+    /**
      * Toggle speakerphone on/off.
      */
     fun toggleSpeakerphone() {
         Log.d(TAG, "toggleSpeakerphone() called")
         audioDeviceHandler?.toggleSpeakerphone()
         
-        // Update UI state to reflect speakerphone change
-        val isSpeakerOn = audioDeviceHandler?.isSpeakerphoneOn() ?: false
-        _uiState.value = _uiState.value.copy(isSpeakerphoneOn = isSpeakerOn)
+        // Sync UI state with actual state (callback will also trigger this)
+        syncSpeakerphoneState()
     }
     
     /**
@@ -622,6 +705,93 @@ class VoiceClientManager(
     suspend fun continueReconnection() {
         Log.d(TAG, "continueReconnection() - not used in simplified version")
         // Simplified version doesn't have reconnection logic
+    }
+    
+    /**
+     * Update system state and notify ControlAgentManager.
+     * 
+     * This method updates the system state based on current audio pipeline state
+     * and notifies the ControlAgentManager for context.
+     * 
+     * Requirements: 6.4
+     */
+    private fun updateSystemState() {
+        try {
+            val currentState = _uiState.value
+            
+            // Determine current audio state
+            val audioState = when {
+                currentState.isBotTalking -> AudioState.PLAYING_TTS
+                currentState.isUserTalking && !currentState.isPaused -> AudioState.RECORDING
+                else -> AudioState.IDLE
+            }
+            
+            // Get available tools
+            val availableTools = ToolDefinitions.getAllTools(context).map { tool ->
+                // Extract tool name from JsonElement
+                when (tool) {
+                    is kotlinx.serialization.json.JsonObject -> {
+                        tool["name"]?.let { nameElement ->
+                            if (nameElement is kotlinx.serialization.json.JsonPrimitive) {
+                                nameElement.content
+                            } else null
+                        } ?: "unknown"
+                    }
+                    else -> "unknown"
+                }
+            }
+            
+            // Create SystemState
+            val systemState = SystemState(
+                isMediaPlaying = currentState.isBotTalking, // Bot speaking counts as media playing
+                currentAudioState = audioState,
+                availableTools = availableTools
+            )
+            
+            // Notify ControlAgentManager
+            val voiceService = VoiceService.getInstance()
+            val controlAgent = voiceService?.getControlAgentManager()
+            controlAgent?.updateSystemState(systemState)
+            
+            Log.d(TAG, "SystemState updated: $systemState")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update SystemState", e)
+        }
+    }
+    
+    /**
+     * Play a short beep sound to indicate action (mute/end).
+     */
+    fun playBeep() {
+        try {
+            Log.d(TAG, "🔔 Playing beep sound")
+            
+            // Get current volume to restore later
+            val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+            val originalVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+            
+            // Set to 70% volume temporarily (not too loud)
+            val targetVolume = (maxVolume * 0.7).toInt()
+            audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetVolume, 0)
+            
+            val toneGenerator = android.media.ToneGenerator(
+                android.media.AudioManager.STREAM_MUSIC,
+                70  // 70% volume (0-100)
+            )
+            toneGenerator.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 200)  // Shorter beep
+            
+            scope.launch {
+                kotlinx.coroutines.delay(250)
+                toneGenerator.release()
+                // Restore original volume
+                audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, originalVolume, 0)
+                Log.d(TAG, "🔔 Beep finished")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to play beep", e)
+        }
     }
     
     /**

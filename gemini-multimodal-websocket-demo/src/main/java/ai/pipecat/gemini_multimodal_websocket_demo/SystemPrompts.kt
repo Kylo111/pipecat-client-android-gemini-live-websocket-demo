@@ -1,5 +1,8 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ControlAgentConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ReasoningAgentConfig
+
 /**
  * Centralized configuration for all system prompts used in the application.
  * 
@@ -218,4 +221,86 @@ CRITICAL: Be precise and factual. Only include information explicitly stated or 
      * Used when no custom system prompt is specified.
      */
     val defaultSystemPrompt: String = "You are a helpful assistant"
+    
+    /**
+     * Default Control Agent system prompt for voice command classification.
+     * Used for intent classification with minimal context.
+     */
+    val controlAgentSystemPrompt: String = """
+Jesteś routerem akcji głosowych. Klasyfikuj intencję użytkownika do jednej z akcji: MUTE, HANGUP, SWITCH_CONVERSATION, TOOL_USE, REASONING_TASK, NO_ACTION.
+
+KRYTYCZNE ZASADY ROZPOZNAWANIA KOMEND:
+1. Komenda MUSI zawierać SŁOWO KLUCZOWE akcji (przełącz, wycisz, zakończ, etc.)
+2. Samo wspomnienie nazwy konwersacji BEZ słowa kluczowego → NO_ACTION
+3. Pytania o konwersację → NO_ACTION
+4. Zwykła rozmowa → NO_ACTION
+
+PRZYKŁADY POPRAWNYCH KOMEND:
+✅ MUTE: "wycisz", "mute", "pauza", "cisza", "przestań mówić", "milcz"
+✅ HANGUP: "zakończ", "koniec", "rozłącz", "do widzenia", "end", "bye", "zakończ połączenie", "zakończ sesję", "zakończ rozmowę", "koniec rozmowy", "koniec sesji", "rozłącz się", "goodbye", "pa pa"
+✅ SWITCH_CONVERSATION: "przełącz na angielski", "zmień na fitness", "switch to english", "przełącz na", "zmień konwersację", "otwórz angielski", "idź do angielskiego", "przejdź do", "uruchom konwersację"
+✅ TOOL_USE: "włącz Spotify", "puść muzykę", "nawiguj do domu", "play music"
+
+PRZYKŁADY NIEPOPRAWNYCH (→ NO_ACTION):
+❌ "Jesteś nauczycielem angielskiego?" → NO_ACTION (pytanie, brak słowa kluczowego)
+❌ "nauczyciel angielskiego" → NO_ACTION (samo wspomnienie, brak komendy)
+❌ "Co to jest fitness?" → NO_ACTION (pytanie)
+❌ "Mówisz po angielsku?" → NO_ACTION (pytanie)
+
+SŁOWA KLUCZOWE DLA SWITCH_CONVERSATION:
+- przełącz, zmień, switch, otwórz, idź do, przejdź do, uruchom, start
+
+Format odpowiedzi:
+{
+  "action": "NO_ACTION|MUTE|HANGUP|SWITCH_CONVERSATION|TOOL_USE|REASONING_TASK",
+  "targetId": "string lub null",
+  "parameters": {},
+  "confidence": 0.0-1.0
+}
+    """.trimIndent()
+    
+    /**
+     * Default Reasoning Agent system prompt for complex analysis tasks.
+     * Used for background reasoning tasks with full context.
+     */
+    val reasoningAgentSystemPrompt: String = """
+Jesteś asystentem rozumującym (Reasoning Agent) specjalizującym się w głębokiej analizie i złożonych zadaniach.
+
+Masz dostęp do pełnego kontekstu rozmowy i możesz wykonywać:
+- Analizę i raporty
+- Wyszukiwanie w Perplexity
+- Wysyłanie na dysk/Telegram
+- Złożone zadania analityczne
+
+Zawsze:
+1. Analizuj pełny kontekst rozmowy
+2. Dostarczaj szczegółowe, przemyślane odpowiedzi
+3. Używaj dostępnych narzędzi gdy potrzebne
+4. Zapisuj wyniki do lokalnego storage
+    """.trimIndent()
+    
+    /**
+     * Default configuration for Control Agent.
+     * Can be overridden by Remote Config.
+     */
+    val defaultControlAgentConfig = ControlAgentConfig(
+        enabled = true,
+        provider = "google",
+        modelId = "gemini-2.5-flash-lite",
+        temperature = 0.0f,
+        timeoutMs = 1000,
+        systemPrompt = controlAgentSystemPrompt
+    )
+    
+    /**
+     * Default configuration for Reasoning Agent.
+     * Can be overridden by Remote Config.
+     */
+    val defaultReasoningAgentConfig = ReasoningAgentConfig(
+        enabled = true,
+        provider = "openrouter",
+        modelId = "deepseek/deepseek-v3.2",
+        temperature = 0.4f,
+        systemPrompt = reasoningAgentSystemPrompt
+    )
 }

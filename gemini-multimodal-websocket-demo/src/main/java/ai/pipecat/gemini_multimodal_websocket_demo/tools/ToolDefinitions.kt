@@ -20,6 +20,9 @@ object ToolDefinitions {
     /**
      * Get all tool declarations for Gemini Live API
      * Includes both built-in tools and user-defined custom tools
+     * 
+     * NOTE: create_offline_conversation is NOT included here - it's only available
+     * in the "Help" conversation to prevent accidental creation of duplicate conversations
      */
     fun getAllTools(context: android.content.Context): List<JsonObject> {
         val builtInTools = mutableListOf(
@@ -31,7 +34,7 @@ object ToolDefinitions {
             createNoteTool(),
             controlMediaTool(),
             searchNearbyTool(),
-            createOfflineConversationTool(),
+            // createOfflineConversationTool(), // REMOVED - only for "Help" conversation
             startNavigationTool(),
             copyToClipboardTool()
         )
@@ -46,6 +49,16 @@ object ToolDefinitions {
         val customTools = CustomToolsManager.getCustomToolDeclarations(context)
         
         return builtInTools + customTools
+    }
+    
+    /**
+     * Get tools for "Help" conversation - includes create_offline_conversation
+     * This special conversation can create new offline conversations for the user
+     */
+    fun getHelpConversationTools(context: android.content.Context): List<JsonObject> {
+        val tools = getAllTools(context).toMutableList()
+        tools.add(createOfflineConversationTool())
+        return tools
     }
     
     /**

@@ -170,6 +170,9 @@ class NavigationController(
         scope.launch {
             Log.d(TAG, "Ending session and navigating to thread list")
             
+            // Play beep before ending session
+            playBeep()
+            
             // Stop voice client first (closes WebSocket, stops audio)
             if (voiceClientManager.uiState.value.connectionState != ConnectionState.DISCONNECTED) {
                 Log.d(TAG, "Stopping voice client...")
@@ -184,6 +187,14 @@ class NavigationController(
             Log.d(TAG, "Navigating to thread list")
             _currentScreen.value = Screen.THREAD_LIST
         }
+    }
+    
+    /**
+     * Play a short beep sound to indicate action.
+     * Delegates to VoiceClientManager for consistency.
+     */
+    private fun playBeep() {
+        voiceClientManager.playBeep()
     }
     
     /**

@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
 import android.app.Application
+import ai.pipecat.gemini_multimodal_websocket_demo.config.AgentConfigProvider
 import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConfigurationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConversationRepository
@@ -81,6 +82,7 @@ class RTVIApplication : Application() {
         ThemeManager.init(this)
         OfflineConversationManager.init(this)
         PicovoiceManager.initialize(this)
+        AgentConfigProvider.init(this)
         
         // Load configuration on app startup
         CoroutineScope(Dispatchers.IO).launch {
@@ -92,6 +94,18 @@ class RTVIApplication : Application() {
                 
                 // Check and update Help conversation if needed
                 helpConversationUpdater.checkAndUpdateHelpConversation()
+            }
+            
+            // Refresh agent configuration from remote if needed
+            try {
+                val refreshSuccess = AgentConfigProvider.refreshFromRemoteIfNeeded()
+                if (refreshSuccess) {
+                    android.util.Log.i("RTVIApplication", "Agent configuration is up to date")
+                } else {
+                    android.util.Log.d("RTVIApplication", "Using cached or default agent configuration")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("RTVIApplication", "Failed to refresh agent configuration", e)
             }
         }
         

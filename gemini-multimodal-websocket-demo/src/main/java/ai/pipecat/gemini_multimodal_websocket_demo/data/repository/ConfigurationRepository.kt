@@ -8,6 +8,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.models.HelpConversationConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.NewsAnnouncement
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AppUpdateInfo
 import ai.pipecat.gemini_multimodal_websocket_demo.models.LoggingConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.RemoteConfigSettings
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -120,5 +121,21 @@ class ConfigurationRepository(
     fun getLoggingConfig(): LoggingConfig {
         return cachedConfig?.logging 
             ?: LoggingConfig(enabled = false, endpoint = null)
+    }
+    
+    /**
+     * Gets remote configuration settings.
+     * 
+     * @return RemoteConfigSettings with URL and cache settings
+     */
+    fun getRemoteConfigSettings(): RemoteConfigSettings {
+        return cachedConfig?.remoteConfig 
+            ?: RemoteConfigSettings(
+                enabled = true,
+                url = null,
+                fallbackToDefaults = true,
+                cacheValidityHours = 1,
+                supportedProviders = listOf("firebase", "http")
+            )
     }
 }

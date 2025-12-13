@@ -60,5 +60,12 @@
   "logging": {
     "enabled": false,
     "endpoint": null
+  },
+  "remoteConfig": {
+    "enabled": true,
+    "url": null,
+    "fallbackToDefaults": true,
+    "cacheValidityHours": 1,
+    "supportedProviders": ["firebase", "http"]
   }
 }
