@@ -45,6 +45,10 @@ class SessionManager(
     private val _clipboardEvent = MutableSharedFlow<String>()
     val clipboardEvent: SharedFlow<String> = _clipboardEvent.asSharedFlow()
     
+    // Transcript items StateFlow for real-time transcript updates
+    private val _transcriptItems = MutableStateFlow<List<TranscriptEntry>>(emptyList())
+    val transcriptItems: StateFlow<List<TranscriptEntry>> = _transcriptItems
+    
     // Room database repositories
     private val sessionRepository by lazy {
         (context.applicationContext as RTVIApplication).sessionRepository
@@ -205,6 +209,9 @@ class SessionManager(
             currentConversationId = conversationId
             Log.d(TAG, "Created offline database session: $currentDbSessionId")
             
+            // Reset transcript items StateFlow for new session
+            _transcriptItems.value = emptyList()
+            
             // No LibreChat session context for offline conversations
             currentSession = null
             
@@ -338,6 +345,10 @@ class SessionManager(
                 Log.w(TAG, "Using default fallback context")
                 val defaultContext = createDefaultContext(conversationId)
                 currentSession = defaultContext
+                
+                // Reset transcript items StateFlow for new session
+                _transcriptItems.value = emptyList()
+                
                 return@withContext Result.success(defaultContext)
             }
             
@@ -360,6 +371,9 @@ class SessionManager(
             currentSession = sessionContext
             lastContextUpdateTime = 0 // Reset throttle
             
+            // Reset transcript items StateFlow for new session
+            _transcriptItems.value = emptyList()
+            
             // Create session in Room database
             try {
                 currentDbSessionId = sessionRepository.createSession(conversationId)
@@ -378,6 +392,10 @@ class SessionManager(
             // Fallback to default context
             val defaultContext = createDefaultContext(conversationId)
             currentSession = defaultContext
+            
+            // Reset transcript items StateFlow for new session
+            _transcriptItems.value = emptyList()
+            
             Result.success(defaultContext)
         }
     }
@@ -403,6 +421,7 @@ class SessionManager(
     /**
      * Capture a user transcript entry
      * Works for both LibreChat and offline sessions
+     * Merges consecutive fragments from the same speaker
      * 
      * @param text The transcribed text from the user
      */
@@ -412,23 +431,56 @@ class SessionManager(
             return
         }
         
-        // For LibreChat sessions, add to in-memory transcript
-        currentSession?.let { session ->
+        val trimmedText = text.trim()
+        val currentList = _transcriptItems.value.toMutableList()
+        val lastEntry = currentList.lastOrNull()
+        
+        // Check if we should merge with the last entry (same speaker within 5 seconds)
+        val shouldMerge = lastEntry != null && 
+            lastEntry.speaker == Speaker.USER &&
+            (System.currentTimeMillis() - lastEntry.timestamp) < 5000
+        
+        if (shouldMerge && lastEntry != null) {
+            // Merge with the last entry - append text with space
+            val mergedText = "${lastEntry.text} $trimmedText"
+            val updatedEntry = lastEntry.copy(text = mergedText)
+            currentList[currentList.lastIndex] = updatedEntry
+            _transcriptItems.value = currentList
+            
+            // Update in-memory session transcript
+            currentSession?.let { session ->
+                if (session.transcripts.isNotEmpty() && session.transcripts.last().speaker == Speaker.USER) {
+                    session.transcripts[session.transcripts.lastIndex] = updatedEntry
+                }
+            }
+            
+            Log.d(TAG, "Merged user transcript: ${mergedText.take(50)}...")
+        } else {
+            // Create new entry
             val entry = TranscriptEntry(
                 timestamp = System.currentTimeMillis(),
                 speaker = Speaker.USER,
-                text = text.trim()
+                text = trimmedText
             )
             
-            session.transcripts.add(entry)
-            enforceTranscriptLimit(session)
+            // For LibreChat sessions, add to in-memory transcript
+            currentSession?.let { session ->
+                session.transcripts.add(entry)
+                enforceTranscriptLimit(session)
+            }
+            
+            // Update StateFlow with new transcript entry
+            currentList.add(entry)
+            _transcriptItems.value = currentList
+            
+            Log.d(TAG, "Captured user transcript: ${trimmedText.take(50)}...")
         }
         
         // For ALL sessions (LibreChat and offline), save to database
         currentDbSessionId?.let { dbSessionId ->
             scope.launch {
                 try {
-                    sessionRepository.appendTranscript(dbSessionId, "user", text)
+                    sessionRepository.appendTranscript(dbSessionId, "user", trimmedText)
                     Log.d(TAG, "Saved user transcript to database")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to save user transcript to database", e)
@@ -437,13 +489,12 @@ class SessionManager(
         } ?: run {
             Log.w(TAG, "No active database session - transcript not saved")
         }
-        
-        Log.d(TAG, "Captured user transcript: ${text.take(50)}...")
     }
     
     /**
      * Capture a bot transcript entry
      * Works for both LibreChat and offline sessions
+     * Merges consecutive fragments from the same speaker
      * 
      * @param text The transcribed text from the bot
      */
@@ -453,23 +504,56 @@ class SessionManager(
             return
         }
         
-        // For LibreChat sessions, add to in-memory transcript
-        currentSession?.let { session ->
+        val trimmedText = text.trim()
+        val currentList = _transcriptItems.value.toMutableList()
+        val lastEntry = currentList.lastOrNull()
+        
+        // Check if we should merge with the last entry (same speaker within 5 seconds)
+        val shouldMerge = lastEntry != null && 
+            lastEntry.speaker == Speaker.BOT &&
+            (System.currentTimeMillis() - lastEntry.timestamp) < 5000
+        
+        if (shouldMerge && lastEntry != null) {
+            // Merge with the last entry - append text with space
+            val mergedText = "${lastEntry.text} $trimmedText"
+            val updatedEntry = lastEntry.copy(text = mergedText)
+            currentList[currentList.lastIndex] = updatedEntry
+            _transcriptItems.value = currentList
+            
+            // Update in-memory session transcript
+            currentSession?.let { session ->
+                if (session.transcripts.isNotEmpty() && session.transcripts.last().speaker == Speaker.BOT) {
+                    session.transcripts[session.transcripts.lastIndex] = updatedEntry
+                }
+            }
+            
+            Log.d(TAG, "Merged bot transcript: ${mergedText.take(50)}...")
+        } else {
+            // Create new entry
             val entry = TranscriptEntry(
                 timestamp = System.currentTimeMillis(),
                 speaker = Speaker.BOT,
-                text = text.trim()
+                text = trimmedText
             )
             
-            session.transcripts.add(entry)
-            enforceTranscriptLimit(session)
+            // For LibreChat sessions, add to in-memory transcript
+            currentSession?.let { session ->
+                session.transcripts.add(entry)
+                enforceTranscriptLimit(session)
+            }
+            
+            // Update StateFlow with new transcript entry
+            currentList.add(entry)
+            _transcriptItems.value = currentList
+            
+            Log.d(TAG, "Captured bot transcript: ${trimmedText.take(50)}...")
         }
         
         // For ALL sessions (LibreChat and offline), save to database
         currentDbSessionId?.let { dbSessionId ->
             scope.launch {
                 try {
-                    sessionRepository.appendTranscript(dbSessionId, "assistant", text)
+                    sessionRepository.appendTranscript(dbSessionId, "assistant", trimmedText)
                     Log.d(TAG, "Saved bot transcript to database")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to save bot transcript to database", e)
@@ -478,8 +562,6 @@ class SessionManager(
         } ?: run {
             Log.w(TAG, "No active database session - transcript not saved")
         }
-        
-        Log.d(TAG, "Captured bot transcript: ${text.take(50)}...")
     }
     
     /**
@@ -721,6 +803,7 @@ class SessionManager(
                 }
                 currentDbSessionId = null
                 currentConversationId = null
+                _transcriptItems.value = emptyList()
             }
             
             // Stop the voice client
@@ -768,6 +851,7 @@ class SessionManager(
                 currentSession = null
                 currentDbSessionId = null
                 lastContextUpdateTime = 0
+                _transcriptItems.value = emptyList()
                 isEndingSession = false
                 return@withContext Result.success(Unit)
             }
@@ -788,6 +872,7 @@ class SessionManager(
                 currentSession = null
                 currentDbSessionId = null
                 lastContextUpdateTime = 0
+                _transcriptItems.value = emptyList()
                 isEndingSession = false
                 return@withContext Result.success(Unit)
             }
@@ -889,6 +974,7 @@ class SessionManager(
                 currentSession = null
                 currentDbSessionId = null
                 lastContextUpdateTime = 0
+                _transcriptItems.value = emptyList()
                 transcriptSyncManager.reset()
                 isEndingSession = false
                 Result.success(Unit)
@@ -899,6 +985,7 @@ class SessionManager(
                 // Clear session even though sync failed/cancelled
                 currentSession = null
                 lastContextUpdateTime = 0
+                _transcriptItems.value = emptyList()
                 transcriptSyncManager.reset()
                 isEndingSession = false
                 

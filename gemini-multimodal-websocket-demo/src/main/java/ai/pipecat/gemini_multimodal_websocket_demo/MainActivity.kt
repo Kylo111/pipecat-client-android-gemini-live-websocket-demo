@@ -409,6 +409,7 @@ class MainActivity : ComponentActivity() {
                                 // This allows users to see reconnection status and stay in conversation
                                 InCallLayout(
                                     uiState = uiState,
+                                    sessionManager = sessionManager,
                                     onToggleMic = voiceClientManager::togglePause,
                                     onToggleSpeakerphone = voiceClientManager::toggleSpeakerphone,
                                     onEndSession = {

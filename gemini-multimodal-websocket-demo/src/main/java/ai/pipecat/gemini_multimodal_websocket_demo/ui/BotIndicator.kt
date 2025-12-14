@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,9 +33,12 @@ fun BotIndicator(
     isReady: Boolean,
     isTalking: Boolean,
     audioLevel: Float,
+    onFullscreenClick: () -> Unit = {}
 ) {
     Box(
-        modifier = modifier.padding(15.dp),
+        modifier = modifier
+            .padding(15.dp)
+            .clickable { onFullscreenClick() },
         contentAlignment = Alignment.Center
     ) {
         val color by animateColorAsState(if (isTalking || !isReady) {
@@ -86,6 +90,7 @@ fun PreviewBotIndicator() {
         modifier = Modifier,
         isReady = false,
         isTalking = true,
-        audioLevel = 1.0f
+        audioLevel = 1.0f,
+        onFullscreenClick = {}
     )
 }
