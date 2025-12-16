@@ -20,6 +20,7 @@ enum class Screen {
     CONNECT,
     IN_CALL,
     SETTINGS,
+    NOTES,
     THEME_SELECTION,
     MARKETPLACE
 }

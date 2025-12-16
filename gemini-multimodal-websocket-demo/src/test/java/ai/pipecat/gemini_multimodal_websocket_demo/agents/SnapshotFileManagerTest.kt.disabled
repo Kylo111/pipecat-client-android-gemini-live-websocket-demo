@@ -1,0 +1,402 @@
+package ai.pipecat.gemini_multimodal_websocket_demo.agents
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ReasoningSnapshot
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+
+/**
+ * Tests for SnapshotFileManager.
+ * 
+ * Validates:
+ * - Snapshot file creation in correct directory
+ * - JSON content correctness
+ * - File cleanup after processing
+ * - Cleanup of old files (>24h)
+ * - Large transcript handling (>10KB)
+ */
+@RunWith(AndroidJUnit4::class)
+class SnapshotFileManagerTest {
+    
+    private lateinit var context: Context
+    private lateinit var snapshotFileManager: SnapshotFileManager
+    private lateinit var snapshotDir: File
+    
+    @Before
+    fun setup() {
+        context = ApplicationProvider.getApplicationContext()
+        snapshotFileManager = SnapshotFileManager(context)
+        snapshotDir = File(context.cacheDir, SnapshotFileManager.SNAPSHOT_DIR)
+        
+        // Clean up any existing snapshots
+        if (snapshotDir.exists()) {
+            snapshotDir.listFiles()?.forEach { it.delete() }
+        }
+    }
+    
+    @After
+    fun tearDown() {
+        // Clean up test files
+        if (snapshotDir.exists()) {
+            snapshotDir.listFiles()?.forEach { it.delete() }
+        }
+    }
+    
+    // ========== Task 25.1: Test Snapshot File creation ==========
+    
+    @Test
+    fun testSnapshotFileCreatedInCorrectDirectory() {
+        // Given
+        val snapshot = createTestSnapshot()
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val file = File(filePath)
+        assertTrue("Snapshot file should exist", file.exists())
+        assertTrue("Snapshot file should be in cacheDir/reasoning-snapshots/", 
+            file.parentFile?.name == SnapshotFileManager.SNAPSHOT_DIR)
+        assertTrue("Snapshot file should be in cache directory",
+            file.absolutePath.contains(context.cacheDir.absolutePath))
+    }
+    
+    @Test
+    fun testSnapshotFileNaming() {
+        // Given
+        val snapshot = createTestSnapshot(taskId = "test-task-123")
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val file = File(filePath)
+        assertEquals("Snapshot file should have correct name", 
+            "task_test-task-123.json", file.name)
+    }
+    
+    @Test
+    fun testSnapshotJsonContentCorrect() {
+        // Given
+        val snapshot = ReasoningSnapshot(
+            taskId = "task-456",
+            conversationId = "conv-789",
+            taskDescription = "Test task description",
+            priority = "HIGH",
+            previousSessionTranscript = "Previous session content",
+            currentSessionTranscript = "Current session content",
+            isReportTask = false,
+            reportTopics = null
+        )
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val readSnapshot = snapshotFileManager.readSnapshot(filePath)
+        assertNotNull("Should be able to read snapshot", readSnapshot)
+        assertEquals("Task ID should match", snapshot.taskId, readSnapshot?.taskId)
+        assertEquals("Conversation ID should match", snapshot.conversationId, readSnapshot?.conversationId)
+        assertEquals("Task description should match", snapshot.taskDescription, readSnapshot?.taskDescription)
+        assertEquals("Priority should match", snapshot.priority, readSnapshot?.priority)
+        assertEquals("Previous transcript should match", snapshot.previousSessionTranscript, readSnapshot?.previousSessionTranscript)
+        assertEquals("Current transcript should match", snapshot.currentSessionTranscript, readSnapshot?.currentSessionTranscript)
+        assertEquals("isReportTask should match", snapshot.isReportTask, readSnapshot?.isReportTask)
+        assertEquals("reportTopics should match", snapshot.reportTopics, readSnapshot?.reportTopics)
+    }
+    
+    @Test
+    fun testSnapshotWithReportTask() {
+        // Given
+        val snapshot = ReasoningSnapshot(
+            taskId = "report-task-001",
+            conversationId = "conv-001",
+            taskDescription = "Generate report",
+            priority = "NORMAL",
+            previousSessionTranscript = "Previous content",
+            currentSessionTranscript = "Current content",
+            isReportTask = true,
+            reportTopics = listOf("AI", "Machine Learning", "Neural Networks")
+        )
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val readSnapshot = snapshotFileManager.readSnapshot(filePath)
+        assertNotNull("Should be able to read snapshot", readSnapshot)
+        assertTrue("Should be report task", readSnapshot?.isReportTask == true)
+        assertEquals("Should have 3 topics", 3, readSnapshot?.reportTopics?.size)
+        assertTrue("Should contain AI topic", readSnapshot?.reportTopics?.contains("AI") == true)
+    }
+    
+    @Test
+    fun testSnapshotWithNullPreviousTranscript() {
+        // Given
+        val snapshot = createTestSnapshot(previousTranscript = null)
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val readSnapshot = snapshotFileManager.readSnapshot(filePath)
+        assertNotNull("Should be able to read snapshot", readSnapshot)
+        assertNull("Previous transcript should be null", readSnapshot?.previousSessionTranscript)
+        assertNotNull("Current transcript should not be null", readSnapshot?.currentSessionTranscript)
+    }
+    
+    // ========== Task 25.2: Test Snapshot File cleanup ==========
+    
+    @Test
+    fun testSnapshotFileDeletedAfterProcessing() {
+        // Given
+        val snapshot = createTestSnapshot()
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        val file = File(filePath)
+        assertTrue("File should exist before deletion", file.exists())
+        
+        // When
+        snapshotFileManager.deleteSnapshot(filePath)
+        
+        // Then
+        assertFalse("File should not exist after deletion", file.exists())
+    }
+    
+    @Test
+    fun testDeleteNonExistentSnapshot() {
+        // Given
+        val nonExistentPath = File(snapshotDir, "non-existent.json").absolutePath
+        
+        // When/Then - should not throw exception
+        snapshotFileManager.deleteSnapshot(nonExistentPath)
+    }
+    
+    @Test
+    fun testCleanupOldSnapshots() {
+        // Given - Create old snapshot (simulate by modifying lastModified)
+        val oldSnapshot = createTestSnapshot(taskId = "old-task")
+        val oldFilePath = snapshotFileManager.createSnapshot(oldSnapshot)
+        val oldFile = File(oldFilePath)
+        
+        // Set file to be older than 24h
+        val twentyFiveHoursAgo = System.currentTimeMillis() - (25 * 60 * 60 * 1000)
+        oldFile.setLastModified(twentyFiveHoursAgo)
+        
+        // Create recent snapshot
+        val recentSnapshot = createTestSnapshot(taskId = "recent-task")
+        val recentFilePath = snapshotFileManager.createSnapshot(recentSnapshot)
+        val recentFile = File(recentFilePath)
+        
+        assertTrue("Old file should exist before cleanup", oldFile.exists())
+        assertTrue("Recent file should exist before cleanup", recentFile.exists())
+        
+        // When
+        snapshotFileManager.cleanupOldSnapshots()
+        
+        // Then
+        assertFalse("Old file should be deleted", oldFile.exists())
+        assertTrue("Recent file should still exist", recentFile.exists())
+    }
+    
+    @Test
+    fun testCleanupOrphanedTempFiles() {
+        // Given - Create orphaned .tmp file (simulates crashed write)
+        val tempFile = File(snapshotDir, "task_orphaned.tmp")
+        snapshotDir.mkdirs()
+        tempFile.writeText("orphaned content")
+        assertTrue("Temp file should exist", tempFile.exists())
+        
+        // When
+        snapshotFileManager.cleanupOldSnapshots()
+        
+        // Then
+        assertFalse("Orphaned temp file should be deleted", tempFile.exists())
+    }
+    
+    @Test
+    fun testCleanupPreservesRecentFiles() {
+        // Given - Create multiple recent snapshots
+        val snapshot1 = createTestSnapshot(taskId = "recent-1")
+        val snapshot2 = createTestSnapshot(taskId = "recent-2")
+        val snapshot3 = createTestSnapshot(taskId = "recent-3")
+        
+        val path1 = snapshotFileManager.createSnapshot(snapshot1)
+        val path2 = snapshotFileManager.createSnapshot(snapshot2)
+        val path3 = snapshotFileManager.createSnapshot(snapshot3)
+        
+        // When
+        snapshotFileManager.cleanupOldSnapshots()
+        
+        // Then
+        assertTrue("Recent file 1 should still exist", File(path1).exists())
+        assertTrue("Recent file 2 should still exist", File(path2).exists())
+        assertTrue("Recent file 3 should still exist", File(path3).exists())
+    }
+    
+    // ========== Task 25.3: Test large transcripts ==========
+    
+    @Test
+    fun testLargeTranscriptOver10KB() {
+        // Given - Create transcript larger than 10KB
+        val largeTranscript = buildString {
+            repeat(3000) { // ~15KB of text
+                append("User: This is a test message with some content. ")
+                append("Bot: This is a response with detailed information. ")
+            }
+        }
+        
+        assertTrue("Transcript should be larger than 10KB", 
+            largeTranscript.toByteArray().size > 10 * 1024)
+        
+        val snapshot = ReasoningSnapshot(
+            taskId = "large-task",
+            conversationId = "conv-large",
+            taskDescription = "Task with large transcript",
+            priority = "HIGH",
+            previousSessionTranscript = largeTranscript,
+            currentSessionTranscript = largeTranscript
+        )
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val file = File(filePath)
+        assertTrue("Snapshot file should exist", file.exists())
+        assertTrue("File size should be > 10KB", file.length() > 10 * 1024)
+        
+        // Verify content can be read back correctly
+        val readSnapshot = snapshotFileManager.readSnapshot(filePath)
+        assertNotNull("Should be able to read large snapshot", readSnapshot)
+        assertEquals("Previous transcript should match", 
+            largeTranscript, readSnapshot?.previousSessionTranscript)
+        assertEquals("Current transcript should match", 
+            largeTranscript, readSnapshot?.currentSessionTranscript)
+    }
+    
+    @Test
+    fun testVeryLargeTranscriptOver50KB() {
+        // Given - Create very large transcript (>50KB)
+        val veryLargeTranscript = buildString {
+            repeat(15000) { // ~75KB of text
+                append("User: This is a longer test message with more content to simulate a very long conversation. ")
+                append("Bot: This is a detailed response with comprehensive information and explanations. ")
+            }
+        }
+        
+        assertTrue("Transcript should be larger than 50KB", 
+            veryLargeTranscript.toByteArray().size > 50 * 1024)
+        
+        val snapshot = ReasoningSnapshot(
+            taskId = "very-large-task",
+            conversationId = "conv-very-large",
+            taskDescription = "Task with very large transcript",
+            priority = "HIGH",
+            previousSessionTranscript = veryLargeTranscript,
+            currentSessionTranscript = veryLargeTranscript
+        )
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then
+        val file = File(filePath)
+        assertTrue("Snapshot file should exist", file.exists())
+        assertTrue("File size should be > 50KB", file.length() > 50 * 1024)
+        
+        // Verify content integrity
+        val readSnapshot = snapshotFileManager.readSnapshot(filePath)
+        assertNotNull("Should be able to read very large snapshot", readSnapshot)
+        assertEquals("Transcript length should match", 
+            veryLargeTranscript.length, readSnapshot?.currentSessionTranscript?.length)
+    }
+    
+    @Test
+    fun testMultipleLargeSnapshots() {
+        // Given - Create multiple large snapshots
+        val largeTranscript = "x".repeat(15 * 1024) // 15KB
+        
+        val snapshots = (1..5).map { i ->
+            ReasoningSnapshot(
+                taskId = "large-task-$i",
+                conversationId = "conv-$i",
+                taskDescription = "Task $i",
+                priority = "NORMAL",
+                previousSessionTranscript = largeTranscript,
+                currentSessionTranscript = largeTranscript
+            )
+        }
+        
+        // When
+        val filePaths = snapshots.map { snapshotFileManager.createSnapshot(it) }
+        
+        // Then
+        filePaths.forEach { path ->
+            val file = File(path)
+            assertTrue("File should exist: ${file.name}", file.exists())
+            assertTrue("File should be large: ${file.name}", file.length() > 10 * 1024)
+        }
+        
+        // Verify all can be read
+        filePaths.forEachIndexed { index, path ->
+            val readSnapshot = snapshotFileManager.readSnapshot(path)
+            assertNotNull("Should read snapshot $index", readSnapshot)
+            assertEquals("Task ID should match", "large-task-${index + 1}", readSnapshot?.taskId)
+        }
+    }
+    
+    @Test
+    fun testAtomicWriteWithLargeContent() {
+        // Given - Large content that takes time to write
+        val largeContent = "x".repeat(100 * 1024) // 100KB
+        val snapshot = ReasoningSnapshot(
+            taskId = "atomic-test",
+            conversationId = "conv-atomic",
+            taskDescription = "Atomic write test",
+            priority = "HIGH",
+            previousSessionTranscript = largeContent,
+            currentSessionTranscript = largeContent
+        )
+        
+        // When
+        val filePath = snapshotFileManager.createSnapshot(snapshot)
+        
+        // Then - File should exist and be complete (not partial)
+        val file = File(filePath)
+        assertTrue("File should exist", file.exists())
+        assertFalse("No temp file should remain", 
+            File(file.parentFile, "task_atomic-test.tmp").exists())
+        
+        // Should be able to read complete content
+        val readSnapshot = snapshotFileManager.readSnapshot(filePath)
+        assertNotNull("Should read complete snapshot", readSnapshot)
+        assertEquals("Content should be complete", 
+            largeContent.length, readSnapshot?.currentSessionTranscript?.length)
+    }
+    
+    // ========== Helper methods ==========
+    
+    private fun createTestSnapshot(
+        taskId: String = "test-task-${System.currentTimeMillis()}",
+        conversationId: String = "test-conv",
+        previousTranscript: String? = "Previous session transcript",
+        currentTranscript: String = "Current session transcript"
+    ): ReasoningSnapshot {
+        return ReasoningSnapshot(
+            taskId = taskId,
+            conversationId = conversationId,
+            taskDescription = "Test task description",
+            priority = "NORMAL",
+            previousSessionTranscript = previousTranscript,
+            currentSessionTranscript = currentTranscript,
+            isReportTask = false,
+            reportTopics = null
+        )
+    }
+}

@@ -5,6 +5,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.Error
 import ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.SessionManager
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
 import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManager
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
@@ -179,22 +180,42 @@ class ConversationLauncher(
         Log.d(TAG, "  - basePrompt length: ${basePrompt.length} chars")
         Log.d(TAG, "  - conversationContext length: ${conversationContext.length} chars")
         
-        val fullPrompt = if (conversationContext.isNotBlank()) {
-            """
-            $prompt
+        // Get tools instruction and whisperer mode instruction from preferences
+        val toolsInstruction = Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
+        val whispererMode = SystemPrompts.whispererModeInstruction
+        
+        Log.d(TAG, "  - toolsInstruction length: ${toolsInstruction.length} chars")
+        Log.d(TAG, "  - whispererModeInstruction length: ${whispererMode.length} chars")
+        
+        val fullPrompt = buildString {
+            // 1. Base persona/role prompt
+            appendLine(prompt)
+            appendLine()
             
-            === CONVERSATION HISTORY ===
-            $conversationContext
+            // 2. Tools instruction (how to use tools)
+            appendLine("=== TOOLS AND CAPABILITIES ===")
+            appendLine(toolsInstruction)
+            appendLine()
             
-            === INSTRUCTIONS ===
-            - Use the conversation history above to provide context-aware responses
-            - Reference previous discussions when relevant
-            - Maintain continuity with past conversations
-            - If user refers to something from history, acknowledge it
-            """.trimIndent()
-        } else {
-            Log.d(TAG, "⚠️ [DIAGNOSTIC] No conversation context, using base prompt only")
-            prompt
+            // 3. Whisperer Mode instruction (automatic reasoning agent triggering)
+            appendLine("=== WHISPERER MODE ===")
+            appendLine(whispererMode)
+            appendLine()
+            
+            // 4. Conversation history (if available)
+            if (conversationContext.isNotBlank()) {
+                appendLine("=== CONVERSATION HISTORY ===")
+                appendLine(conversationContext)
+                appendLine()
+                
+                appendLine("=== INSTRUCTIONS ===")
+                appendLine("- Use the conversation history above to provide context-aware responses")
+                appendLine("- Reference previous discussions when relevant")
+                appendLine("- Maintain continuity with past conversations")
+                appendLine("- If user refers to something from history, acknowledge it")
+            } else {
+                Log.d(TAG, "⚠️ [DIAGNOSTIC] No conversation context, using base prompt only")
+            }
         }
         
         Log.d(TAG, "✅ [DIAGNOSTIC] Full prompt length: ${fullPrompt.length} chars")

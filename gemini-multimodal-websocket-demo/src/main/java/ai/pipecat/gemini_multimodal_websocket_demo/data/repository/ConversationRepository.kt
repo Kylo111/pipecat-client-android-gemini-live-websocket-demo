@@ -4,13 +4,21 @@ import ai.pipecat.gemini_multimodal_websocket_demo.data.dao.ConversationDao
 import ai.pipecat.gemini_multimodal_websocket_demo.data.dao.SessionDao
 import ai.pipecat.gemini_multimodal_websocket_demo.data.entities.ConversationEntity
 import ai.pipecat.gemini_multimodal_websocket_demo.data.entities.SessionEntity
+import ai.pipecat.gemini_multimodal_websocket_demo.models.memory.LocalConversationCard
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import java.util.UUID
 
 class ConversationRepository(
     private val conversationDao: ConversationDao,
     private val sessionDao: SessionDao
 ) {
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     
     // Get all conversations
     fun getAllConversationsFlow(): Flow<List<ConversationEntity>> {
@@ -136,5 +144,66 @@ class ConversationRepository(
     suspend fun needsMetaSummary(conversationId: String): Boolean {
         val sessionCount = sessionDao.getSessionCount(conversationId)
         return sessionCount > 0 && sessionCount % 10 == 0
+    }
+    
+    // ========== Pending Insight Management (Orphan Result Handling) ==========
+    
+    /**
+     * Update pendingInsight field in LocalConversationCard.
+     * Used when Reasoning Agent completes but session is closed (Orphan Result).
+     * 
+     * @param conversationId The conversation ID
+     * @param insight The insight/result from Reasoning Agent
+     */
+    suspend fun updatePendingInsight(conversationId: String, insight: String) {
+        val conversation = conversationDao.getById(conversationId) ?: return
+        
+        // Parse existing local card or create new one
+        val localCard = if (conversation.localCardJson != null) {
+            try {
+                json.decodeFromString<LocalConversationCard>(conversation.localCardJson)
+            } catch (e: Exception) {
+                LocalConversationCard()
+            }
+        } else {
+            LocalConversationCard()
+        }
+        
+        // Update pendingInsight field
+        val updatedCard = localCard.copy(pendingInsight = insight)
+        
+        // Serialize and save
+        val updatedJson = json.encodeToString(updatedCard)
+        conversationDao.updateLocalCard(conversationId, updatedJson)
+    }
+    
+    /**
+     * Clear pendingInsight field in LocalConversationCard.
+     * Called after pendingInsight has been consumed at session start.
+     * 
+     * @param conversationId The conversation ID
+     */
+    suspend fun clearPendingInsight(conversationId: String) {
+        val conversation = conversationDao.getById(conversationId) ?: return
+        
+        // Parse existing local card
+        val localCard = if (conversation.localCardJson != null) {
+            try {
+                json.decodeFromString<LocalConversationCard>(conversation.localCardJson)
+            } catch (e: Exception) {
+                // If parsing fails, nothing to clear
+                return
+            }
+        } else {
+            // No local card, nothing to clear
+            return
+        }
+        
+        // Clear pendingInsight field
+        val updatedCard = localCard.copy(pendingInsight = null)
+        
+        // Serialize and save
+        val updatedJson = json.encodeToString(updatedCard)
+        conversationDao.updateLocalCard(conversationId, updatedJson)
     }
 }

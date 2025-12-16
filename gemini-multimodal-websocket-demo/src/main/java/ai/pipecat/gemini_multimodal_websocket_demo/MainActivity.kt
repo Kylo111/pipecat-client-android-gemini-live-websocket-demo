@@ -12,6 +12,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.PINEntryDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.PermissionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ReconnectionDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.SettingsScreen
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.NotesScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.ConversationListScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.usecases.ImportAssistantUseCase
@@ -343,6 +344,9 @@ class MainActivity : ComponentActivity() {
                                     onSettingsClick = {
                                         showPINEntryDialog = true
                                     },
+                                    onNotesClick = {
+                                        navigationController.navigateTo(Screen.NOTES)
+                                    },
                                     onLogout = {
                                         navigationController.logout()
                                     },
@@ -376,6 +380,13 @@ class MainActivity : ComponentActivity() {
                                 //         onDismiss = { showChangePINDialog = false }
                                 //     )
                                 // }
+                            }
+                            Screen.NOTES -> {
+                                NotesScreen(
+                                    onClose = {
+                                        navigationController.navigateTo(Screen.THREAD_LIST)
+                                    }
+                                )
                             }
                             Screen.THEME_SELECTION -> {
                                 ai.pipecat.gemini_multimodal_websocket_demo.ui.ThemeSelectionScreen(
@@ -555,8 +566,23 @@ class MainActivity : ComponentActivity() {
                 if (voiceService != null && voiceService.getControlAgentManager() == null) {
                     val sessionManager = voiceClientManager.sessionManager
                     if (sessionManager != null) {
+                        // Set SessionManager reference in VoiceService (needed by ToolExecutor)
+                        voiceService.setSessionManager(sessionManager)
+                        Log.d(TAG, "SessionManager reference set in VoiceService")
+                        
                         voiceService.initializeControlAgent(voiceClientManager, sessionManager)
                         Log.d(TAG, "ControlAgentManager initialized")
+                        
+                        // Initialize ReasoningAgentManager
+                        val snapshotFileManager = ai.pipecat.gemini_multimodal_websocket_demo.agents.SnapshotFileManager(this@MainActivity)
+                        val reasoningAgentManager = ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager(
+                            context = this@MainActivity,
+                            sessionRepository = sessionManager.sessionRepository,
+                            snapshotFileManager = snapshotFileManager,
+                            scope = lifecycleScope
+                        )
+                        voiceService.setReasoningAgentManager(reasoningAgentManager)
+                        Log.d(TAG, "ReasoningAgentManager initialized")
                         
                         // Set callbacks for navigation
                         voiceService.getControlAgentManager()?.setOnEndSessionCallback {

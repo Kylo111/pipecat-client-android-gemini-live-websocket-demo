@@ -47,6 +47,7 @@ fun ConversationListScreen(
     authManager: AuthManager,
     onConversationSelected: (ConversationItem) -> Unit,
     onSettingsClick: () -> Unit = {},
+    onNotesClick: () -> Unit = {},
     onLogout: () -> Unit,
     onMarketplaceClick: () -> Unit = {}
 ) {
@@ -214,6 +215,14 @@ fun ConversationListScreen(
                                 }
                             },
                         tint = if (isParentalLockEnabled) Color.Gray else Colors.buttonNormal
+                    )
+                    
+                    // Notes icon
+                    Text(
+                        text = "📝",
+                        fontSize = 28.sp,
+                        modifier = Modifier
+                            .clickable { onNotesClick() }
                     )
                     
                     // Settings icon

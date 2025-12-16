@@ -50,7 +50,7 @@ class SessionManager(
     val transcriptItems: StateFlow<List<TranscriptEntry>> = _transcriptItems
     
     // Room database repositories
-    private val sessionRepository by lazy {
+    internal val sessionRepository by lazy {
         (context.applicationContext as RTVIApplication).sessionRepository
     }
     private val conversationRepository by lazy {
@@ -159,6 +159,36 @@ class SessionManager(
     private var isEndingSession: Boolean = false
     
     /**
+     * Get the current conversation ID.
+     * Used by Reasoning Agent to identify which conversation the task belongs to.
+     * 
+     * @return Current conversation ID or null if no active session
+     */
+    fun getCurrentConversationId(): String? = currentConversationId
+    
+    /**
+     * Get the current transcript as a formatted string.
+     * Used by Reasoning Agent to get the in-memory transcript.
+     * 
+     * @return Formatted transcript string with speaker labels and timestamps
+     */
+    fun getCurrentTranscript(): String {
+        val transcripts = _transcriptItems.value
+        if (transcripts.isEmpty()) {
+            return ""
+        }
+        
+        return buildString {
+            transcripts.forEach { entry ->
+                val speaker = if (entry.speaker == Speaker.USER) "User" else "Assistant"
+                val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                    .format(java.util.Date(entry.timestamp))
+                appendLine("[$timestamp] $speaker: ${entry.text}")
+            }
+        }
+    }
+    
+    /**
      * Get the current active session
      */
     fun getCurrentSession(): SessionContext? = currentSession
@@ -186,6 +216,8 @@ class SessionManager(
                     source = "offline"
                 )
                 Log.d(TAG, "Created conversation in database: $conversationId")
+                // Refresh conversation reference
+                conversation = conversationRepository.getConversation(conversationId)
             }
             
             // Check if conversation can start (not locked by memory update)
@@ -202,6 +234,53 @@ class SessionManager(
             } else {
                 Log.d(TAG, "Built context: ${currentConversationContext!!.length} characters")
                 Log.d(TAG, "Context preview: ${currentConversationContext!!.take(200)}...")
+            }
+            
+            // Check for pending insight from previous Reasoning Agent task (Requirement 6.4)
+            conversation?.let { conv ->
+                if (!conv.localCardJson.isNullOrBlank()) {
+                    try {
+                        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                        val localCard = json.decodeFromString<ai.pipecat.gemini_multimodal_websocket_demo.models.memory.LocalConversationCard>(conv.localCardJson)
+                        
+                        if (!localCard.pendingInsight.isNullOrBlank()) {
+                            Log.d(TAG, "📥 Found pendingInsight from previous Reasoning Agent task")
+                            Log.d(TAG, "  Length: ${localCard.pendingInsight.length} chars")
+                            Log.d(TAG, "  Preview: ${localCard.pendingInsight.take(100)}...")
+                            
+                            // Inject pending insight into context
+                            val pendingContext = """
+                                
+                                === PENDING INSIGHT FROM PREVIOUS ANALYSIS ===
+                                ${localCard.pendingInsight}
+                                
+                                This information was gathered while you were offline.
+                                Consider using it in your responses if relevant.
+                            """.trimIndent()
+                            
+                            // Append to current context
+                            currentConversationContext = if (currentConversationContext.isNullOrBlank()) {
+                                pendingContext
+                            } else {
+                                currentConversationContext + "\n\n" + pendingContext
+                            }
+                            
+                            Log.d(TAG, "✅ Injected pendingInsight into session context")
+                            
+                            // Clear pending insight after consumption
+                            scope.launch {
+                                try {
+                                    conversationRepository.clearPendingInsight(conversationId)
+                                    Log.d(TAG, "🗑️ Cleared pendingInsight after consumption")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "❌ Failed to clear pendingInsight", e)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Error parsing LocalConversationCard for pendingInsight", e)
+                    }
+                }
             }
             
             // Create session in Room database
@@ -334,6 +413,49 @@ class SessionManager(
                 return@withContext Result.failure(Exception("Memory update in progress. Please wait."))
             }
             
+            // Check for pending insight from previous Reasoning Agent task (Requirement 6.4)
+            val conversation = conversationRepository.getConversation(conversationId)
+            var pendingInsightContext: String? = null
+            
+            conversation?.let { conv ->
+                if (!conv.localCardJson.isNullOrBlank()) {
+                    try {
+                        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                        val localCard = json.decodeFromString<ai.pipecat.gemini_multimodal_websocket_demo.models.memory.LocalConversationCard>(conv.localCardJson)
+                        
+                        if (!localCard.pendingInsight.isNullOrBlank()) {
+                            Log.d(TAG, "📥 Found pendingInsight from previous Reasoning Agent task")
+                            Log.d(TAG, "  Length: ${localCard.pendingInsight.length} chars")
+                            Log.d(TAG, "  Preview: ${localCard.pendingInsight.take(100)}...")
+                            
+                            // Prepare pending insight context for injection
+                            pendingInsightContext = """
+                                
+                                === PENDING INSIGHT FROM PREVIOUS ANALYSIS ===
+                                ${localCard.pendingInsight}
+                                
+                                This information was gathered while you were offline.
+                                Consider using it in your responses if relevant.
+                            """.trimIndent()
+                            
+                            Log.d(TAG, "✅ Prepared pendingInsight for injection")
+                            
+                            // Clear pending insight after consumption
+                            scope.launch {
+                                try {
+                                    conversationRepository.clearPendingInsight(conversationId)
+                                    Log.d(TAG, "🗑️ Cleared pendingInsight after consumption")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "❌ Failed to clear pendingInsight", e)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Error parsing LocalConversationCard for pendingInsight", e)
+                    }
+                }
+            }
+            
             // Fetch learning context from LibreChat
             val contextResult = libreChatService.getLearningContext(conversationId)
             
@@ -358,11 +480,36 @@ class SessionManager(
             val sessionId = UUID.randomUUID().toString()
             val startTime = System.currentTimeMillis()
             
+            // Build complete system prompt with tools instruction, whisperer mode, and pending insight
+            val toolsInstruction = Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
+            val whispererMode = SystemPrompts.whispererModeInstruction
+            
+            val systemPrompt = buildString {
+                // 1. Base system prompt from LibreChat
+                appendLine(learningContext.readyToUseContext.systemPrompt)
+                appendLine()
+                
+                // 2. Tools instruction (how to use tools)
+                appendLine("=== TOOLS AND CAPABILITIES ===")
+                appendLine(toolsInstruction)
+                appendLine()
+                
+                // 3. Whisperer Mode instruction (automatic reasoning agent triggering)
+                appendLine("=== WHISPERER MODE ===")
+                appendLine(whispererMode)
+                appendLine()
+                
+                // 4. Pending insight (if available)
+                if (pendingInsightContext != null) {
+                    appendLine(pendingInsightContext)
+                }
+            }
+            
             val sessionContext = SessionContext(
                 sessionId = sessionId,
                 conversationId = conversationId,
                 startTime = startTime,
-                systemPrompt = learningContext.readyToUseContext.systemPrompt,
+                systemPrompt = systemPrompt,
                 transcripts = mutableListOf(),
                 imageEvents = mutableListOf(),
                 contextUpdates = mutableListOf()
@@ -407,11 +554,30 @@ class SessionManager(
         val sessionId = UUID.randomUUID().toString()
         val startTime = System.currentTimeMillis()
         
+        // Build complete system prompt with tools instruction and whisperer mode
+        val toolsInstruction = Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
+        val whispererMode = SystemPrompts.whispererModeInstruction
+        
+        val systemPrompt = buildString {
+            // 1. Base default prompt
+            appendLine("You are a helpful AI tutor. Assist the student with their learning.")
+            appendLine()
+            
+            // 2. Tools instruction (how to use tools)
+            appendLine("=== TOOLS AND CAPABILITIES ===")
+            appendLine(toolsInstruction)
+            appendLine()
+            
+            // 3. Whisperer Mode instruction (automatic reasoning agent triggering)
+            appendLine("=== WHISPERER MODE ===")
+            appendLine(whispererMode)
+        }
+        
         return SessionContext(
             sessionId = sessionId,
             conversationId = conversationId,
             startTime = startTime,
-            systemPrompt = "You are a helpful AI tutor. Assist the student with their learning.",
+            systemPrompt = systemPrompt,
             transcripts = mutableListOf(),
             imageEvents = mutableListOf(),
             contextUpdates = mutableListOf()
@@ -702,6 +868,20 @@ class SessionManager(
                                                 // Use MemoryUpdateService for Gemini Live conversations
                                                 Log.d(TAG, "🧠 [DIAGNOSTIC] Using MemoryUpdateService for memory evolution")
                                                 
+                                                // CRITICAL: Get transcripts BEFORE any DB changes (race condition prevention)
+                                                // This ensures Reasoning Agent gets correct previous/current transcripts
+                                                val currentSessionTranscript = sess.transcript
+                                                val recentSessions = sessionRepository.getRecentSessions(convId, 2)
+                                                val previousSessionTranscript = if (recentSessions.size > 1) {
+                                                    recentSessions[1].transcript
+                                                } else {
+                                                    null
+                                                }
+                                                
+                                                Log.d(TAG, "📋 [DIAGNOSTIC] Captured transcripts for potential report:")
+                                                Log.d(TAG, "  - Current session: ${currentSessionTranscript.length} chars")
+                                                Log.d(TAG, "  - Previous session: ${previousSessionTranscript?.length ?: 0} chars")
+                                                
                                                 // Get conversation system prompt (persona) for context
                                                 val conversationSystemPrompt = getConversationSystemPrompt(convId)
                                                 Log.d(TAG, "📋 [DIAGNOSTIC] Conversation persona: ${conversationSystemPrompt?.take(100) ?: "default"}...")
@@ -712,7 +892,7 @@ class SessionManager(
                                                 try {
                                                     val memoryResult = memoryUpdateService.updateMemoryAfterSession(
                                                         conversationId = convId,
-                                                        newTranscript = sess.transcript,
+                                                        newTranscript = currentSessionTranscript,
                                                         conversationSystemPrompt = conversationSystemPrompt
                                                     )
                                                     
@@ -722,8 +902,41 @@ class SessionManager(
                                                         Log.d(TAG, "  - Global card updated: ${result.updatedGlobalCard != null}")
                                                         Log.d(TAG, "  - Local card updated: ${result.updatedLocalCard != null}")
                                                         Log.d(TAG, "  - Meta-summary updated: ${result.updatedMetaSummary != null}")
+                                                        Log.d(TAG, "  - Needs report: ${result.needsReport}")
+                                                        
+                                                        // CRITICAL: Check if report generation is needed
+                                                        // This must happen BEFORE DB changes to ensure correct transcript ordering
+                                                        if (result.needsReport && result.reportTopics.isNotEmpty()) {
+                                                            Log.d(TAG, "📊 [DIAGNOSTIC] Report generation requested")
+                                                            Log.d(TAG, "  - Topics: ${result.reportTopics.joinToString(", ")}")
+                                                            Log.d(TAG, "  - Priority: ${result.reportPriority}")
+                                                            
+                                                            // Get ReasoningAgentManager from application
+                                                            val reasoningAgentManager = (context.applicationContext as? RTVIApplication)?.reasoningAgentManager
+                                                            
+                                                            if (reasoningAgentManager != null) {
+                                                                // Schedule report generation with BOTH transcripts
+                                                                // These were captured BEFORE any DB changes
+                                                                scope.launch {
+                                                                    try {
+                                                                        val taskId = reasoningAgentManager.scheduleReportGeneration(
+                                                                            topics = result.reportTopics,
+                                                                            conversationId = convId,
+                                                                            previousSessionTranscript = previousSessionTranscript,
+                                                                            currentSessionTranscript = currentSessionTranscript
+                                                                        )
+                                                                        Log.d(TAG, "✅ [DIAGNOSTIC] Report generation scheduled: $taskId")
+                                                                    } catch (e: Exception) {
+                                                                        Log.e(TAG, "❌ [DIAGNOSTIC] Failed to schedule report generation", e)
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                Log.w(TAG, "⚠️ [DIAGNOSTIC] ReasoningAgentManager not available, skipping report")
+                                                            }
+                                                        }
                                                         
                                                         // CRITICAL: Persist the memory updates to storage
+                                                        // This happens AFTER report scheduling to maintain correct DB state
                                                         val persistResult = memoryUpdateService.persistMemoryUpdate(
                                                             conversationId = convId,
                                                             memoryUpdateResult = result

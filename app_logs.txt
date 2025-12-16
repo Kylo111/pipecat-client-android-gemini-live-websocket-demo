@@ -1,0 +1,102 @@
+
+12-15 20:10:44.857 27713 28368 D SessionManager: user: s...
+12-15 20:10:44.857 27713 28368 D VoiceClientManager: stop() called
+12-15 20:10:44.857 27713 28368 W VoiceClientManager: Already disconnected
+12-15 20:10:44.859 27713 27713 D SessionManager: ­čöÇ Routing based on source: offline
+12-15 20:10:44.859 27713 27713 D SessionManager: ­čžá [DIAGNOSTIC] Using MemoryUpdateService for memory evolution
+12-15 20:10:44.860 27713 27713 D NavigationController: Navigating to thread list
+12-15 20:10:44.860 27713 27713 D SessionManager: ­čôő [DIAGNOSTIC] Captured transcripts for potential report:
+12-15 20:10:44.861 27713 27713 D SessionManager:   - Current session: 1356 chars
+12-15 20:10:44.861 27713 27713 D SessionManager:   - Previous session: 2739 chars
+12-15 20:10:44.861 27713 27713 D SessionManager: Using system prompt from offline conversation
+12-15 20:10:44.861 27713 27713 D SessionManager: ­čôő [DIAGNOSTIC] Conversation persona: Jeste┼Ť uprzejmym i mi┼éym asystentem. Pomagaj u┼╝ytkownikowi w codziennych zadaniach, odpowiadaj na py...
+12-15 20:10:44.863 27713 28368 D MemoryUpdateService: Starting memory update for conversation: 0905b4b7-24b9-4116-a93a-7f6d05eac0c3
+12-15 20:10:44.864 27713 28368 D MemoryUpdateService: Using conversation persona: Jeste┼Ť uprzejmym i mi┼éym asystentem. Pomagaj u┼╝ytkownikowi w codziennych zadaniach, odpowiadaj na py...
+12-15 20:10:44.875 27713 28368 D MemoryUpdateService: Calling Gemini API for memory update...
+12-15 20:10:44.875 27713 28368 D MemoryUpdateService: Prompt length: 15751 chars
+12-15 20:10:44.910 27713 27773 D LibreChatService: Fetching conversations from: https://www.kumpel-chat.fun/api/convos
+12-15 20:10:44.926 27713 29813 D AudioTrack: stop(3510): 0xb400007386cbd690, prior state:STATE_ACTIVE packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-15 20:10:44.926 27713 29813 D AudioTrackShared: this(0xb400007236ce31f0), mCblk(0x74627fc000), front(1280), mIsOut 1, interrupt() FUTEX_WAKE
+12-15 20:10:44.927  1299  7219 E AudioFlinger_Threads: open /proc/27713/cmdline error
+12-15 20:10:44.927 27713 29813 D AudioTrack: stop(3510): 0xb400007386cbd690 stop done
+12-15 20:10:44.996 11575 20110 I ProcAudioPowerManager: noteStopAudioInNeed uid is 10448, pid is 27713, sessionid is 29481, port is 3510, type is 2
+12-15 20:10:45.097  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:59
+12-15 20:10:45.107 27713 27713 D AudioTrack: ~AudioTrack(3510): 0xb400007386cbd690
+12-15 20:10:45.107 27713 27713 D AudioTrack: stop(3510): 0xb400007386cbd690, prior state:STATE_STOPPED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-15 20:10:45.125 27713 27713 D VoiceClientManager: ­čöö Beep finished
+12-15 20:10:46.097  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:60
+12-15 20:10:47.097  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:60
+12-15 20:10:48.097  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:60
+12-15 20:10:49.098  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:60
+12-15 20:10:50.098  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:59
+12-15 20:10:51.098  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:60
+12-15 20:10:52.098  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:59
+12-15 20:10:52.371 27713 27773 D LibreChatService: Response code: 200
+12-15 20:10:52.373 27713 27773 D LibreChatService: Response body: {"conversations":[{"_id":"693d1546404fe2b65fd5b733","conversationId":"02a97e99-fcac-41eb-aadf-0616ff88236f","user":"68adf12926fc835b483f98a9","agent_id":"agent_P4znOeHTVroO7F9Sr2SFs","createdAt":"2025-12-13T07:27:02.597Z","endpoint":"agents","title":"Murzynek Recipe Search","updatedAt":"2025-12-13T07:27:38.037Z"},{"_id":"69336e59404fe2b65fd29212","user":"68adf12926fc835b483f98a9","conversationId":"584d3ae9-bd98-4dba-a4f7-0a8eebea6dc4","agent_id":"agent_VNdXbhlce_NejVYTn_-Rm","createdAt":"2025-12-05T23:44:25.511Z","endpoint":"agents","model":"google/gemma-3-4b-it:free","title":"Polish Language Inquiry","updatedAt":"2025-12-05T23:48:43.730Z"},{"_id":"692ef75a404fe2b65fd10ed4","conversationId":"b0c1c474-7708-4570-8a1e-9e1dd91c7f42","user":"68adf12926fc835b483f98a9","agent_id":"agent_HFraLztSRIODqQBmbgdh-","createdAt":"2025-12-02T14:27:38.852Z","endpoint":"agents","title":"Object-Oriented Analysis And Design","updatedAt":"2025-12-02T15:32:40.837Z"},{"_id":"6922d54c404fe2b65fcc57e8","user":"68adf12926fc835b483f98a9","conversationId":"e4bbe9db-cce6-4d36-8258-d564a12a04e1","agent_id":"agent_P4znOeHTVroO7F9Sr2SFs","createdAt":"2025-11-23T09:35:08.782Z","endpoint":"agents","title":"Baking Powder Waffles","updatedAt":"2025-11-23T09:35:17.301Z"},{"_id":"6921772a404fe2b65fcbf1d7","conversationId":"a4c34f91-05b2-4859-be1d-e4f62b1a66a4","user":"68adf12926fc835b483f98a9","agent_id":"agent_BmBj9_732cif2hoMMOzDt","createdAt":"2025-11-22T08:41:14.295Z","endpoint":"agents","title":"Latest AI News","updatedAt":"2025-11-22T08:47:22.091Z"},{"_id":"6910bef5f9bafdb2a313725d","conversationId":"243acb8c-85ef-4dfd-ad1e-b9685dc5dcea","user":"68adf12926fc835b483f98a9","agent_id":"agent_G3Bx3WD1g0CMnu4HVbCtf","createdAt":"2025-11-09T16:19:01.791Z","endpoint":"agents","title":"Thermometers Explained","updatedAt":"2025-11-16T21:33:51.600Z"},{"_id":"6915228f13b439472f58a5f4","conversationId":"4041b037-80bf-4e1a-9776-ef60af8c02c3","user":"68adf12926fc835b483f98a9","agent_id":"agent_-4jjsDLHQ04wOz_jAs82v","createdAt":"2025-11-13T00:13:03.631Z","endpoint":"agents","title":"Custom Endpoint Docker Solution","updatedAt":"2025-11-13T19:19:22.798Z"},{"_id":"691374bbf9bafdb2a31487c2","conversationId":"4824c068-a6b7-4d41-8896-ec8739fde1f2","user":"68adf12926fc835b483f98a9","agent_id":"agent_-4jjsDLHQ04wOz_jAs82v","createdAt":"2025-11-11T17:39:07.771Z","endpoint":"agents","title":"LibreChat Voice App Development","updatedAt":"2025-11-13T10:57:36.210Z"},{"_id":"691372c2f9bafdb2a3148754","conversationId":"db4a9df6-aac7-4410-99eb-3854d619312c","user":"68adf12926fc835b483f98a9","agent_id":"agent_GaQ8GriyWMpi-CsqZ6KjS","createdAt":"2025-11-11T17:30:42.934Z","endpoint":"agents","title":"Multi-Expert App Brainstorming Agent","updatedAt":"2025-11-11T17:33:43.535Z"},{"_id":"6913125cf9bafdb2a3145fb1","conversationId":"4e985f2d-3258-41ab-b1b7-f720b2f78e4d","user":"68adf12926fc835b483f98a9","agent_id":"agent_G3Bx3WD1g0CMnu4HVbCtf","createdAt":"2025-11-11T10:39:24.764Z","endpoint":"agents","title":"Zamoyski Study Help","updatedAt":"2025-11-11T16:40:39.976Z"},{"_id":"691334dff9bafdb2a3146e06","conversationId":"d3c1237d-22b3-4cdf-9a20-5ffe27908e21","user":"68adf12926fc835b483f98a9","agent_id":"agent_G3Bx3WD1g0CMnu4HVbCtf","createdAt":"2025-11-11T13:06:39.304Z","endpoint":"agents","title":"Jan Zamoyski","updatedAt":"2025-11-11T13:06:45.099Z"},{"_id":"69109ee2f9bafdb2a3136992","conversationId":"39252b94-f11a-4b30-82a7-4a50a48772d6","user":"68adf12926fc835b483f98a9","agent_id":"agent_7gU7l0vyLrZEJq4sFjAhZ","createdAt":"2025-11-09T14:02:10.413Z","endpoint":"agents","title":"DS18B20 Digital Thermometer","updatedAt":"2025-11-09T15:52:15.293Z"},{"_id":"690cc182f9bafdb2a3126138","user":"68adf12926fc835b483f98a9","conversationId":"929f31ee-ccc5-4f9b-ab22-6a22212c72e6","agent_id":"agent_BDXtoFqXsHvZ2I0XO_UJH","createdAt":"2025-11-06T15:40:50.455Z","endpoint":"agents","title":"Architectural Improvement Analysis","updatedAt":"2025-11-06T15:57:45.148Z"},{"_id":"6904f3635ba83552c8428dd5","conversationId":"ca825551-bddb-44a5-9cd0-4f
+12-15 20:10:52.383 27713 27773 D LibreChatService: Successfully fetched 25 conversations
+12-15 20:10:53.098  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:49
+12-15 20:10:54.098  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:10:54.099  1245  1316 I libPowerHal: [updateFPS] pid(27713) : 60 => -1
+12-15 20:10:54.099  1245  1359 I libPowerHal: [perfNotifyAppState] pack:ai.pipecat.gemini_multimodal_websocket_demo, act:ai.pipecat.gemini_multimodal_websocket_demo.MainActivity, state:5, pid:27713, uid:10448, fps:-1
+12-15 20:10:55.099  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:10:56.099  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:10:57.099  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:10:58.099  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:10:59.099  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:00.099  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:01.100  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:02.100  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:08.266 27713 28368 D MemoryUpdateService: Received response from Gemini API
+12-15 20:11:08.266 27713 28368 D MemoryUpdateService: Response length: 9317 chars
+12-15 20:11:08.270 27713 28368 D MemoryUpdateService: Ôťů Memory update parsed successfully
+12-15 20:11:08.271 27713 27713 D SessionManager: Ôťů [DIAGNOSTIC] Memory updated successfully
+12-15 20:11:08.271 27713 27713 D SessionManager:   - Session summary: The user asked for a detailed analysis of why Poland hasn't joined the Eurozone and for the findings...
+12-15 20:11:08.272 27713 27713 D SessionManager:   - Global card updated: true
+12-15 20:11:08.272 27713 27713 D SessionManager:   - Local card updated: true
+12-15 20:11:08.272 27713 27713 D SessionManager:   - Meta-summary updated: true
+12-15 20:11:08.272 27713 27713 D SessionManager:   - Needs report: false
+12-15 20:11:08.273 27713 28368 D MemoryUpdateService: Persisting memory updates for conversation: 0905b4b7-24b9-4116-a93a-7f6d05eac0c3
+12-15 20:11:08.275 27713 28368 D MemoryUpdateService: Ôťů Global User Card saved
+12-15 20:11:08.281 27713 28368 D MemoryUpdateService: Ôťů Local Conversation Card saved
+12-15 20:11:08.285 27713 28368 D MemoryUpdateService: Ôťů Meta-Summary saved
+12-15 20:11:08.285 27713 28368 D MemoryUpdateService: Ôťů All memory updates persisted successfully
+12-15 20:11:08.292 27713 27713 D SessionManager: Ôťů [DIAGNOSTIC] Memory persisted to storage
+12-15 20:11:08.329  5086 15352 W MiuiPerfServiceClient: interceptAndQueuing:27713|ai.pipecat.gemini_multimodal_websocket_demo|190|85|463349693643463|Slow handle animation|8
+12-15 20:11:09.327  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:10.327  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:11.327  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:12.327  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:13.327  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:14.328  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:15.328  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:16.328  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:17.328  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:11:18.328  1245  1316 I libPerfCtl: xgfGetFPS pid:27713 fps:-1
+12-15 20:12:15.716 27713 27713 W AutoMuteMonitor: ÔĆ▒´ŞĆ Bot response timeout triggered - no response for 5min
+12-15 20:12:15.717 27713 27713 I VoiceClientManager: ÔĆ▒´ŞĆ Bot response timeout - muting microphone
+12-15 20:12:15.717 27713 27713 D VoiceClientManager: pause() called
+12-15 20:12:15.717 27713 27713 D VoiceClientManager: ­čöö Playing beep sound
+12-15 20:12:15.741 27713 27713 D ToneGenerator: ToneGenerator constructor: streamType=3, volume=0.177828
+12-15 20:12:15.744 27713 27713 D ToneGenerator: AudioTrack(0xb400007386cb7600) created
+12-15 20:12:15.746 27713 27713 D AudioTrack: INSP: type=audio,case=1,set=0xb400007386cb7600,stream_type=-1,sample_rate=0,format=0x1,channel_mask=0x1,frame_count=960,flags=0x0,notification_frames=0,session_id=0,transfer_type=1,uid=-1,pid=-1
+12-15 20:12:15.746 27713 27713 D AudioTrack: INSP: type=audio,case=1,attributes=1,content_type=0,usage=1,source=-1,flags=0x100
+12-15 20:12:15.746 27713 27713 D AudioTrackStub: AudioTrackStub() create
+12-15 20:12:15.747 27713 27713 I AudioTrackImpl: initAudioTrackImpl()
+12-15 20:12:15.749 27713 27713 D AudioTrack: set: mPowerTrackStatus=0
+12-15 20:12:15.755  1299  5047 I UsecaseValidator: verifyAudioAttributes update usage: 1 to AUDIO_USAGE_GAME for output: 29 pid: 27713 package: ai.pipecat.gemini_multimodal_websocket_demo
+12-15 20:12:15.762 27713 27713 I AudioTrack: createTrack_l(0): AUDIO_OUTPUT_FLAG_FAST successful; frameCount 960 -> 960
+12-15 20:12:15.763 27713 27713 D AudioTrack: createTrack_l(3511): 0xb400007386cb7600, mCblk = 0x74627fc000, mLatency = 62, mAfLatency = 42, frameCount = 960, mSampleRate = 48000, mFlags = 0x4, mReqFrameCount = 960, mNotificationFramesAct = 256
+12-15 20:12:15.764 27713 27713 D AudioTrack: setVolume(3511): 0xb400007386cb7600, left = 0.177828, right = 0.177828
+12-15 20:12:15.764 27713 27713 D AudioTrack: start(3511): 0xb400007386cb7600, prior state:STATE_STOPPED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-15 20:12:15.796  1299  7219 E AudioFlinger_Threads: open /proc/27713/cmdline error
+12-15 20:12:15.800 27713 27713 D VoiceClientManager: SystemState updated: SystemState(isMediaPlaying=false, currentAudioState=IDLE, availableTools=[search_web, get_weather, get_current_time, get_location, calculate, control_media, search_nearby, start_navigation, start_reasoning_task])
+12-15 20:12:15.800 11575 18287 I ProcAudioPowerManager: noteStartAudioInNeed uid is 10448, pid is 27713, sessionid is 29489, port is 3511, type is 2
+12-15 20:12:15.871 27713 29935 D AudioTrack: stop(3511): 0xb400007386cb7600, prior state:STATE_ACTIVE packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-15 20:12:15.871 27713 29935 D AudioTrackShared: this(0xb400007236ccbb50), mCblk(0x74627fc000), front(1280), mIsOut 1, interrupt() FUTEX_WAKE
+12-15 20:12:15.872  1299  7219 E AudioFlinger_Threads: open /proc/27713/cmdline error
+12-15 20:12:15.872 27713 29935 D AudioTrack: stop(3511): 0xb400007386cb7600 stop done
+12-15 20:12:15.937 11575 18287 I ProcAudioPowerManager: noteStopAudioInNeed uid is 10448, pid is 27713, sessionid is 29489, port is 3511, type is 2
+12-15 20:12:16.052 27713 27713 D AudioTrack: ~AudioTrack(3511): 0xb400007386cb7600
+12-15 20:12:16.052 27713 27713 D AudioTrack: stop(3511): 0xb400007386cb7600, prior state:STATE_STOPPED packageName: ai.pipecat.gemini_multimodal_websocket_demo
+12-15 20:12:16.074 27713 27713 D VoiceClientManager: ­čöö Beep finished
+

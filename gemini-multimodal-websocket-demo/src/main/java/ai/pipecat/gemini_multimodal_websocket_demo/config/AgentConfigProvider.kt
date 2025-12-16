@@ -6,6 +6,12 @@ import android.util.Log
 import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ControlAgentConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ReasoningAgentConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ReasoningToolsConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.PerplexityConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.NotesConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.TelegramConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ClipboardConfig
+import ai.pipecat.gemini_multimodal_websocket_demo.models.WhispererModeConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConfigurationRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -79,7 +85,45 @@ object AgentConfigProvider {
         val provider: String? = null,
         val model_id: String? = null,
         val temperature: Float? = null,
-        val system_prompt: String? = null
+        val system_prompt: String? = null,
+        val tools: RemoteReasoningToolsConfig? = null
+    )
+    
+    @Serializable
+    data class RemoteReasoningToolsConfig(
+        val perplexity: RemotePerplexityConfig? = null,
+        val notes: RemoteNotesConfig? = null,
+        val telegram: RemoteTelegramConfig? = null,
+        val clipboard: RemoteClipboardConfig? = null,
+        val whisperer_mode: RemoteWhispererModeConfig? = null
+    )
+    
+    @Serializable
+    data class RemotePerplexityConfig(
+        val enabled: Boolean? = null,
+        val model: String? = null,
+        val default_recency: String? = null
+    )
+    
+    @Serializable
+    data class RemoteNotesConfig(
+        val enabled: Boolean? = null,
+        val default_app: String? = null
+    )
+    
+    @Serializable
+    data class RemoteTelegramConfig(
+        val enabled: Boolean? = null
+    )
+    
+    @Serializable
+    data class RemoteClipboardConfig(
+        val enabled: Boolean? = null
+    )
+    
+    @Serializable
+    data class RemoteWhispererModeConfig(
+        val enabled: Boolean? = null
     )
     
     /**
@@ -139,7 +183,38 @@ object AgentConfigProvider {
             provider = remote?.provider ?: defaults.provider,
             modelId = remote?.model_id ?: defaults.modelId,
             temperature = remote?.temperature ?: defaults.temperature,
-            systemPrompt = remote?.system_prompt ?: defaults.systemPrompt
+            systemPrompt = remote?.system_prompt ?: defaults.systemPrompt,
+            tools = mergeReasoningToolsConfig(defaults.tools, remote?.tools)
+        )
+    }
+    
+    /**
+     * Merge Reasoning Tools configuration.
+     * Remote config overrides defaults for each tool.
+     */
+    private fun mergeReasoningToolsConfig(
+        defaults: ReasoningToolsConfig,
+        remote: RemoteReasoningToolsConfig?
+    ): ReasoningToolsConfig {
+        return ReasoningToolsConfig(
+            perplexity = PerplexityConfig(
+                enabled = remote?.perplexity?.enabled ?: defaults.perplexity.enabled,
+                model = remote?.perplexity?.model ?: defaults.perplexity.model,
+                defaultRecency = remote?.perplexity?.default_recency ?: defaults.perplexity.defaultRecency
+            ),
+            notes = NotesConfig(
+                enabled = remote?.notes?.enabled ?: defaults.notes.enabled,
+                defaultApp = remote?.notes?.default_app ?: defaults.notes.defaultApp
+            ),
+            telegram = TelegramConfig(
+                enabled = remote?.telegram?.enabled ?: defaults.telegram.enabled
+            ),
+            clipboard = ClipboardConfig(
+                enabled = remote?.clipboard?.enabled ?: defaults.clipboard.enabled
+            ),
+            whispererMode = WhispererModeConfig(
+                enabled = remote?.whisperer_mode?.enabled ?: defaults.whispererMode.enabled
+            )
         )
     }
     

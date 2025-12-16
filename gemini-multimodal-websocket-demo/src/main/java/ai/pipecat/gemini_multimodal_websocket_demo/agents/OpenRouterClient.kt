@@ -101,14 +101,24 @@ class OpenRouterClient(
     ): Result<String> {
         val config = configProvider.getReasoningAgentConfig()
         
+        Log.d(TAG, "🔍 Checking Reasoning Agent config...")
+        Log.d(TAG, "   - Enabled: ${config.enabled}")
+        Log.d(TAG, "   - Model: ${config.modelId}")
+        Log.d(TAG, "   - Temperature: ${config.temperature}")
+        
         if (!config.enabled) {
-            Log.d(TAG, "Reasoning Agent is disabled in config")
+            Log.e(TAG, "❌ Reasoning Agent is disabled in config")
             return Result.failure(Exception("Reasoning Agent is disabled"))
         }
         
         val apiKey = Preferences.openRouterApiKey.value
+        Log.d(TAG, "🔑 OpenRouter API key check:")
+        Log.d(TAG, "   - Key present: ${!apiKey.isNullOrBlank()}")
+        Log.d(TAG, "   - Key length: ${apiKey?.length ?: 0}")
+        Log.d(TAG, "   - Key prefix: ${apiKey?.take(10) ?: "null"}...")
+        
         if (apiKey.isNullOrBlank()) {
-            Log.w(TAG, "OpenRouter API key not configured")
+            Log.e(TAG, "❌ OpenRouter API key not configured!")
             return Result.failure(Exception("OpenRouter API key not configured"))
         }
         
@@ -201,44 +211,47 @@ class OpenRouterClient(
     private suspend fun executeRequest(
         apiKey: String,
         request: OpenRouterRequest
-    ): Result<String> {
-        val requestBody = json.encodeToString(OpenRouterRequest.serializer(), request)
-            .toRequestBody("application/json".toMediaType())
-        
-        val httpRequest = Request.Builder()
-            .url("$OPENROUTER_API_BASE/chat/completions")
-            .addHeader("Authorization", "Bearer $apiKey")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("HTTP-Referer", "https://github.com/pipecat-ai/pipecat-client-android")
-            .addHeader("X-Title", "Pipecat Android Client")
-            .post(requestBody)
-            .build()
-        
-        val response = httpClient.newCall(httpRequest).execute()
-        
-        if (!response.isSuccessful) {
-            val errorBody = response.body?.string()
-            Log.w(TAG, "OpenRouter API error: HTTP ${response.code}, body: $errorBody")
+    ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val requestBody = json.encodeToString(OpenRouterRequest.serializer(), request)
+                .toRequestBody("application/json".toMediaType())
             
-            // Try to parse error response
-            if (!errorBody.isNullOrBlank()) {
-                try {
-                    val errorResponse = json.decodeFromString<OpenRouterError>(errorBody)
-                    return Result.failure(Exception("OpenRouter API error: ${errorResponse.error.message}"))
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse error response", e)
+            val httpRequest = Request.Builder()
+                .url("$OPENROUTER_API_BASE/chat/completions")
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("HTTP-Referer", "https://github.com/pipecat-ai/pipecat-client-android")
+                .addHeader("X-Title", "Pipecat Android Client")
+                .post(requestBody)
+                .build()
+            
+            val response = httpClient.newCall(httpRequest).execute()
+            
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                Log.w(TAG, "OpenRouter API error: HTTP ${response.code}, body: $errorBody")
+                
+                // Try to parse error response
+                val errorMessage = if (!errorBody.isNullOrBlank()) {
+                    try {
+                        val errorResponse = json.decodeFromString<OpenRouterError>(errorBody)
+                        "OpenRouter API error: ${errorResponse.error.message}"
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to parse error response", e)
+                        "OpenRouter API error: HTTP ${response.code}"
+                    }
+                } else {
+                    "OpenRouter API error: HTTP ${response.code}"
                 }
+                
+                return@withContext Result.failure(Exception(errorMessage))
             }
             
-            return Result.failure(Exception("OpenRouter API error: HTTP ${response.code}"))
-        }
-        
-        val responseBody = response.body?.string()
-        if (responseBody.isNullOrBlank()) {
-            return Result.failure(Exception("Empty response from OpenRouter API"))
-        }
-        
-        return try {
+            val responseBody = response.body?.string()
+            if (responseBody.isNullOrBlank()) {
+                return@withContext Result.failure(Exception("Empty response from OpenRouter API"))
+            }
+            
             val openRouterResponse = json.decodeFromString<OpenRouterResponse>(responseBody)
             
             if (openRouterResponse.choices.isEmpty()) {
@@ -250,8 +263,8 @@ class OpenRouterClient(
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse OpenRouter response", e)
-            Result.failure(Exception("Failed to parse OpenRouter response: ${e.message}"))
+            Log.e(TAG, "Failed to execute OpenRouter request", e)
+            Result.failure(Exception("Failed to execute request: ${e.message}"))
         }
     }
     
@@ -281,5 +294,50 @@ class OpenRouterClient(
                 message.contains("http 5") ||
                 message.contains("rate limit") ||
                 message.contains("http 429")
+    }
+    
+    /**
+     * Validate OpenRouter API key and model by making a simple test request.
+     * 
+     * @param apiKey The API key to validate
+     * @param modelId The model ID to validate (e.g., "deepseek/deepseek-v3.2")
+     * @return Result indicating success or failure with error message
+     */
+    suspend fun validateApiKey(apiKey: String, modelId: String): Result<String> {
+        if (apiKey.isBlank()) {
+            return Result.failure(Exception("API key is empty"))
+        }
+        
+        if (modelId.isBlank()) {
+            return Result.failure(Exception("Model ID is empty"))
+        }
+        
+        Log.d(TAG, "🔍 Validating OpenRouter API key and model: $modelId")
+        
+        // Make a minimal test request
+        val testRequest = OpenRouterRequest(
+            model = modelId,
+            messages = listOf(
+                Message("user", "Hello")
+            ),
+            temperature = 0.1f,
+            max_tokens = 10
+        )
+        
+        return try {
+            val result = executeRequest(apiKey, testRequest)
+            
+            if (result.isSuccess) {
+                Log.d(TAG, "✅ OpenRouter API key and model validated successfully")
+                Result.success("API key and model are valid")
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                Log.w(TAG, "❌ OpenRouter API validation failed: $error")
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ OpenRouter API validation exception", e)
+            Result.failure(e)
+        }
     }
 }

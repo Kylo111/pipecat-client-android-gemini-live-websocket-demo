@@ -12,6 +12,10 @@ import kotlinx.serialization.Serializable
  * Also includes persona alignment information:
  * - personaAlignment: How user interacts with THIS specific Assistant Persona
  *   (e.g., "User prefers strict feedback from this Coach persona")
+ * 
+ * Orphan Result Handling:
+ * - pendingInsight: Knowledge from Reasoning Agent when session was closed.
+ *   Will be consumed at next session start and then cleared.
  */
 @Serializable
 data class LocalConversationCard(
@@ -20,5 +24,6 @@ data class LocalConversationCard(
     val userGoals: List<String> = emptyList(),
     val agreedFacts: List<String> = emptyList(),
     val pendingQuestions: List<String> = emptyList(),
-    val personaAlignment: String? = null
+    val personaAlignment: String? = null,
+    val pendingInsight: String? = null
 )

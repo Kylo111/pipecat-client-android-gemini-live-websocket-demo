@@ -3,11 +3,13 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 import ai.pipecat.gemini_multimodal_websocket_demo.GeminiSummaryService
 import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import ai.pipecat.gemini_multimodal_websocket_demo.config.AgentConfigProvider
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -84,7 +86,7 @@ fun SettingsScreen(
     // Local state for settings
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
     var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
-    var toolsInstruction by remember { mutableStateOf(Preferences.toolsInstruction.value ?: "") }
+    // toolsInstruction removed from UI - users should not edit this
     var keepScreenAwake by remember { mutableStateOf(Preferences.keepScreenAwake.value) }
     var autoPauseTimeout by remember { mutableStateOf(Preferences.autoPauseTimeoutSeconds.value) }
     var botResponseTimeout by remember { mutableStateOf(Preferences.botResponseTimeoutMinutes.value) }
@@ -100,10 +102,28 @@ fun SettingsScreen(
     var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
     
+    // API Keys for Reasoning Agent
+    var openRouterApiKey by remember { mutableStateOf(Preferences.openRouterApiKey.value ?: "") }
+    var perplexityApiKey by remember { mutableStateOf(Preferences.perplexityApiKey.value ?: "") }
+    
+    // Initialize AgentConfigProvider and get reasoning agent model
+    var reasoningAgentModel by remember { mutableStateOf("deepseek/deepseek-v3.2") }
+    
+    LaunchedEffect(Unit) {
+        try {
+            AgentConfigProvider.init(context)
+            reasoningAgentModel = AgentConfigProvider.getReasoningAgentConfig().modelId
+            Log.d("SettingsScreen", "Reasoning agent model loaded: $reasoningAgentModel")
+        } catch (e: Exception) {
+            Log.w("SettingsScreen", "Failed to get reasoning agent model, using default: deepseek/deepseek-v3.2", e)
+            reasoningAgentModel = "deepseek/deepseek-v3.2"
+        }
+    }
+    
     // Validation state
-    var isValidatingModel by remember { mutableStateOf(false) }
-    var modelValidationError by remember { mutableStateOf<String?>(null) }
-    var showModelErrorDialog by remember { mutableStateOf(false) }
+    var isValidatingKeys by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf<String?>(null) }
+    var showValidationErrorDialog by remember { mutableStateOf(false) }
     
     // Picovoice settings
     var picovoiceAccessKey by remember { mutableStateOf(PicovoiceManager.getAccessKey()) }
@@ -124,7 +144,7 @@ fun SettingsScreen(
     val saveSettingsInternal: () -> Unit = {
         Preferences.geminiApiKey.value = geminiApiKey
         Preferences.modelName.value = modelName
-        Preferences.toolsInstruction.value = toolsInstruction
+        // toolsInstruction not saved from UI - uses SystemPrompts default
         Preferences.keepScreenAwake.value = keepScreenAwake
         Preferences.autoPauseTimeoutSeconds.value = autoPauseTimeout
         Preferences.botResponseTimeoutMinutes.value = botResponseTimeout
@@ -135,6 +155,10 @@ fun SettingsScreen(
         Preferences.summaryPrompt.value = summaryPrompt
         Preferences.parentalLockEnabled.value = parentalLockEnabled
         
+        // Save Reasoning Agent API keys
+        Preferences.openRouterApiKey.value = openRouterApiKey
+        Preferences.perplexityApiKey.value = perplexityApiKey
+        
         // Save Picovoice settings
         PicovoiceManager.setAccessKey(picovoiceAccessKey)
         PicovoiceManager.setSensitivity(picovoiceSensitivity)
@@ -143,43 +167,77 @@ fun SettingsScreen(
     
     // Validate and save settings function with callback
     val validateAndSaveSettings: (onSuccess: () -> Unit) -> Unit = { onSuccess ->
-        // If summary mode is enabled, validate model first
-        if (useSummaryMode) {
-            // Check if we have required fields
-            when {
-                geminiApiKey.isBlank() -> {
-                    modelValidationError = "Brak klucza API Gemini. Wpisz klucz API w ustawieniach."
-                    showModelErrorDialog = true
+        isValidatingKeys = true
+        validationError = null
+        
+        coroutineScope.launch {
+            try {
+                // 1. Validate Gemini API key (always required for main functionality)
+                if (geminiApiKey.isBlank()) {
+                    validationError = "Brak klucza API Gemini. Wpisz klucz API w ustawieniach."
+                    showValidationErrorDialog = true
+                    isValidatingKeys = false
+                    return@launch
                 }
-                summaryModel.isBlank() -> {
-                    modelValidationError = "Brak nazwy modelu. Wpisz nazwę modelu (np. gemini-2.5-flash)."
-                    showModelErrorDialog = true
-                }
-                else -> {
-                    // Validate model
-                    isValidatingModel = true
-                    modelValidationError = null
+                
+                // 2. Validate Summary Model if summary mode is enabled
+                if (useSummaryMode) {
+                    if (summaryModel.isBlank()) {
+                        validationError = "Brak nazwy modelu podsumowującego. Wpisz nazwę modelu (np. gemini-2.5-flash)."
+                        showValidationErrorDialog = true
+                        isValidatingKeys = false
+                        return@launch
+                    }
                     
-                    coroutineScope.launch {
-                        val result = geminiSummaryService.validateModel(summaryModel, geminiApiKey)
-                        isValidatingModel = false
-                        
-                        if (result.isSuccess) {
-                            // Model is valid, save settings
-                            saveSettingsInternal()
-                            onSuccess()
-                        } else {
-                            // Model is invalid, show error
-                            modelValidationError = result.exceptionOrNull()?.message ?: "Unknown error"
-                            showModelErrorDialog = true
-                        }
+                    val summaryResult = geminiSummaryService.validateModel(summaryModel, geminiApiKey)
+                    if (summaryResult.isFailure) {
+                        validationError = "Błąd walidacji modelu podsumowującego: ${summaryResult.exceptionOrNull()?.message}"
+                        showValidationErrorDialog = true
+                        isValidatingKeys = false
+                        return@launch
                     }
                 }
+                
+                // 3. Validate OpenRouter API key if provided
+                if (openRouterApiKey.isNotBlank()) {
+                    Log.d("SettingsScreen", "Validating OpenRouter API key with model: $reasoningAgentModel")
+                    val openRouterClient = ai.pipecat.gemini_multimodal_websocket_demo.agents.OpenRouterClient(
+                        context,
+                        AgentConfigProvider
+                    )
+                    val openRouterResult = openRouterClient.validateApiKey(openRouterApiKey, reasoningAgentModel)
+                    if (openRouterResult.isFailure) {
+                        val errorMsg = openRouterResult.exceptionOrNull()?.message ?: "Unknown error"
+                        Log.e("SettingsScreen", "OpenRouter validation failed: $errorMsg")
+                        validationError = "Błąd walidacji klucza OpenRouter: $errorMsg"
+                        showValidationErrorDialog = true
+                        isValidatingKeys = false
+                        return@launch
+                    }
+                }
+                
+                // 4. Validate Perplexity API key if provided
+                if (perplexityApiKey.isNotBlank()) {
+                    val perplexityClient = ai.pipecat.gemini_multimodal_websocket_demo.agents.PerplexityClient(context)
+                    val perplexityResult = perplexityClient.validateApiKey(perplexityApiKey)
+                    if (perplexityResult.isFailure) {
+                        validationError = "Błąd walidacji klucza Perplexity: ${perplexityResult.exceptionOrNull()?.message}"
+                        showValidationErrorDialog = true
+                        isValidatingKeys = false
+                        return@launch
+                    }
+                }
+                
+                // All validations passed, save settings
+                isValidatingKeys = false
+                saveSettingsInternal()
+                onSuccess()
+                
+            } catch (e: Exception) {
+                validationError = "Błąd podczas walidacji: ${e.message}"
+                showValidationErrorDialog = true
+                isValidatingKeys = false
             }
-        } else {
-            // No validation needed, save directly
-            saveSettingsInternal()
-            onSuccess()
         }
     }
     
@@ -220,7 +278,7 @@ fun SettingsScreen(
                         .background(Colors.buttonNormal)
                         .clickable {
                             // Don't close if validation is in progress
-                            if (!isValidatingModel) {
+                            if (!isValidatingKeys) {
                                 validateAndSaveSettings {
                                     // Only close if validation succeeded
                                     onClose()
@@ -270,16 +328,13 @@ fun SettingsScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Perplexity API Key
-                    var perplexityApiKey by remember { mutableStateOf(Preferences.perplexityApiKey.value ?: "") }
-                    
+                    // Perplexity API Key (using variable from top)
                     Column {
                         SettingsTextField(
                             label = "Klucz API Perplexity (opcjonalny)",
                             value = perplexityApiKey,
                             onValueChange = { 
                                 perplexityApiKey = it
-                                Preferences.perplexityApiKey.value = it
                             },
                             isPassword = true
                         )
@@ -298,16 +353,13 @@ fun SettingsScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // OpenRouter API Key
-                    var openRouterApiKey by remember { mutableStateOf(Preferences.openRouterApiKey.value ?: "") }
-                    
+                    // OpenRouter API Key (using variable from top)
                     Column {
                         SettingsTextField(
                             label = "Klucz API OpenRouter (opcjonalny)",
                             value = openRouterApiKey,
                             onValueChange = { 
                                 openRouterApiKey = it
-                                Preferences.openRouterApiKey.value = it
                             },
                             isPassword = true
                         )
@@ -324,55 +376,8 @@ fun SettingsScreen(
                         )
                     }
                     
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Tools Instruction
-                    Column {
-                        Text(
-                            text = "Instrukcje narzędzi (dodawane do każdego promptu)",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = Color.Black,
-                            style = TextStyles.base
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        TextField(
-                            value = toolsInstruction,
-                            onValueChange = { toolsInstruction = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White,
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedIndicatorColor = Colors.buttonNormal,
-                                unfocusedIndicatorColor = Color.LightGray
-                            ),
-                            textStyle = TextStyles.base.copy(fontSize = 12.sp),
-                            placeholder = {
-                                Text(
-                                    "Wpisz instrukcje dotyczące używania narzędzi...",
-                                    style = TextStyles.base,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        )
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Text(
-                            text = "Ten tekst jest automatycznie dodawany do każdego promptu systemowego (LibreChat i offline). Pozostaw puste aby wyłączyć.",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.W400,
-                            color = Color.Gray,
-                            style = TextStyles.base,
-                            lineHeight = 14.sp
-                        )
-                    }
+                    // Tools Instruction field removed from UI
+                    // Users should not edit this - it's managed by SystemPrompts.kt
                 }
 
                 // LibreChat Integration Section
@@ -923,6 +928,564 @@ fun SettingsScreen(
                     }
                 }
 
+                // Reasoning Agent Section
+                SettingsSection(title = "Reasoning Agent (Agent rozumujący)") {
+                    // Reasoning Agent enabled state
+                    var reasoningAgentEnabled by remember { mutableStateOf(Preferences.reasoningAgentEnabled.value) }
+                    
+                    SettingsToggle(
+                        label = "Włącz Reasoning Agent",
+                        checked = reasoningAgentEnabled,
+                        onCheckedChange = { enabled ->
+                            reasoningAgentEnabled = enabled
+                            Preferences.reasoningAgentEnabled.value = enabled
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (reasoningAgentEnabled) {
+                            "✅ WŁĄCZONY: Agent rozumujący działa w tle, wykonując głębokie analizy, wyszukiwania i generując raporty."
+                        } else {
+                            "❌ WYŁĄCZONY: Wszystkie zadania analityczne są przekazywane do głównego agenta Gemini Live."
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = if (reasoningAgentEnabled) Color(0xFF4CAF50) else Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Detailed explanation
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️ Jak działa Reasoning Agent:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "• Działa asynchronicznie w tle (nie blokuje rozmowy)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Wykonuje głębokie wyszukiwania przez Perplexity z cytowaniami",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Zapisuje notatki, kopiuje do schowka, wysyła na Telegram",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Generuje raporty po sesji na podstawie wykrytych tematów",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "• Używa zaawansowanych modeli (DeepSeek, Claude) przez OpenRouter",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    if (reasoningAgentEnabled) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Model selection
+                        var reasoningAgentModel by remember { mutableStateOf(Preferences.reasoningAgentModel.value ?: "deepseek/deepseek-v3.2") }
+                        var showModelDropdown by remember { mutableStateOf(false) }
+                        
+                        Column {
+                            Text(
+                                text = "Model rozumujący",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Box {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .border(
+                                            width = 1.dp,
+                                            color = Colors.textFieldBorder,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White)
+                                        .clickable { showModelDropdown = true }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = when (reasoningAgentModel) {
+                                                "deepseek/deepseek-v3.2" -> "DeepSeek V3.2 (Zalecany)"
+                                                "deepseek/deepseek-r1-0528" -> "DeepSeek R1"
+                                                "google/gemini-2.5-flash" -> "Gemini 2.5 Flash"
+                                                else -> reasoningAgentModel
+                                            },
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.W400,
+                                            color = Color.Black,
+                                            style = TextStyles.base
+                                        )
+                                        
+                                        Text(
+                                            text = "▼",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = showModelDropdown,
+                                    onDismissRequest = { showModelDropdown = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.White)
+                                ) {
+                                    listOf(
+                                        "deepseek/deepseek-v3.2" to "DeepSeek V3.2 (Zalecany)",
+                                        "deepseek/deepseek-r1-0528" to "DeepSeek R1",
+                                        "google/gemini-2.5-flash" to "Gemini 2.5 Flash"
+                                    ).forEach { (value, label) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = label,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.W400,
+                                                    color = Color.Black,
+                                                    style = TextStyles.base
+                                                )
+                                            },
+                                            onClick = {
+                                                reasoningAgentModel = value
+                                                Preferences.reasoningAgentModel.value = value
+                                                showModelDropdown = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Model używany do głębokich analiz i rozumowania. DeepSeek V3.2 jest zalecany ze względu na wysoką jakość i niski koszt.",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Whisperer Mode toggle
+                        var whispererModeEnabled by remember { mutableStateOf(Preferences.whispererModeEnabled.value) }
+                        
+                        SettingsToggle(
+                            label = "Tryb Whisperer (automatyczne uruchamianie)",
+                            checked = whispererModeEnabled,
+                            onCheckedChange = { enabled ->
+                                whispererModeEnabled = enabled
+                                Preferences.whispererModeEnabled.value = enabled
+                            }
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = if (whispererModeEnabled) {
+                                "✅ WŁĄCZONY: Gemini Live automatycznie uruchamia Reasoning Agent gdy wykryje brak wiedzy lub potrzebę głębszej analizy."
+                            } else {
+                                "❌ WYŁĄCZONY: Reasoning Agent uruchamia się tylko na wyraźne polecenie użytkownika."
+                            },
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W400,
+                            color = if (whispererModeEnabled) Color(0xFF4CAF50) else Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 16.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "ℹ️ Tryb Whisperer:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Black,
+                                style = TextStyles.base
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "• Gemini Live wykrywa gdy nie ma wystarczającej wiedzy",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.DarkGray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "• Automatycznie uruchamia Reasoning Agent w tle (bez informowania użytkownika)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.DarkGray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "• Kontynuuje rozmowę naturalnie, \"kupując czas\" na analizę",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.DarkGray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "• Gdy wynik jest gotowy, wstrzykuje wiedzę do rozmowy",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.DarkGray,
+                                style = TextStyles.base,
+                                lineHeight = 14.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Status indicator
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFE8F5E8), RoundedCornerShape(8.dp))
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🟢",
+                                fontSize = 16.sp
+                            )
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            Text(
+                                text = "Reasoning Agent jest aktywny",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color(0xFF2E7D32),
+                                style = TextStyles.base
+                            )
+                        }
+                    }
+                }
+
+                // Telegram Configuration Section
+                SettingsSection(title = "Konfiguracja Telegram") {
+                    Text(
+                        text = "Skonfiguruj bota Telegram aby otrzymywać raporty i notatki z Reasoning Agent.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Telegram Bot Token
+                    var telegramBotToken by remember { mutableStateOf(Preferences.telegramBotToken.value ?: "") }
+                    
+                    Column {
+                        SettingsTextField(
+                            label = "Token bota Telegram",
+                            value = telegramBotToken,
+                            onValueChange = { 
+                                telegramBotToken = it
+                                Preferences.telegramBotToken.value = it
+                            },
+                            isPassword = true
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Uzyskaj token od @BotFather na Telegramie. Przykład: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Telegram Chat ID
+                    var telegramChatId by remember { mutableStateOf(Preferences.telegramChatId.value ?: "") }
+                    
+                    Column {
+                        SettingsTextField(
+                            label = "ID czatu Telegram",
+                            value = telegramChatId,
+                            onValueChange = { 
+                                telegramChatId = it
+                                Preferences.telegramChatId.value = it
+                            }
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "Twój ID czatu Telegram. Możesz go uzyskać od @userinfobot. Przykład: 123456789",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Gray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Test connection button
+                    var isTesting by remember { mutableStateOf(false) }
+                    var testResult by remember { mutableStateOf<String?>(null) }
+                    
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (telegramBotToken.isNotBlank() && telegramChatId.isNotBlank()) Colors.buttonNormal else Color.LightGray)
+                                .clickable(enabled = telegramBotToken.isNotBlank() && telegramChatId.isNotBlank() && !isTesting) {
+                                    isTesting = true
+                                    testResult = null
+                                    
+                                    coroutineScope.launch {
+                                        try {
+                                            val telegramService = ai.pipecat.gemini_multimodal_websocket_demo.agents.TelegramService(context)
+                                            val result = telegramService.sendMessage(
+                                                content = "🤖 Test połączenia z Reasoning Agent\n\nJeśli widzisz tę wiadomość, konfiguracja jest poprawna!",
+                                                botToken = telegramBotToken,
+                                                chatId = telegramChatId
+                                            )
+                                            
+                                            testResult = if (result.success) {
+                                                "✅ Połączenie udane! Wiadomość testowa została wysłana."
+                                            } else {
+                                                "❌ Błąd: ${result.message}"
+                                            }
+                                        } catch (e: Exception) {
+                                            testResult = "❌ Błąd: ${e.message}"
+                                        } finally {
+                                            isTesting = false
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isTesting) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "Testowanie...",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.W600,
+                                        color = Color.White,
+                                        style = TextStyles.base
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Testuj połączenie",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.W600,
+                                    color = Color.White,
+                                    style = TextStyles.base
+                                )
+                            }
+                        }
+                        
+                        if (testResult != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = testResult!!,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.W400,
+                                color = if (testResult!!.startsWith("✅")) Color(0xFF4CAF50) else Color(0xFFF44336),
+                                style = TextStyles.base,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Instructions
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️ Jak skonfigurować bota Telegram:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "1. Otwórz Telegram i wyszukaj @BotFather",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "2. Wyślij komendę /newbot i postępuj zgodnie z instrukcjami",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "3. Skopiuj token bota i wklej powyżej",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "4. Wyszukaj @userinfobot i wyślij /start aby uzyskać swój Chat ID",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "5. Skopiuj Chat ID i wklej powyżej",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "6. Kliknij 'Testuj połączenie' aby sprawdzić konfigurację",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.DarkGray,
+                            style = TextStyles.base,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+
                 // Visual Preferences Section
                 SettingsSection(title = "Preferencje wizualne") {
                     // Theme Selection Button
@@ -1444,7 +2007,7 @@ fun SettingsScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(Colors.buttonWarning)
                         .clickable {
-                            if (!isValidatingModel) {
+                            if (!isValidatingKeys) {
                                 validateAndSaveSettings {
                                     onLogout()
                                 }
@@ -1477,13 +2040,13 @@ fun SettingsScreen(
             )
         }
         
-        // Model validation error dialog
-        if (showModelErrorDialog) {
+        // Validation error dialog
+        if (showValidationErrorDialog) {
             AlertDialog(
-                onDismissRequest = { showModelErrorDialog = false },
+                onDismissRequest = { showValidationErrorDialog = false },
                 title = {
                     Text(
-                        text = "❌ Nieprawidłowy model",
+                        text = "❌ Błąd walidacji",
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
                     )
@@ -1491,27 +2054,21 @@ fun SettingsScreen(
                 text = {
                     Column {
                         Text(
-                            text = "Model '${summaryModel}' nie istnieje lub nie jest dostępny.",
+                            text = validationError ?: "Nieznany błąd",
                             style = TextStyles.base
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Błąd: ${modelValidationError}",
+                            text = "Sprawdź poprawność wprowadzonych kluczy API i nazw modeli.",
                             style = TextStyles.base,
                             fontSize = 12.sp,
                             color = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Sprawdź nazwę modelu. Przykłady:\n• gemini-2.5-flash\n• gemini-1.5-flash\n• gemini-1.5-pro\n• gemini-2.0-flash-exp",
-                            style = TextStyles.base,
-                            fontSize = 12.sp
                         )
                     }
                 },
                 confirmButton = {
                     Button(
-                        onClick = { showModelErrorDialog = false },
+                        onClick = { showValidationErrorDialog = false },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Colors.buttonNormal
                         )
@@ -1523,7 +2080,7 @@ fun SettingsScreen(
         }
         
         // Loading indicator during validation
-        if (isValidatingModel) {
+        if (isValidatingKeys) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

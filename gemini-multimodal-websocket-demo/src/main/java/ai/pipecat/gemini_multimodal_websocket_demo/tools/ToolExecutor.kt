@@ -82,6 +82,8 @@ class ToolExecutor(private val context: Context) {
                 "search_nearby" -> searchNearby(parameters)
                 "create_offline_conversation" -> createOfflineConversation(parameters)
                 "start_navigation" -> startNavigation(parameters)
+                "copy_to_clipboard" -> copyToClipboard(parameters)
+                "start_reasoning_task" -> startReasoningTask(parameters)
                 else -> {
                     // Check if it's a custom tool
                     val customTools = CustomToolsManager.loadCustomTools(context)
@@ -1102,6 +1104,114 @@ class ToolExecutor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error starting navigation: ${e.message}", e)
             "Error: Could not start navigation - ${e.message}"
+        }
+    }
+    
+    /**
+     * Copy text to clipboard
+     */
+    private suspend fun copyToClipboard(params: JsonObject): String = withContext(Dispatchers.Main) {
+        val text = params["text"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing text parameter"
+        
+        Log.i(TAG, "Copying to clipboard: ${text.take(50)}...")
+        
+        try {
+            val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("Gemini Live", text)
+            clipboardManager.setPrimaryClip(clip)
+            
+            "Text copied to clipboard successfully (${text.length} characters)"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error copying to clipboard: ${e.message}", e)
+            "Error: Could not copy to clipboard - ${e.message}"
+        }
+    }
+    
+    /**
+     * Start a reasoning task in the background (Fire-and-Forget)
+     * 
+     * This handler:
+     * 1. Parses parameters (task_description, priority)
+     * 2. Gets current transcript from SessionManager (in-memory!)
+     * 3. Calls ReasoningAgentManager.startReasoningTask()
+     * 4. Returns acknowledgment immediately (doesn't wait for result!)
+     * 
+     * Requirements: 4.1, 4.2, 4.3, 8.1, 8.2, 8.3, 15.2
+     */
+    private suspend fun startReasoningTask(params: JsonObject): String = withContext(Dispatchers.Main) {
+        val taskDescription = params["task_description"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing task_description parameter"
+        val priorityStr = params["priority"]?.jsonPrimitive?.content ?: "NORMAL"
+        
+        Log.i(TAG, "🧠 Starting reasoning task: $taskDescription (priority: $priorityStr)")
+        
+        try {
+            // Parse priority
+            val priority = try {
+                ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.valueOf(priorityStr)
+            } catch (e: Exception) {
+                Log.w(TAG, "Invalid priority '$priorityStr', using NORMAL")
+                ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.NORMAL
+            }
+            
+            // Get VoiceService instance to access SessionManager
+            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+            if (voiceService == null) {
+                Log.e(TAG, "❌ VoiceService not available - cannot start reasoning task")
+                return@withContext "I've noted your request, but I'm having trouble accessing the background service right now. Please try again in a moment."
+            }
+            
+            // Get SessionManager
+            val sessionManager = voiceService.getSessionManager()
+            if (sessionManager == null) {
+                Log.e(TAG, "❌ SessionManager not available - cannot start reasoning task")
+                return@withContext "I've noted your request, but I'm having trouble accessing the session manager right now. Please try again in a moment."
+            }
+            
+            // Get current transcript (in-memory!)
+            val currentTranscript = sessionManager.getCurrentTranscript()
+            if (currentTranscript.isBlank()) {
+                Log.w(TAG, "⚠️ Current transcript is empty - proceeding anyway")
+            }
+            
+            // Get conversation ID
+            val conversationId = sessionManager.getCurrentConversationId()
+            if (conversationId == null) {
+                Log.e(TAG, "❌ No active conversation - cannot start reasoning task")
+                return@withContext "I've noted your request, but there's no active conversation right now. Please start a conversation first."
+            }
+            
+            // Get ReasoningAgentManager
+            val reasoningAgentManager = voiceService.getReasoningAgentManager()
+            if (reasoningAgentManager == null) {
+                Log.e(TAG, "❌ ReasoningAgentManager not available - cannot start reasoning task")
+                return@withContext "I've noted your request, but the reasoning service is not available right now. Please check your settings."
+            }
+            
+            // Start reasoning task (Fire-and-Forget!)
+            val taskId = reasoningAgentManager.startReasoningTask(
+                taskDescription = taskDescription,
+                priority = priority,
+                conversationId = conversationId,
+                currentTranscriptInMemory = currentTranscript
+            )
+            
+            Log.i(TAG, "✅ Reasoning task started successfully: $taskId")
+            
+            // Return acknowledgment immediately (don't wait for result!)
+            when (priority) {
+                ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.HIGH ->
+                    "I'm working on that right now in the background. I'll let you know what I find as soon as possible."
+                ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.NORMAL ->
+                    "I've started working on that in the background. I'll share the results with you when they're ready."
+                ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.LOW ->
+                    "I've noted that and will work on it in the background. I'll let you know when I have something."
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error starting reasoning task: ${e.message}", e)
+            "I've noted your request, but I encountered an error starting the background task: ${e.message}"
         }
     }
 }

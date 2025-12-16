@@ -15,5 +15,13 @@ data class MemoryUpdateResult(
     val sessionSummary: String,
     val updatedGlobalCard: GlobalUserCard,
     val updatedLocalCard: LocalConversationCard,
-    val updatedMetaSummary: String
+    val updatedMetaSummary: String,
+    
+    // Report detection fields (for Reasoning Agent triggering)
+    @SerialName("needs_report")
+    val needsReport: Boolean = false,
+    @SerialName("report_topics")
+    val reportTopics: List<String> = emptyList(),
+    @SerialName("report_priority")
+    val reportPriority: String = "NORMAL"
 )

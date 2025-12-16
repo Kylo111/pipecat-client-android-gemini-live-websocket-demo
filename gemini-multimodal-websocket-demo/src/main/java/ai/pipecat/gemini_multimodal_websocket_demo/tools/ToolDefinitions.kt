@@ -31,19 +31,23 @@ object ToolDefinitions {
             getCurrentTimeTool(),
             getLocationTool(),
             calculateTool(),
-            createNoteTool(),
+            // createNoteTool(), // REMOVED - handled by Reasoning Agent via start_reasoning_task
             controlMediaTool(),
             searchNearbyTool(),
             // createOfflineConversationTool(), // REMOVED - only for "Help" conversation
             startNavigationTool(),
-            copyToClipboardTool()
+            // copyToClipboardTool(), // REMOVED - handled by Reasoning Agent via start_reasoning_task
+            startReasoningTaskTool()
         )
         
-        // Add Perplexity search if API key is configured
-        val perplexityApiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.perplexityApiKey.value
-        if (!perplexityApiKey.isNullOrBlank()) {
-            builtInTools.add(searchPerplexityTool())
-        }
+        // NOTE: These tools are NOT included in Gemini Live - they're handled by Reasoning Agent:
+        // - search_perplexity: Deep search with citations (use start_reasoning_task instead)
+        // - create_note: Note creation (use start_reasoning_task instead)
+        // - copy_to_clipboard: Clipboard operations (use start_reasoning_task instead)
+        // - send_telegram: Telegram messaging (use start_reasoning_task instead)
+        //
+        // Gemini Live uses search_web (Google Grounding) for quick searches.
+        // Complex research, note-taking, and clipboard operations are delegated to Reasoning Agent.
         
         // Add custom tools from user configuration
         val customTools = CustomToolsManager.getCustomToolDeclarations(context)
@@ -393,6 +397,55 @@ object ToolDefinitions {
             }
             put("required", buildJsonArray {
                 add(JsonPrimitive("text"))
+            })
+        }
+    }
+    
+    /**
+     * Start a reasoning task in the background
+     * Delegates complex research, note-taking, and analysis to the Reasoning Agent
+     */
+    private fun startReasoningTaskTool() = buildJsonObject {
+        put("name", "start_reasoning_task")
+        put("description", """
+            Start a background reasoning task for complex research, deep analysis, note-taking, or information gathering that requires external tools (Perplexity search, note creation, clipboard operations, Telegram messages).
+            
+            Use this when:
+            - User asks for deep research or detailed information about a topic
+            - User wants to save notes, summaries, or information
+            - User requests information you don't have or need to verify
+            - Task requires multiple steps or external searches
+            - You detect lack of knowledge or need authoritative sources
+            
+            This is a fire-and-forget operation - you will receive results later when ready.
+            Continue the conversation naturally while the task processes in the background.
+            
+            Examples:
+            - "Research the latest developments in quantum computing"
+            - "Save a summary of our conversation to my notes"
+            - "Find detailed information about the 2024 elections in Poland"
+            - "Create a note with the recipe we just discussed"
+        """.trimIndent())
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("task_description") {
+                    put("type", "string")
+                    put("description", "Natural language description of the task. Be specific about what needs to be done. Include context from the conversation if relevant.")
+                }
+                putJsonObject("priority") {
+                    put("type", "string")
+                    put("description", "Task priority level")
+                    put("enum", buildJsonArray {
+                        add(JsonPrimitive("LOW"))
+                        add(JsonPrimitive("NORMAL"))
+                        add(JsonPrimitive("HIGH"))
+                    })
+                    put("default", "NORMAL")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("task_description"))
             })
         }
     }

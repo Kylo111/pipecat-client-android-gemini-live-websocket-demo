@@ -92,4 +92,9 @@ class SessionRepository(
     suspend fun deleteSession(session: SessionEntity) {
         sessionDao.delete(session)
     }
+    
+    // Get recent sessions (ordered by started_at DESC)
+    suspend fun getRecentSessions(conversationId: String, limit: Int = 10): List<SessionEntity> {
+        return sessionDao.getRecentSessions(conversationId, limit)
+    }
 }

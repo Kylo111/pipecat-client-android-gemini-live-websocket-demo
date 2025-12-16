@@ -70,6 +70,15 @@ class VoiceService : Service() {
     
     // Control Agent Manager - initialized when VoiceClientManager is available
     private var controlAgentManager: ControlAgentManager? = null
+    
+    // Broadcast receiver for reasoning results
+    private val reasoningResultReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action == "ai.pipecat.REASONING_RESULT") {
+                handleReasoningResult(intent)
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -79,6 +88,15 @@ class VoiceService : Service() {
         batteryProfiler = BatteryProfiler(this)
         serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         createNotificationChannel()
+        
+        // Register broadcast receiver for reasoning results
+        androidx.localbroadcastmanager.content.LocalBroadcastManager
+            .getInstance(this)
+            .registerReceiver(
+                reasoningResultReceiver,
+                android.content.IntentFilter("ai.pipecat.REASONING_RESULT")
+            )
+        Log.d(TAG, "Reasoning result receiver registered")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -175,6 +193,42 @@ class VoiceService : Service() {
      */
     fun getControlAgentManager(): ControlAgentManager? = controlAgentManager
     
+    // References to managers (set by MainActivity)
+    private var sessionManager: SessionManager? = null
+    private var reasoningAgentManager: ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager? = null
+    
+    /**
+     * Set the SessionManager reference.
+     * Called by MainActivity after SessionManager is created.
+     */
+    fun setSessionManager(manager: SessionManager) {
+        sessionManager = manager
+        Log.d(TAG, "SessionManager reference set")
+    }
+    
+    /**
+     * Get the SessionManager instance.
+     * 
+     * @return SessionManager instance or null if not set
+     */
+    fun getSessionManager(): SessionManager? = sessionManager
+    
+    /**
+     * Set the ReasoningAgentManager reference.
+     * Called by MainActivity after ReasoningAgentManager is created.
+     */
+    fun setReasoningAgentManager(manager: ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager) {
+        reasoningAgentManager = manager
+        Log.d(TAG, "ReasoningAgentManager reference set")
+    }
+    
+    /**
+     * Get the ReasoningAgentManager instance.
+     * 
+     * @return ReasoningAgentManager instance or null if not set
+     */
+    fun getReasoningAgentManager(): ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager? = reasoningAgentManager
+    
     /**
      * Copies text to the Android clipboard.
      * Handles SecurityException gracefully and shows Toast only on Android < 12.
@@ -202,6 +256,16 @@ class VoiceService : Service() {
 
     override fun onDestroy() {
         Log.d(TAG, "VoiceService.onDestroy: Starting cleanup")
+        
+        // Unregister broadcast receiver
+        try {
+            androidx.localbroadcastmanager.content.LocalBroadcastManager
+                .getInstance(this)
+                .unregisterReceiver(reasoningResultReceiver)
+            Log.d(TAG, "VoiceService.onDestroy: Reasoning result receiver unregistered")
+        } catch (e: Exception) {
+            Log.e(TAG, "VoiceService.onDestroy: Error unregistering receiver", e)
+        }
         
         // Cancel clipboard job
         try {
@@ -449,5 +513,65 @@ class VoiceService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         Log.d(TAG, "[VoiceService] Stop: Service shutdown complete")
+    }
+    
+    /**
+     * Handle reasoning result broadcast from ReasoningWorker.
+     * Injects result immediately into active session if available.
+     */
+    private fun handleReasoningResult(intent: android.content.Intent) {
+        try {
+            val conversationId = intent.getStringExtra("conversationId") ?: return
+            val summary = intent.getStringExtra("summary") ?: ""
+            val keyFacts = intent.getStringArrayExtra("keyFacts")?.toList() ?: emptyList()
+            val sources = intent.getStringArrayExtra("sources")?.toList() ?: emptyList()
+            val confidence = intent.getFloatExtra("confidence", 0.8f)
+            
+            Log.d(TAG, "📥 Received reasoning result for conversation: $conversationId")
+            Log.d(TAG, "   Summary: $summary")
+            Log.d(TAG, "   Key facts: ${keyFacts.size}")
+            
+            // Check if we have an active session for this conversation
+            val currentConversationId = sessionManager?.getCurrentConversationId()
+            
+            if (currentConversationId == conversationId) {
+                Log.d(TAG, "✅ Active session found, injecting result immediately")
+                
+                // Build context injection message
+                val contextMessage = buildString {
+                    appendLine("=== REASONING AGENT RESULT ===")
+                    appendLine()
+                    appendLine("Summary: $summary")
+                    appendLine()
+                    
+                    if (keyFacts.isNotEmpty()) {
+                        appendLine("Key Facts:")
+                        keyFacts.forEach { fact ->
+                            appendLine("- $fact")
+                        }
+                        appendLine()
+                    }
+                    
+                    if (sources.isNotEmpty()) {
+                        appendLine("Sources: ${sources.joinToString(", ")}")
+                        appendLine()
+                    }
+                    
+                    appendLine("Confidence: $confidence")
+                    appendLine()
+                    appendLine("Use this information naturally in your response.")
+                }
+                
+                // Inject into active session
+                sessionManager?.updateContext(contextMessage)
+                Log.d(TAG, "✅ Result injected into active session")
+                
+            } else {
+                Log.d(TAG, "⚠️ No active session or different conversation, result saved as pendingInsight")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to handle reasoning result", e)
+        }
     }
 }

@@ -72,6 +72,21 @@ class RTVIApplication : Application() {
     val helpConversationUpdater by lazy {
         HelpConversationUpdater(this, configRepository)
     }
+    
+    // Snapshot file manager for Reasoning Agent (WorkManager 10KB limit bypass)
+    val snapshotFileManager by lazy {
+        ai.pipecat.gemini_multimodal_websocket_demo.agents.SnapshotFileManager(this)
+    }
+    
+    // Reasoning Agent Manager for background reasoning tasks
+    val reasoningAgentManager by lazy {
+        ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager(
+            context = this,
+            sessionRepository = sessionRepository,
+            snapshotFileManager = snapshotFileManager,
+            scope = CoroutineScope(Dispatchers.Default)
+        )
+    }
 
     
     override fun onCreate() {
