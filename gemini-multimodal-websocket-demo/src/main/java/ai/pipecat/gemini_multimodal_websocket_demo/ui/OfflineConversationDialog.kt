@@ -4,6 +4,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AVAILABLE_VOICES
 import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.compose.foundation.background
@@ -32,18 +33,43 @@ import androidx.compose.ui.window.Dialog
 @Composable
 fun OfflineConversationDialog(
     conversation: OfflineConversation? = null, // null = create new, non-null = edit existing
-    onSave: (title: String, systemPrompt: String, voiceName: String, speechSpeed: Float, volumeBoost: Float, temperature: Float) -> Unit,
+    onSave: (OfflineConversation) -> Unit,
     onDelete: (() -> Unit)? = null, // Only shown when editing existing conversation
     onDismiss: () -> Unit
 ) {
     var title by remember { mutableStateOf(conversation?.title ?: "") }
     var systemPrompt by remember { mutableStateOf(conversation?.systemPrompt ?: "") }
     var selectedVoice by remember { mutableStateOf(conversation?.voiceName ?: "Puck") }
-    var speechSpeed by remember { mutableFloatStateOf(conversation?.speechSpeed ?: 1.0f) }
-    var volumeBoost by remember { mutableFloatStateOf(conversation?.volumeBoost ?: 1.0f) }
-    var temperature by remember { mutableFloatStateOf(conversation?.temperature ?: 1.0f) }
     var showVoiceDropdown by remember { mutableStateOf(false) }
+    var showModelSettings by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    
+    // Model settings - use conversation's settings or defaults
+    var modelSettings by remember {
+        mutableStateOf(
+            if (conversation != null) {
+                OfflineConversation(
+                    id = conversation.id,
+                    title = "",
+                    systemPrompt = "",
+                    voiceName = conversation.voiceName,
+                    temperature = conversation.temperature,
+                    topP = conversation.topP,
+                    topK = conversation.topK,
+                    maxOutputTokens = conversation.maxOutputTokens,
+                    presencePenalty = conversation.presencePenalty,
+                    frequencyPenalty = conversation.frequencyPenalty,
+                    stopSequences = conversation.stopSequences
+                )
+            } else {
+                OfflineConversation(
+                    id = "",
+                    title = "",
+                    systemPrompt = ""
+                )
+            }
+        )
+    }
     
     val isEditing = conversation != null
     val canSave = title.isNotBlank()
@@ -227,9 +253,9 @@ fun OfflineConversationDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Speech speed slider
+                // Model Settings button
                 Text(
-                    text = "Prędkość mowy: ${String.format("%.1f", speechSpeed)}x",
+                    text = "Ustawienia Modelu",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -238,67 +264,29 @@ fun OfflineConversationDialog(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                Slider(
-                    value = speechSpeed,
-                    onValueChange = { speechSpeed = it },
-                    valueRange = 0.5f..2.0f,
-                    steps = 14,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Colors.buttonNormal,
-                        activeTrackColor = Colors.buttonNormal,
-                        inactiveTrackColor = Color.LightGray
-                    )
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Volume boost slider
-                Text(
-                    text = "Głośność: ${String.format("%.1f", volumeBoost)}x",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W600,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Slider(
-                    value = volumeBoost,
-                    onValueChange = { volumeBoost = it },
-                    valueRange = 0.5f..2.0f,
-                    steps = 14,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Colors.buttonNormal,
-                        activeTrackColor = Colors.buttonNormal,
-                        inactiveTrackColor = Color.LightGray
-                    )
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Temperature slider
-                Text(
-                    text = "Temperatura: ${String.format("%.1f", temperature)}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W600,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Slider(
-                    value = temperature,
-                    onValueChange = { temperature = it },
-                    valueRange = 0.0f..2.0f,
-                    steps = 19,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Colors.buttonNormal,
-                        activeTrackColor = Colors.buttonNormal,
-                        inactiveTrackColor = Color.LightGray
-                    )
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF4CAF50))
+                        .clickable { showModelSettings = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚙️ Zaawansowane Ustawienia Modelu",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.White,
+                            style = TextStyles.base
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -346,14 +334,36 @@ fun OfflineConversationDialog(
                     Button(
                         onClick = { 
                             if (canSave) {
-                                onSave(
-                                    title.trim(), 
-                                    systemPrompt.trim(),
-                                    selectedVoice,
-                                    speechSpeed,
-                                    volumeBoost,
-                                    temperature
-                                )
+                                val updatedConversation = if (conversation != null) {
+                                    conversation.copy(
+                                        title = title.trim(),
+                                        systemPrompt = systemPrompt.trim(),
+                                        voiceName = selectedVoice,
+                                        temperature = modelSettings.temperature,
+                                        topP = modelSettings.topP,
+                                        topK = modelSettings.topK,
+                                        maxOutputTokens = modelSettings.maxOutputTokens,
+                                        presencePenalty = modelSettings.presencePenalty,
+                                        frequencyPenalty = modelSettings.frequencyPenalty,
+                                        stopSequences = modelSettings.stopSequences,
+                                        updatedAt = System.currentTimeMillis()
+                                    )
+                                } else {
+                                    OfflineConversation(
+                                        id = java.util.UUID.randomUUID().toString(),
+                                        title = title.trim(),
+                                        systemPrompt = systemPrompt.trim(),
+                                        voiceName = selectedVoice,
+                                        temperature = modelSettings.temperature,
+                                        topP = modelSettings.topP,
+                                        topK = modelSettings.topK,
+                                        maxOutputTokens = modelSettings.maxOutputTokens,
+                                        presencePenalty = modelSettings.presencePenalty,
+                                        frequencyPenalty = modelSettings.frequencyPenalty,
+                                        stopSequences = modelSettings.stopSequences
+                                    )
+                                }
+                                onSave(updatedConversation)
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -418,4 +428,58 @@ fun OfflineConversationDialog(
             }
         )
     }
+    
+    // Model Settings Dialog
+    if (showModelSettings) {
+        ModelSettingsDialogForOffline(
+            currentSettings = modelSettings,
+            onSave = { newSettings ->
+                modelSettings = newSettings
+                showModelSettings = false
+            },
+            onDismiss = { showModelSettings = false }
+        )
+    }
+}
+
+/**
+ * Model settings dialog adapted for OfflineConversation.
+ * Converts between OfflineConversation and ThreadSettings for the dialog.
+ */
+@Composable
+fun ModelSettingsDialogForOffline(
+    currentSettings: OfflineConversation,
+    onSave: (OfflineConversation) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Convert OfflineConversation to ThreadSettings for the dialog
+    val threadSettings = ThreadSettings(
+        conversationId = currentSettings.id,
+        voiceName = currentSettings.voiceName,
+        temperature = currentSettings.temperature,
+        topP = currentSettings.topP,
+        topK = currentSettings.topK,
+        maxOutputTokens = currentSettings.maxOutputTokens,
+        presencePenalty = currentSettings.presencePenalty,
+        frequencyPenalty = currentSettings.frequencyPenalty,
+        stopSequences = currentSettings.stopSequences
+    )
+    
+    ModelSettingsDialog(
+        currentSettings = threadSettings,
+        onSave = { newThreadSettings ->
+            // Convert back to OfflineConversation
+            val updatedConversation = currentSettings.copy(
+                temperature = newThreadSettings.temperature,
+                topP = newThreadSettings.topP,
+                topK = newThreadSettings.topK,
+                maxOutputTokens = newThreadSettings.maxOutputTokens,
+                presencePenalty = newThreadSettings.presencePenalty,
+                frequencyPenalty = newThreadSettings.frequencyPenalty,
+                stopSequences = newThreadSettings.stopSequences
+            )
+            onSave(updatedConversation)
+        },
+        onDismiss = onDismiss
+    )
 }

@@ -12,9 +12,13 @@ data class OfflineConversation(
     val title: String,
     val systemPrompt: String = "",
     val voiceName: String = "Puck",
-    val speechSpeed: Float = 1.0f,
-    val volumeBoost: Float = 1.0f,
-    val temperature: Float = 1.0f,
+    val temperature: Float = 1.0f,        // Zbalansowane (domyślne Gemini)
+    val topP: Float = 0.95f,              // Zbalansowane (domyślne Gemini)
+    val topK: Int = 40,                   // Zbalansowane (domyślne Gemini)
+    val maxOutputTokens: Int = 2048,      // Średnie odpowiedzi
+    val presencePenalty: Float = 0.0f,    // Nieobsługiwane (zachowane dla kompatybilności)
+    val frequencyPenalty: Float = 0.0f,   // Nieobsługiwane (zachowane dla kompatybilności)
+    val stopSequences: List<String> = emptyList(), // Nieobsługiwane (zachowane dla kompatybilności)
     val isSystemConversation: Boolean = false, // True for system conversations like "Help"
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),

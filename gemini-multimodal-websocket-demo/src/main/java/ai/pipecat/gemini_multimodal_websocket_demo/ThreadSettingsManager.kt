@@ -43,9 +43,13 @@ object ThreadSettingsManager {
         return ThreadSettings(
             conversationId = conversationId,
             voiceName = "Puck",
-            speechSpeed = 1.0f,
-            volumeBoost = 1.0f,
-            temperature = 1.0f
+            temperature = 1.0f,        // Zbalansowane (domyślne Gemini)
+            topP = 0.95f,              // Zbalansowane (domyślne Gemini)
+            topK = 40,                 // Zbalansowane (domyślne Gemini)
+            maxOutputTokens = 2048,    // Średnie odpowiedzi
+            presencePenalty = 0.0f,    // Nieobsługiwane (zachowane dla kompatybilności)
+            frequencyPenalty = 0.0f,   // Nieobsługiwane (zachowane dla kompatybilności)
+            stopSequences = emptyList() // Nieobsługiwane (zachowane dla kompatybilności)
         )
     }
 }

@@ -294,7 +294,10 @@ class GeminiProtocol {
         temperature: Float,
         sessionHandle: String?,
         canResumeSession: Boolean,
-        toolDeclarations: List<JsonElement>
+        toolDeclarations: List<JsonElement>,
+        topP: Float? = null,
+        topK: Int? = null,
+        maxOutputTokens: Int? = null
     ): SetupMessage {
         // Ensure model name has correct format (add models/ prefix if not present)
         val modelName = if (model.startsWith("models/")) model else "models/$model"
@@ -311,7 +314,10 @@ class GeminiProtocol {
                             )
                         )
                     ),
-                    temperature = temperature
+                    temperature = temperature,
+                    top_p = topP,
+                    top_k = topK,
+                    max_output_tokens = maxOutputTokens
                 ),
                 system_instruction = SystemInstruction(
                     parts = listOf(Part(text = systemPrompt))
@@ -457,7 +463,12 @@ class InputAudioTranscription
 data class GenerationConfig(
     val response_modalities: List<String> = listOf("AUDIO", "TEXT"),
     val speech_config: SpeechConfig? = null,
-    val temperature: Float? = null
+    val temperature: Float? = null,
+    val top_p: Float? = null,
+    val top_k: Int? = null,
+    val max_output_tokens: Int? = null
+    // NOTE: presence_penalty, frequency_penalty, stop_sequences 
+    // are NOT supported by Gemini Live API (causes setup to fail)
 )
 
 @kotlinx.serialization.Serializable

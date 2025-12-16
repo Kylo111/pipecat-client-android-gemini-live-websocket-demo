@@ -156,9 +156,13 @@ class ConversationLauncher(
             val offlineSettings = ThreadSettings(
                 conversationId = offlineConv.id,
                 voiceName = offlineConv.voiceName,
-                speechSpeed = offlineConv.speechSpeed,
-                volumeBoost = offlineConv.volumeBoost,
-                temperature = offlineConv.temperature
+                temperature = offlineConv.temperature,
+                topP = offlineConv.topP,
+                topK = offlineConv.topK,
+                maxOutputTokens = offlineConv.maxOutputTokens,
+                presencePenalty = offlineConv.presencePenalty,
+                frequencyPenalty = offlineConv.frequencyPenalty,
+                stopSequences = offlineConv.stopSequences
             )
             
             // Start voice client with offline settings

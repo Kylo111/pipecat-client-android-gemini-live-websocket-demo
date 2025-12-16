@@ -148,14 +148,20 @@ class VoiceClientManager(
             try {
                 _uiState.value = _uiState.value.copy(connectionState = ConnectionState.CONNECTING)
                 
-                val voiceName = if (settings != null) settings.voiceName else "Puck"
-                val temperature = if (settings != null) settings.temperature else 0.8f
+                val voiceName = settings?.voiceName ?: "Puck"
+                val temperature = settings?.temperature ?: 0.8f
+                val topP = settings?.topP
+                val topK = settings?.topK
+                val maxOutputTokens = settings?.maxOutputTokens
                 
                 connect(
                     voiceName = voiceName,
                     systemPrompt = systemPrompt,
                     temperature = temperature,
-                    toolDeclarations = toolDeclarations
+                    toolDeclarations = toolDeclarations,
+                    topP = topP,
+                    topK = topK,
+                    maxOutputTokens = maxOutputTokens
                 )
                 
                 _uiState.value = _uiState.value.copy(
@@ -462,7 +468,10 @@ class VoiceClientManager(
         voiceName: String = "Puck",
         systemPrompt: String = "",
         temperature: Float = 0.8f,
-        toolDeclarations: List<JsonElement> = emptyList()
+        toolDeclarations: List<JsonElement> = emptyList(),
+        topP: Float? = null,
+        topK: Int? = null,
+        maxOutputTokens: Int? = null
     ) {
         if (_uiState.value.connectionState == ConnectionState.CONNECTED) {
             Log.w(TAG, "Already connected")
@@ -487,7 +496,10 @@ class VoiceClientManager(
                 voiceName = voiceName,
                 systemPrompt = systemPrompt,
                 temperature = temperature,
-                toolDeclarations = toolDeclarations
+                toolDeclarations = toolDeclarations,
+                topP = topP,
+                topK = topK,
+                maxOutputTokens = maxOutputTokens
             )
             
             // Start audio engine

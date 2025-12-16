@@ -81,10 +81,9 @@ fun ThreadConfigDialog(
     val conversationRepository = app.conversationRepository
     
     var selectedVoice by remember { mutableStateOf(currentSettings.voiceName) }
-    var speechSpeed by remember { mutableFloatStateOf(currentSettings.speechSpeed) }
-    var volumeBoost by remember { mutableFloatStateOf(currentSettings.volumeBoost) }
-    var temperature by remember { mutableFloatStateOf(currentSettings.temperature) }
     var showVoiceDropdown by remember { mutableStateOf(false) }
+    var showModelSettings by remember { mutableStateOf(false) }
+    var modelSettings by remember { mutableStateOf(currentSettings) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -199,9 +198,9 @@ fun ThreadConfigDialog(
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                // Speech speed slider
+                // Model Settings button
                 Text(
-                    text = "Prędkość mowy: ${String.format("%.1f", speechSpeed)}x",
+                    text = "Ustawienia Modelu",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -210,70 +209,29 @@ fun ThreadConfigDialog(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                Slider(
-                    value = speechSpeed,
-                    onValueChange = { speechSpeed = it },
-                    valueRange = 0.5f..2.0f,
-                    steps = 14, // 0.1 increments between 0.5 and 2.0
-                    colors = SliderDefaults.colors(
-                        thumbColor = Colors.buttonNormal,
-                        activeTrackColor = Colors.buttonNormal,
-                        inactiveTrackColor = Colors.lightGrey
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Volume boost slider
-                Text(
-                    text = "Głośność: ${String.format("%.1f", volumeBoost)}x",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W600,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Slider(
-                    value = volumeBoost,
-                    onValueChange = { volumeBoost = it },
-                    valueRange = 0.5f..2.0f,
-                    steps = 14, // 0.1 increments between 0.5 and 2.0
-                    colors = SliderDefaults.colors(
-                        thumbColor = Colors.buttonNormal,
-                        activeTrackColor = Colors.buttonNormal,
-                        inactiveTrackColor = Colors.lightGrey
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Temperature slider
-                Text(
-                    text = "Temperatura: ${String.format("%.1f", temperature)}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W600,
-                    color = Color.Black,
-                    style = TextStyles.base
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Slider(
-                    value = temperature,
-                    onValueChange = { temperature = it },
-                    valueRange = 0.0f..2.0f,
-                    steps = 19, // 0.1 increments between 0.0 and 2.0
-                    colors = SliderDefaults.colors(
-                        thumbColor = Colors.buttonNormal,
-                        activeTrackColor = Colors.buttonNormal,
-                        inactiveTrackColor = Colors.lightGrey
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF4CAF50))
+                        .clickable { showModelSettings = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚙️ Zaawansowane Ustawienia Modelu",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.White,
+                            style = TextStyles.base
+                        )
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
@@ -333,27 +291,10 @@ fun ThreadConfigDialog(
                             .clip(RoundedCornerShape(8.dp))
                             .background(Colors.buttonNormal)
                             .clickable {
-                                // Validate settings ranges
-                                if (speechSpeed < 0.5f || speechSpeed > 2.0f) {
-                                    validationError = "Prędkość mowy musi być między 0.5x a 2.0x"
-                                    return@clickable
-                                }
-                                if (volumeBoost < 0.5f || volumeBoost > 2.0f) {
-                                    validationError = "Głośność musi być między 0.5x a 2.0x"
-                                    return@clickable
-                                }
-                                if (temperature < 0.0f || temperature > 2.0f) {
-                                    validationError = "Temperatura musi być między 0.0 a 2.0"
-                                    return@clickable
-                                }
-                                
-                                // Save settings
-                                val newSettings = ThreadSettings(
+                                // Save settings with updated voice
+                                val newSettings = modelSettings.copy(
                                     conversationId = thread.id,
-                                    voiceName = selectedVoice,
-                                    speechSpeed = speechSpeed,
-                                    volumeBoost = volumeBoost,
-                                    temperature = temperature
+                                    voiceName = selectedVoice
                                 )
                                 onSave(newSettings)
                             },
@@ -370,6 +311,18 @@ fun ThreadConfigDialog(
                 }
             }
         }
+    }
+    
+    // Model Settings Dialog
+    if (showModelSettings) {
+        ModelSettingsDialog(
+            currentSettings = modelSettings,
+            onSave = { newSettings ->
+                modelSettings = newSettings
+                showModelSettings = false
+            },
+            onDismiss = { showModelSettings = false }
+        )
     }
 }
 

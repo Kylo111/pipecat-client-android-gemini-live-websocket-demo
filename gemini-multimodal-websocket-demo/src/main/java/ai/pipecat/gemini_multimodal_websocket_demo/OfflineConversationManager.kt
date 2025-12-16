@@ -115,18 +115,26 @@ object OfflineConversationManager {
         title: String, 
         systemPrompt: String = "",
         voiceName: String = "Puck",
-        speechSpeed: Float = 1.0f,
-        volumeBoost: Float = 1.0f,
-        temperature: Float = 1.0f
+        temperature: Float = 1.0f,
+        topP: Float = 0.95f,
+        topK: Int = 40,
+        maxOutputTokens: Int = 2048,
+        presencePenalty: Float = 0.0f,
+        frequencyPenalty: Float = 0.0f,
+        stopSequences: List<String> = emptyList()
     ): OfflineConversation {
         val conversation = OfflineConversation(
             id = UUID.randomUUID().toString(),
             title = title,
             systemPrompt = systemPrompt,
             voiceName = voiceName,
-            speechSpeed = speechSpeed,
-            volumeBoost = volumeBoost,
-            temperature = temperature
+            temperature = temperature,
+            topP = topP,
+            topK = topK,
+            maxOutputTokens = maxOutputTokens,
+            presencePenalty = presencePenalty,
+            frequencyPenalty = frequencyPenalty,
+            stopSequences = stopSequences
         )
         
         val conversations = getAll().toMutableList()
@@ -167,15 +175,18 @@ object OfflineConversationManager {
      * - All sessions (via CASCADE foreign key)
      * - All transcripts (stored in sessions)
      * - All summaries (stored in sessions)
+     * 
+     * @param id Conversation ID to delete
+     * @param force If true, allows deletion even if memoryUpdatePending is true (for zombie recovery)
      */
-    fun delete(id: String) {
+    fun delete(id: String, force: Boolean = false) {
         // Prevent deletion of system conversations
         if (id == HELP_CONVERSATION_ID) {
             android.util.Log.w(TAG, "Cannot delete system conversation")
             return
         }
         
-        android.util.Log.d(TAG, "Deleting conversation: $id")
+        android.util.Log.d(TAG, "Deleting conversation: $id (force=$force)")
         
         // 1. Remove from SharedPreferences
         val conversations = getAll().toMutableList()
@@ -192,6 +203,11 @@ object OfflineConversationManager {
                 // Check if conversation exists in database
                 val conversation = conversationRepository.getConversation(id)
                 if (conversation != null) {
+                    // If conversation is locked and force is not set, warn but proceed
+                    if (conversation.memoryUpdatePending && !force) {
+                        android.util.Log.w(TAG, "⚠️ Deleting locked conversation without force flag: $id")
+                    }
+                    
                     // Delete conversation (CASCADE will delete all sessions)
                     conversationRepository.deleteConversation(id)
                     android.util.Log.d(TAG, "✅ Deleted conversation and all sessions from database: $id")
@@ -200,6 +216,40 @@ object OfflineConversationManager {
                 }
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "❌ Failed to delete conversation from database: $id", e)
+            }
+        }
+    }
+    
+    /**
+     * Unlock all zombie conversations (conversations stuck in memoryUpdatePending state)
+     * Should be called on app startup to recover from crashes during memory updates
+     */
+    fun unlockZombieConversations() {
+        android.util.Log.d(TAG, "Checking for zombie conversations...")
+        
+        scope.launch {
+            try {
+                val app = context.applicationContext as RTVIApplication
+                val conversationRepository = app.conversationRepository
+                
+                // Get all conversations with memoryUpdatePending = true
+                val zombies = conversationRepository.getAllConversations()
+                    .filter { it.memoryUpdatePending }
+                
+                if (zombies.isNotEmpty()) {
+                    android.util.Log.w(TAG, "⚠️ Found ${zombies.size} zombie conversation(s), unlocking...")
+                    
+                    zombies.forEach { zombie ->
+                        conversationRepository.setMemoryUpdatePending(zombie.id, false)
+                        android.util.Log.d(TAG, "✅ Unlocked zombie conversation: ${zombie.id}")
+                    }
+                    
+                    android.util.Log.d(TAG, "✅ All zombie conversations unlocked")
+                } else {
+                    android.util.Log.d(TAG, "No zombie conversations found")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "❌ Failed to unlock zombie conversations", e)
             }
         }
     }

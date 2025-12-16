@@ -82,9 +82,12 @@ class VoiceSessionStatePropertyTest {
         val settings = ThreadSettings(
             conversationId = "test-123",
             voiceName = "TestVoice",
-            speechSpeed = 1.5f,
-            volumeBoost = 2.0f,
-            temperature = 0.8f
+            temperature = 0.8f,
+            topP = 0.85f,
+            topK = 30,
+            maxOutputTokens = 1024,
+            presencePenalty = 0.9f,
+            frequencyPenalty = 0.75f
         )
         
         val connecting = VoiceSessionState.Connecting(settings)
@@ -93,9 +96,9 @@ class VoiceSessionStatePropertyTest {
         assertEquals(settings, connecting.threadSettings)
         assertEquals("test-123", connecting.threadSettings?.conversationId)
         assertEquals("TestVoice", connecting.threadSettings?.voiceName)
-        assertEquals(1.5f, connecting.threadSettings?.speechSpeed)
-        assertEquals(2.0f, connecting.threadSettings?.volumeBoost)
         assertEquals(0.8f, connecting.threadSettings?.temperature)
+        assertEquals(0.85f, connecting.threadSettings?.topP)
+        assertEquals(30, connecting.threadSettings?.topK)
     }
     
     /**

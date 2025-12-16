@@ -83,6 +83,8 @@ fun ConversationListScreen(
     var selectedId by remember { mutableStateOf<String?>(null) }
     var showThreadConfigDialog by remember { mutableStateOf(false) }
     var showOfflineDialog by remember { mutableStateOf(false) }
+    var showLockedConversationDialog by remember { mutableStateOf(false) }
+    var lockedConversationId by remember { mutableStateOf<String?>(null) }
     var configDialogThread by remember { mutableStateOf<LibreChatService.ConversationThread?>(null) }
     var configDialogSettings by remember { mutableStateOf<ThreadSettings?>(null) }
     var editingOfflineConversation by remember { mutableStateOf<ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation?>(null) }
@@ -481,20 +483,26 @@ fun ConversationListScreen(
                                 onLongPress = {
                                     // Check parental lock before allowing settings access
                                     if (!ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value) {
-                                        when (conversation) {
-                                            is ConversationItem.LibreChatThread -> {
-                                                val thread = librechatThreads.find { it.id == conversation.id }
-                                                if (thread != null) {
-                                                    configDialogThread = thread
-                                                    configDialogSettings = ThreadSettingsManager.getSettings(thread.id)
-                                                    showThreadConfigDialog = true
+                                        // If conversation is locked, show special dialog
+                                        if (conversation.memoryUpdatePending) {
+                                            lockedConversationId = conversation.id
+                                            showLockedConversationDialog = true
+                                        } else {
+                                            when (conversation) {
+                                                is ConversationItem.LibreChatThread -> {
+                                                    val thread = librechatThreads.find { it.id == conversation.id }
+                                                    if (thread != null) {
+                                                        configDialogThread = thread
+                                                        configDialogSettings = ThreadSettingsManager.getSettings(thread.id)
+                                                        showThreadConfigDialog = true
+                                                    }
                                                 }
-                                            }
-                                            is ConversationItem.Offline -> {
-                                                val offline = offlineConversations.find { it.id == conversation.id }
-                                                if (offline != null) {
-                                                    editingOfflineConversation = offline
-                                                    showOfflineDialog = true
+                                                is ConversationItem.Offline -> {
+                                                    val offline = offlineConversations.find { it.id == conversation.id }
+                                                    if (offline != null) {
+                                                        editingOfflineConversation = offline
+                                                        showOfflineDialog = true
+                                                    }
                                                 }
                                             }
                                         }
@@ -530,33 +538,13 @@ fun ConversationListScreen(
         if (showOfflineDialog) {
             OfflineConversationDialog(
                 conversation = editingOfflineConversation,
-                onSave = { title, systemPrompt, voiceName, speechSpeed, volumeBoost, temperature ->
+                onSave = { updatedConversation ->
                     if (editingOfflineConversation != null) {
                         // Update existing
-                        val updated = editingOfflineConversation!!.copy(
-                            title = title,
-                            systemPrompt = systemPrompt,
-                            voiceName = voiceName,
-                            speechSpeed = speechSpeed,
-                            volumeBoost = volumeBoost,
-                            temperature = temperature
-                        )
-                        OfflineConversationManager.update(updated)
+                        OfflineConversationManager.update(updatedConversation)
                     } else {
-                        // Create new - use add() method for new conversations
-                        val newConversation = OfflineConversation(
-                            id = java.util.UUID.randomUUID().toString(),
-                            title = title,
-                            systemPrompt = systemPrompt,
-                            voiceName = voiceName,
-                            speechSpeed = speechSpeed,
-                            volumeBoost = volumeBoost,
-                            temperature = temperature,
-                            isSystemConversation = false,
-                            createdAt = System.currentTimeMillis(),
-                            updatedAt = System.currentTimeMillis()
-                        )
-                        OfflineConversationManager.add(newConversation)
+                        // Create new
+                        OfflineConversationManager.add(updatedConversation)
                     }
                     offlineConversations = OfflineConversationManager.getAll()
                     showOfflineDialog = false
@@ -573,6 +561,42 @@ fun ConversationListScreen(
                 onDismiss = {
                     showOfflineDialog = false
                     editingOfflineConversation = null
+                }
+            )
+        }
+        
+        // Locked conversation dialog (zombie recovery)
+        if (showLockedConversationDialog && lockedConversationId != null) {
+            LockedConversationDialog(
+                conversationId = lockedConversationId!!,
+                onUnlock = {
+                    coroutineScope.launch {
+                        try {
+                            conversationRepository.setMemoryUpdatePending(lockedConversationId!!, false)
+                            android.util.Log.d("ConversationList", "✅ Unlocked conversation: $lockedConversationId")
+                        } catch (e: Exception) {
+                            android.util.Log.e("ConversationList", "❌ Failed to unlock conversation", e)
+                        }
+                        showLockedConversationDialog = false
+                        lockedConversationId = null
+                    }
+                },
+                onDelete = {
+                    coroutineScope.launch {
+                        try {
+                            OfflineConversationManager.delete(lockedConversationId!!, force = true)
+                            offlineConversations = OfflineConversationManager.getAll()
+                            android.util.Log.d("ConversationList", "✅ Deleted locked conversation: $lockedConversationId")
+                        } catch (e: Exception) {
+                            android.util.Log.e("ConversationList", "❌ Failed to delete conversation", e)
+                        }
+                        showLockedConversationDialog = false
+                        lockedConversationId = null
+                    }
+                },
+                onDismiss = {
+                    showLockedConversationDialog = false
+                    lockedConversationId = null
                 }
             )
         }
@@ -669,4 +693,80 @@ private fun ConversationButton(
             }
         }
     }
+}
+
+/**
+ * Dialog shown when user long-presses a locked conversation (zombie)
+ * Allows unlocking or deleting the conversation
+ */
+@Composable
+private fun LockedConversationDialog(
+    conversationId: String,
+    onUnlock: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "🔒 Konwersacja zablokowana",
+                style = TextStyles.base,
+                fontWeight = FontWeight.W700
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Ta konwersacja jest zablokowana, ponieważ proces zapisywania wspomnień został przerwany (np. przez restart aplikacji).",
+                    style = TextStyles.base
+                )
+                Text(
+                    "Możesz:",
+                    style = TextStyles.base,
+                    fontWeight = FontWeight.W600
+                )
+                Text(
+                    "• Odblokować - konwersacja będzie znów dostępna (wspomnienia mogą być niekompletne)",
+                    style = TextStyles.base,
+                    fontSize = 14.sp
+                )
+                Text(
+                    "• Usunąć - trwale usuń konwersację i wszystkie jej dane",
+                    style = TextStyles.base,
+                    fontSize = 14.sp
+                )
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onUnlock) {
+                    Text(
+                        "Odblokuj",
+                        color = Colors.buttonNormal,
+                        style = TextStyles.base,
+                        fontWeight = FontWeight.W600
+                    )
+                }
+                TextButton(onClick = onDelete) {
+                    Text(
+                        "Usuń",
+                        color = Color(0xFFFF5252),
+                        style = TextStyles.base,
+                        fontWeight = FontWeight.W600
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    "Anuluj",
+                    color = Color.Gray,
+                    style = TextStyles.base,
+                    fontWeight = FontWeight.W600
+                )
+            }
+        }
+    )
 }

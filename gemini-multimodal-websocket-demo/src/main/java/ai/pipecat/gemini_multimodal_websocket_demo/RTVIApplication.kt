@@ -149,6 +149,9 @@ class RTVIApplication : Application() {
             } catch (e: Exception) {
                 android.util.Log.w("RTVIApplication", "Failed to refresh agent configuration", e)
             }
+            
+            // Unlock zombie conversations (stuck in memoryUpdatePending state after crash)
+            OfflineConversationManager.unlockZombieConversations()
         }
         
         // Picovoice is disabled by default - user can enable it in settings

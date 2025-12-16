@@ -77,7 +77,10 @@ class GeminiClient(
         voiceName: String = "Puck",
         systemPrompt: String = "",
         temperature: Float = 0.8f,
-        toolDeclarations: List<JsonElement> = emptyList()
+        toolDeclarations: List<JsonElement> = emptyList(),
+        topP: Float? = null,
+        topK: Int? = null,
+        maxOutputTokens: Int? = null
     ) {
         if (_isConnected) {
             Log.w(TAG, "Already connected")
@@ -89,6 +92,9 @@ class GeminiClient(
         Log.d(TAG, "  - model: $model")
         Log.d(TAG, "  - voiceName: $voiceName")
         Log.d(TAG, "  - temperature: $temperature")
+        Log.d(TAG, "  - topP: $topP")
+        Log.d(TAG, "  - topK: $topK")
+        Log.d(TAG, "  - maxOutputTokens: $maxOutputTokens")
         Log.d(TAG, "  - systemPrompt length: ${systemPrompt.length} chars")
         Log.d(TAG, "  - toolDeclarations: ${toolDeclarations.size} tools")
         Log.d(TAG, "📄 [DIAGNOSTIC] System prompt preview (first 500 chars):")
@@ -105,7 +111,10 @@ class GeminiClient(
             temperature = temperature,
             sessionHandle = null,
             canResumeSession = false,
-            toolDeclarations = toolDeclarations
+            toolDeclarations = toolDeclarations,
+            topP = topP,
+            topK = topK,
+            maxOutputTokens = maxOutputTokens
         )
         val setupJson = protocol.serializeSetupMessage(setupMessage)
         

@@ -1,0 +1,1002 @@
+--------- beginning of main
+12-16 23:47:44.285  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.285  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.285  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.286  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.286  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.286  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.286  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.286  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:44.289 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.292 31213 31264 W GeminiClient: Cannot send audio - not connected
+--------- beginning of system
+12-16 23:47:44.305  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:44.305  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:44.310 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.315  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:44.315  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:44.315  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:44.316 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:44.316  5415  9449 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:44.316  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:44.316 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:44.316 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:44.316 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:44.316  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:44.317  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:44.317  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:44.317  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:44.317  5415  9449 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:44.325  2823  2872 I Tethering: [BpfCoordinator] onAlertReached
+12-16 23:47:44.327  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:44.328  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:44.342  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:44.342  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:44.344  5415  9358 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:44.344  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:44.344  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:44.345 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:44.345 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:44.345  5415  9358 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:44.345  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:44.345  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:44.345 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:44.346  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:44.346 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:44.346  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:44.349 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.351 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.389 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.391 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.408 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.417  1914  2841 I NetworkBoostStatusManager: handle: 107
+12-16 23:47:44.421  1914  2841 I NetworkBoostStatusManager: isModemSingnalStrengthStatus cellLteSignalRsrp = -110
+12-16 23:47:44.422  1914  2841 D SLM-SRV-SLAService: isModemSingnalStrengthStatus = 1
+12-16 23:47:44.427 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.446 17473 17707 W LibevQuicAsyncUDPSocket.h: setTosOrTrafficClass not implemented in LibevQuicAsyncUDPSocket
+12-16 23:47:44.453 17473 17707 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-16 23:47:44.467 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.469 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.487 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.507 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.528 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.569 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.573 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.589 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.598  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:44.609 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.651 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.657 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.667 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.689 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.707 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.728 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.768 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.772 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.787 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.806 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.848 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.849 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.865 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.889 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.899  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.17 dur=1013.85 max=17.07 min=16.19
+12-16 23:47:44.899  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.199463,dur:1013.30,max:17.48,min:15.66  
+12-16 23:47:44.929 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.932 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.933  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:44.933  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:44.966 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.968 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:44.987 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.029 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.032 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.049 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.088 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.091 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.099  1914  5899 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:45.107 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.127 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.129  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:45.149  1344  1344 I BufferQueueProducer: [StatusBar#124](this:0xb400007dc4f00f98,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=0.36 dur=2743.77 max=2743.77 min=2743.77
+12-16 23:47:45.150 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.170 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.190 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.210 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.230 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.230  1914  2570 I SmartPower: com.google.android.cellbroadcastreceiver/10260(19232): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 (has extras) }) adj=905.
+12-16 23:47:45.250 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.268 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.290 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.297  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:45.310 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.330 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.348 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.366 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.385 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.429 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.433 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.448 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.471  1914  1924 I system_server: Background young concurrent mark compact GC freed 19MB AllocSpace bytes, 74(1320KB) LOS objects, 14% free, 116MB/137MB, paused 1.157ms,7.981ms total 130.890ms
+12-16 23:47:45.490 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.496 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.510 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.531 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.551 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.569 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.590 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.603  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:45.611 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.631 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.651 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.690 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.694 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.709 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.731 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.770 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.778 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.784  1914  2570 I SmartPower: com.whatsapp/10317(16893): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=900.
+12-16 23:47:45.784  1914  2570 I SmartPower: com.google.android.googlequicksearchbox:interactor/10164(19966): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=100.
+12-16 23:47:45.784  1914  2570 I SmartPower: com.facebook.orca/10316(28395): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=900.
+12-16 23:47:45.786  1914  2570 I SmartPower: ai.perplexity.app.android/10324(19716): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=250.
+12-16 23:47:45.787  1914  2570 I SmartPower: com.instagram.android/10318(17473): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=915.
+12-16 23:47:45.787  1914  2570 I SmartPower: com.facebook.katana/10296(23498): background->idle(3000ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.787  1914  2570 I SmartPower: com.google.android.apps.tachyon/10193(26565): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=915.
+12-16 23:47:45.790  1914  2570 I SmartPower: com.google.android.youtube/10213(27262): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.790 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.791  1914  2570 I SmartPower: com.android.chrome/10171(19817): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.792  1914  2570 I SmartPower: com.miui.android.fashiongallery/10280(28797): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.792  1914  2570 I SmartPower: com.google.android.apps.youtube.music/10211(8011): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.792  1914  2570 I SmartPower: com.microsoft.skydrive/10300(12294): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.794  1914  2570 I SmartPower: com.xiaomi.discover/10185(29999): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:45.810 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.830 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.849 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.869 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.890 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.910 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.914  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.10 dur=1014.94 max=17.32 min=16.03
+12-16 23:47:45.915  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.062721,dur:1015.61,max:17.36,min:15.74  
+12-16 23:47:45.930 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.933  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:45.933  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:45.950 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.969 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:45.991 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.010 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.029 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.049 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.069 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.090 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.105  1914  2277 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:46.110 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.130 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.143  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:46.149 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.163  2917  2917 D TelephonyManager: requestModemActivityInfo: Sending result to app: ModemActivityInfo{ mTimestamp=744171613 mSleepTimeMs=254060144 mIdleTimeMs=484312633 mActivityStatsTechSpecificInfo=[{mRat=UNKNOWN,mFrequencyRange=UNKNOWN,mTxTimeMs[]=[64, 5117, 29092, 383482, 1549880],mRxTimeMs=5109802}]}
+12-16 23:47:46.163  1344  1344 I BufferQueueProducer: [StatusBar#124](this:0xb400007dc4f00f98,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=0.99 dur=1014.40 max=1014.40 min=1014.40
+12-16 23:47:46.167  1210 32160 W AudioALSACaptureDataProviderNormal: readThread, latency_in_s,0.000001,0.019972,0.005670, totalTime 0.025643 > logTimeout 0.022000 TIMEOUT!!
+12-16 23:47:46.173 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.190 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.192  1914  5863 I LocationAccessPolicy: com.instagram.android is aware of fine but the app-ops permission is specifically denied.
+12-16 23:47:46.193  1914  5863 I LocationAccessPolicy: com.instagram.android is aware of coarse but the app-ops permission is specifically denied.
+12-16 23:47:46.195  1914  5863 I LocationAccessPolicy: com.facebook.katana is aware of fine but the app-ops permission is specifically denied.
+12-16 23:47:46.196  1914  5863 I LocationAccessPolicy: com.facebook.katana is aware of coarse but the app-ops permission is specifically denied.
+12-16 23:47:46.197  1914  5863 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcastMultiplePermissions:1310 android.content.Context.sendBroadcastMultiplePermissions:2536 com.android.server.TelephonyRegistry.broadcastServiceStateChanged:3793 com.android.server.TelephonyRegistry.notifyServiceStateForPhoneId:1837 com.android.internal.telephony.ITelephonyRegistry$Stub.onTransact:546 
+12-16 23:47:46.200  1914  5863 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcastMultiplePermissions:1343 com.android.server.TelephonyRegistry.broadcastServiceStateChanged:3798 com.android.server.TelephonyRegistry.notifyServiceStateForPhoneId:1837 com.android.internal.telephony.ITelephonyRegistry$Stub.onTransact:546 android.os.Binder.execTransactInternal:1512 
+12-16 23:47:46.207  2932  2932 D MiuiCarrierTextController: updateCarrierText: 2 [Play, PLAY]
+12-16 23:47:46.207  2932  2932 D MiuiCarrierTextController: fireCarrierTextChanged: Play carrierCount: 2 pos: 0 listeners: 9
+12-16 23:47:46.207  2932  2932 D MiuiCarrierTextController: fireCarrierTextChanged: PLAY carrierCount: 2 pos: 1 listeners: 9
+12-16 23:47:46.207 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.208  1914  5863 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcastMultiplePermissions:1343 com.android.server.TelephonyRegistry.broadcastServiceStateChanged:3807 com.android.server.TelephonyRegistry.notifyServiceStateForPhoneId:1837 com.android.internal.telephony.ITelephonyRegistry$Stub.onTransact:546 android.os.Binder.execTransactInternal:1512 
+12-16 23:47:46.210  1914  5863 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcastMultiplePermissions:1343 com.android.server.TelephonyRegistry.broadcastServiceStateChanged:3813 com.android.server.TelephonyRegistry.notifyServiceStateForPhoneId:1837 com.android.internal.telephony.ITelephonyRegistry$Stub.onTransact:546 android.os.Binder.execTransactInternal:1512 
+12-16 23:47:46.210  2917  3555 D FivegOfflineStatistic: phoneId1, curRilRat = 14; mLsatRilRat = 14
+12-16 23:47:46.211  2917 26983 D NetworkSpeedTracker: processServiceStateChangeEvent phoneId=1
+12-16 23:47:46.211  2917  3555 I RoamingManager: processServiceState phoneId: 1 simOperatorNumeric:26006 networkOperatorNumeric:26006 isHome:true
+12-16 23:47:46.211  2917  3555 I RoamingManager: processServiceState lastRoamingMode: 0 newRoamingMode:0
+12-16 23:47:46.212 19232 19232 D CellBroadcastReceiver: onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-16 23:47:46.214  1914  2482 I MiuiNetworkPolicy: updateUidState uid = 10260, uidState = 11
+12-16 23:47:46.214  1914  1930 E ApplicationHelper: Fail to get PackageManager
+12-16 23:47:46.215 19232 19232 D CellBroadcastReceiver: onServiceStateChanged, ss: 0
+12-16 23:47:46.216 19232 19232 D CellBroadcastReceiver: networkOperator: 26006
+12-16 23:47:46.216 19232 19232 D CellBroadcastReceiver: update supported roaming operator as 
+12-16 23:47:46.217  1229  1518 W AString : ctor got NULL, using empty string instead
+12-16 23:47:46.218  1229  1518 I SensorSavedChannel: [46,31,-69,-1344,-1068,3180]==>gyro_temp.json
+12-16 23:47:46.218  1229  1518 W AString : ctor got NULL, using empty string instead
+12-16 23:47:46.218  1229  1518 I SensorSavedChannel: [258,39,609]==>gyro_bias.json
+12-16 23:47:46.223  1914  1930 E ApplicationHelper: Fail to get PackageManager
+12-16 23:47:46.224 16422 16461 W Settings: Setting device_provisioned has moved from android.provider.Settings.Secure to android.provider.Settings.Global.
+12-16 23:47:46.224 16422 16461 I JoyoseCloudControlManager3: network metered changed, network metered: true, deviceProvisioned: true, scAllowConn: true, try to setNetworkAccessEnabled: false
+12-16 23:47:46.225  1914  2482 I MiuiNetworkPolicy: updateUidState uid = 10260, uidState = 19
+12-16 23:47:46.226 19081 19081 I MagicTether: (REDACTED) [ActiveNetworkTracker] setActiveNetwork: %s
+12-16 23:47:46.227 19081 19081 I MagicTether: (REDACTED) [TetherService] onActiveNetworkChanged: network=%s isLost=%s
+12-16 23:47:46.230  7531  7800 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=16224Kbps LinkDnBandwidth>=16224Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 2]> SubscriptionIds: {2} UnderlyingNetworks: Null]
+12-16 23:47:46.230 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.234 28626 28697 I BugleRcsEngine: handleMessage processing message:[NOTIFY_UPTIME_IGNORE_STATE_CHANGED] with [non-null]:RcsEngineImpl reference [CONTEXT log_prefix="RcsEngineImpl[DUAL_REG]:[0cc25753-c20e]>Handler" thread_id=423 ]
+12-16 23:47:46.234 19081 31955 I MagicTether: [WifiConnectionHandler] Ignoring getWifiConfigurationByNetworkId when checking connected state [CONTEXT service_id=276 ]
+12-16 23:47:46.234 19081 31955 I MagicTether: [WifiConnectionHandler] No networkId set, can't be connected. [CONTEXT service_id=276 ]
+12-16 23:47:46.235 28626 28697 I BugleRcsEngine: Cannot use CS.apk as it's battery optimized [CONTEXT thread_id=423 ]
+12-16 23:47:46.236 19081 31955 I MagicTether: (REDACTED) [TetherService] TRANSPORT_CELLULAR [%s], TRANSPORT_ETHERNET [%s], TRANSPORT_WIFI [%s]
+12-16 23:47:46.236 17502 17733 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=16224Kbps LinkDnBandwidth>=16224Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 2]> SubscriptionIds: {2} UnderlyingNetworks: Null]
+12-16 23:47:46.236 28626 28689 I BugleRcsEngine: Connected state: [1], networkType: [MOBILE] [CONTEXT thread_id=417 ]
+12-16 23:47:46.236 19081 31955 I MagicTether: (REDACTED) [TetherService] setRoles hasActiveNetworkConnection=%s canActiveNetworkBeTethered=%s isConnectedToInstantTether=%s isWifiEnabled=%s isHosting=%s
+12-16 23:47:46.238  1914  2767 I ClipboardServiceI: checkProviderWakePathForClipboard: com.google.android.apps.messagingis not a activePermissionOwner
+12-16 23:47:46.238  1914  2767 I SmartPower: com.google.android.apps.messaging/10165(17502): idle->background(10278ms) R(content provider start ContentProviderRecord{7a97766 u0 com.google.android.apps.messaging/.shared.datamodel.provider.sharedstorage.SharedStorageProvider}) adj=200.
+12-16 23:47:46.239  1914  1930 E ApplicationHelper: Fail to get PackageManager
+12-16 23:47:46.240 16893 17072 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=16224Kbps LinkDnBandwidth>=16224Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 2]> SubscriptionIds: {2} UnderlyingNetworks: Null]
+12-16 23:47:46.241 18448 18487 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=16224Kbps LinkDnBandwidth>=16224Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 2]> SubscriptionIds: {2} UnderlyingNetworks: Null]
+12-16 23:47:46.242 19081 19081 I MagicTether: (REDACTED) [LaunchUtils] Instant Wifi for status account: name: %s | type: %s | isLaunched: %s
+12-16 23:47:46.242 19081 19081 I MagicTether: (REDACTED) [TidepoolFeatureStatusManager] isInstantHotspotEnabled=%s
+12-16 23:47:46.242 19081 19081 I MagicTether: (REDACTED) [TidepoolFeatureStatusManager] isInstantWifiEnabled=%s
+12-16 23:47:46.243 19081 19081 I MagicTether: (REDACTED) [TetherService] startNearbyClientRole: start: %s isInstantHotspotEnabled: %s isInstantWifiEnabled: %s
+12-16 23:47:46.243 19081 19081 I MagicTether: [TetherService] Stopping Nearby client role [CONTEXT service_id=276 ]
+12-16 23:47:46.243 19081 19081 I MagicTether: [ClientTetherRole] Client role already stopped [CONTEXT service_id=276 ]
+12-16 23:47:46.245 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.247 19081 19081 I MagicTether: (REDACTED) [LaunchUtils] Instant Wifi for status account: name: %s | type: %s | isLaunched: %s
+12-16 23:47:46.247 19081 19081 I MagicTether: (REDACTED) [TidepoolFeatureStatusManager] isInstantHotspotEnabled=%s
+12-16 23:47:46.247 19081 19081 I MagicTether: (REDACTED) [TidepoolFeatureStatusManager] isInstantWifiEnabled=%s
+12-16 23:47:46.247 19081 19081 I MagicTether: (REDACTED) [TetherService] startNearbyHostRole: start: %s isInstantHotspotEnabled: %s isInstantWifiEnabled: %s
+12-16 23:47:46.247 19081 19081 I MagicTether: (REDACTED) [TidepoolFeatureStatusManager] isInstantHotspotEnabled=%s
+12-16 23:47:46.247 19081 19081 I MagicTether: [HostTetherRole] Nearby host role already started [CONTEXT service_id=276 ]
+12-16 23:47:46.290 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.295  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.296  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.296  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.296  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.296  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.296  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.297  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.297  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.297  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.297  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.297  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.297 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.297  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.298  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.298  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.299  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.300  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:46.302  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.302  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.302  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.303  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.303  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.303  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.303  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.303  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.304  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.304  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.304  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.304  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.304  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.305  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.305  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:46.310 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.311  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:46.317  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:46.317  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:46.329  1367  1378 D ccci_mdinit: (1):monitor_time_update_thread round:82266 ########
+12-16 23:47:46.330  5415 10166 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:46.331  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:46.331  5415 10166 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:46.333  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:46.334  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:46.335  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:46.335  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:46.336  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:46.336  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:46.336  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:46.336 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:46.336 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:46.336 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:46.336 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:46.341  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:46.341  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:46.348 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.351 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.352  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:46.352  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:46.353  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:46.354  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:46.354  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:46.354  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:46.354  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:46.354  5415  8985 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:46.355  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:46.355 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:46.355 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:46.355  5415  8985 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:46.355 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:46.355 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:46.369 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.390 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.410 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.449 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.454 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.470 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.490 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.529 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.533 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.549 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.570 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.590 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.606  1914  2767 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:46.630 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.634 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.649 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.664  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:46.667  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:46.671 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.671  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-110lteSnr=7,phoneId=1
+12-16 23:47:46.672  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 13,phoneId= 1
+12-16 23:47:46.674  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-110lteSnr=7,phoneId=1
+12-16 23:47:46.674  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 13,phoneId= 1
+12-16 23:47:46.687 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.705 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.729 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.733 19081 32205 I NearbySharing: Network state changed: NetworkState(isRestricted=false, isOnline=true, isCongested=false, isMetered=true, isWifiConnected=false)
+12-16 23:47:46.749 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.770 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.790 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.825  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:46.829 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.834 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.844  1344  1344 I BufferQueueProducer: [NavigationBar0#119](this:0xb400007dc4ee8aa8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=0.02 dur=60004.79 max=60004.79 min=60004.79
+12-16 23:47:46.849 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.870 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.890 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.910 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.928  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.15 dur=1014.08 max=17.09 min=16.09
+12-16 23:47:46.929  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.151554,dur:1014.11,max:17.72,min:15.63  
+12-16 23:47:46.930 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.933  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:46.934  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:46.950 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.970 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:46.990 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.009  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:47.024  1688  1852 D ULogGuard: Monitoring: 9 threads, 0 requests, 0 time-bombs; 4 guards. ResetFlags = 0x7
+12-16 23:47:47.029 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.035 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.070 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.075 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.090 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.108  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:47.129 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.135 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.150 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.169 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.190 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.229 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.235 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.250 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.270 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.290 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.318  1914  1940 E EventHub: Failed to read sysfs battery info: No such file or directory
+12-16 23:47:47.330 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.335 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.349 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.369 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.390 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.410 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.430 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.450 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.483  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:47.490 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.496 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.530 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.535 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.548 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.569 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.590 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.609  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:47.610 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.629 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.649 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.670 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.690 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.710 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.730 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.749 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.770 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.790 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.826 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.828 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.845 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.865 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.907 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.912 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.934  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:47.934  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:47.942  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.15 dur=1014.17 max=16.90 min=16.30
+12-16 23:47:47.943  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.153702,dur:1014.07,max:17.33,min:16.06  
+12-16 23:47:47.952 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.956 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:47.968 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.008 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.013 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.030 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.048 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.068 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.089 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.111  1914  2767 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:48.129 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.135 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.138  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:48.148 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.158  1344  1344 I BufferQueueProducer: [StatusBar#124](this:0xb400007dc4f00f98,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=1.00 dur=1995.15 max=1313.47 min=681.67
+12-16 23:47:48.168 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.208 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.212 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.250 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.257 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.270 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.306  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:48.309 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.312  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.312  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.312  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.312  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.313  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.313  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.313  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.313  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.313  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.314  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.314  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.314  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.314  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.314  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.314  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.315  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.316  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:48.318  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.318  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.318  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.318  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.318  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.318  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.319  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:48.328 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.342  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:48.342  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:48.350 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.352  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:48.353  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:48.354  5415  6313 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:48.355  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:48.355  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:48.355  5415  6313 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:48.356  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:48.356  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:48.356  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:48.356  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:48.356 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:48.357 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:48.357 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:48.357 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:48.366  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:48.366  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:48.374  1701  1701 D AALLightSensor: oldLux=55 [SA:56 LA:53] newLux=55 (oriLux: 57)
+12-16 23:47:48.377  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:48.378  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:48.380 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:48.381 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:48.381 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:48.381 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:48.381  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:48.381  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:48.382  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:48.382  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:48.382  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:48.382  5415  8606 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:48.383  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:48.383  5415  8606 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:48.390 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.395 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.410 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.429 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.450 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.490 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.495 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.506 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.528 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.549 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.570 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.590 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.605 19081 32205 I NearbyMediums: No BLE Fast/GATT advertisements found in the latest cycle.
+12-16 23:47:48.605 19081 32205 I NearbyMediums: Current Tracked Scanning Clients are : {NearbyConnections.EnvironmentMonitor, NearbySharing}
+12-16 23:47:48.613  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:48.628 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.634 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.651 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.670 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.682  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:48.685  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:48.690  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-110lteSnr=7,phoneId=1
+12-16 23:47:48.692  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 14,phoneId= 1
+12-16 23:47:48.693  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-110lteSnr=7,phoneId=1
+12-16 23:47:48.693  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 14,phoneId= 1
+12-16 23:47:48.709 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.714 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.729 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.750 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.769 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.809 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.814 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.829 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.850 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.870  1914  1954 I SmartPower: com.whatsapp/10317(16893): idle->background(3087ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=900.
+12-16 23:47:48.870 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.871  1914  1954 I SmartPower: com.google.android.googlequicksearchbox:interactor/10164(19966): idle->background(3086ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=100.
+12-16 23:47:48.871  1914  1954 I SmartPower: com.facebook.orca/10316(28395): idle->background(3087ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=900.
+12-16 23:47:48.872  1914  1954 I SmartPower: ai.perplexity.app.android/10324(19716): idle->background(3086ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=250.
+12-16 23:47:48.875  1914  1954 I SmartPower: com.instagram.android/10318(17473): idle->background(3088ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=915.
+12-16 23:47:48.875  1914  1954 I SmartPower: com.facebook.katana/10296(23498): idle->background(3089ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.876  1914  1954 I SmartPower: com.google.android.apps.tachyon/10193(26565): idle->background(3089ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=915.
+12-16 23:47:48.877  1914  1954 I SmartPower: com.google.android.youtube/10213(27262): idle->background(3086ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.878  1914  1954 I SmartPower: com.android.chrome/10171(19817): idle->background(3086ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.878  1914  1954 I SmartPower: com.miui.android.fashiongallery/10280(28797): idle->background(3087ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.879  1914  1954 I SmartPower: com.google.android.apps.youtube.music/10211(8011): idle->background(3086ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.879  1914  1954 I SmartPower: com.microsoft.skydrive/10300(12294): idle->background(3087ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.880  1914  1954 I SmartPower: com.xiaomi.discover/10185(29999): idle->background(3085ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:48.887 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.909 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.929 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.934  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:48.934  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:48.950 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.956  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.15 dur=1014.14 max=16.84 min=16.42
+12-16 23:47:48.957  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.144962,dur:1014.22,max:17.15,min:16.18  
+12-16 23:47:48.970 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:48.990 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.009 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.029 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.050 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.070 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.108 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.114 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.114  1914  5899 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:49.129 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.149 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.152  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:49.172  1344  1344 I BufferQueueProducer: [StatusBar#124](this:0xb400007dc4f00f98,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=0.99 dur=1014.28 max=1014.28 min=1014.28
+12-16 23:47:49.182  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:49.186  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:49.189  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-109lteSnr=6,phoneId=1
+12-16 23:47:49.189  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 14,phoneId= 1
+12-16 23:47:49.190 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.195  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-109lteSnr=6,phoneId=1
+12-16 23:47:49.195  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 14,phoneId= 1
+12-16 23:47:49.195 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.208 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.230 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.240  1914  2570 I SmartPower: com.google.android.apps.messaging/10165(17502): background->idle(3001ms) R(content provider start ContentProviderRecord{7a97766 u0 com.google.android.apps.messaging/.shared.datamodel.provider.sharedstorage.SharedStorageProvider}) adj=200.
+12-16 23:47:49.250 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.270 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.289 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.309 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.320  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:49.329 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.330  2823  2872 I Tethering: [BpfCoordinator] onAlertReached
+12-16 23:47:49.350 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.370 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.390 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.408 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.428 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.450 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.470 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.509 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.514 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.530 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.550 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.570 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.609 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.613 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.615  1914  2767 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:49.629 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.649 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.670 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.689 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.730 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.735 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.750 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.770 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.808 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.814 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.830 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.850 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.870 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.908 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.914 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.930 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.934  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:49.934  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:49.950 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.970  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.14 dur=1014.29 max=16.92 min=16.24
+12-16 23:47:49.972  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.141693,dur:1014.27,max:17.80,min:15.90  
+12-16 23:47:49.976  1914  2317 W ActivityManagerServiceImpl: Sending non-protected broadcast miui.intent.action.CYCLE_CHECK from system uid 1000 pkg android
+12-16 23:47:49.979  1914  1954 W ProcessStats: Tracking association SourceState{7133e84 system/1000 BFgs #1163377} whose proc state 4 is better than process ProcessState{402a780 com.miui.miwallpaper/10200 pkg=com.miui.miwallpaper} proc state 5 (3 skipped)
+12-16 23:47:49.983  1914  2301 E JobScheduler.Background: Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+12-16 23:47:49.983  1914  2301 E JobScheduler.Background: Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+12-16 23:47:49.984  1914  2301 E JobScheduler.Background: Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+12-16 23:47:49.984  1914  2301 E JobScheduler.Background: Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+12-16 23:47:49.984  1914  2301 E JobScheduler.Background: Couldn't determine stopped state for unknown package: com.google.android.apps.turbo
+12-16 23:47:49.985  1914  1931 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:49.989 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.990  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/temp value = 310
+12-16 23:47:49.994  1914  1931 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:49.995 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:49.995  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/charge_control_limit value = 0
+12-16 23:47:50.025  1688  1852 D ULogGuard: Monitoring: 9 threads, 0 requests, 0 time-bombs; 4 guards. ResetFlags = 0x7
+12-16 23:47:50.030 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.036 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.050 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.089 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.094 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.109 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.117  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:50.130 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.150 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.189 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.195 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.210 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.230 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.250 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.289 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.295 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.309 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.327  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.327  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.327  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.327  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.327  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.327  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.328  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.329  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.330  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.330  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.330  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.330  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.330  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:50.330 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.333  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.334  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.334  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.334  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.334  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.334  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.334  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.335  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.336  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:50.350 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.351  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:50.351  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:50.368 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.370  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:50.370  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:50.382  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:50.382  5415  9156 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:50.382  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:50.383  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:50.383  5415  9156 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:50.385  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:50.386  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:50.386  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:50.386  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:50.386  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:50.388 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:50.389 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:50.390 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:50.390 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:50.391 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.406 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.430 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.450 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.489 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.495 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.510 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.530 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.550 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.589 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.595 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.610 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.618  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:50.630 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.650 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.670 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.710 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.715 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.730 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.749  1914  5863 D FileUtils: Rounded bytes from 7868399616 to 8000000000
+12-16 23:47:50.770 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.774 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.776 27942 28127 E C9      : Network error
+12-16 23:47:50.789 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.810 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.830 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.870 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.875 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.888 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.910 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.930 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.934  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:50.934  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:50.970 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.975 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:50.984  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.15 dur=1014.15 max=16.83 min=16.40
+12-16 23:47:50.986  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.143719,dur:1014.24,max:17.11,min:16.23  
+12-16 23:47:50.990 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.010 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.031 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.070 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.075 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.088 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.110 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.121  1914  5899 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:51.130 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.150 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.164  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:51.166  2917  2917 D TelephonyManager: requestModemActivityInfo: Sending result to app: ModemActivityInfo{ mTimestamp=744176620 mSleepTimeMs=254060144 mIdleTimeMs=484317640 mActivityStatsTechSpecificInfo=[{mRat=UNKNOWN,mFrequencyRange=UNKNOWN,mTxTimeMs[]=[64, 5117, 29092, 383482, 1549880],mRxTimeMs=5109805}]}
+12-16 23:47:51.184  1344  1344 I BufferQueueProducer: [StatusBar#124](this:0xb400007dc4f00f98,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=0.50 dur=2011.66 max=2011.66 min=2011.66
+12-16 23:47:51.189 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.195 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.210 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.228 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.250 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.288 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.294 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.310 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.332  2932  2932 D ArtChoreographerMonitor: invoke error.
+12-16 23:47:51.350 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.355 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.388 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.394 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.410 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.430 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.469 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.474 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.489 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.510 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.530 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.569 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.574 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.589 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.611 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.623  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:51.630 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.663 17473 17707 W LibevQuicAsyncUDPSocket.h: setTosOrTrafficClass not implemented in LibevQuicAsyncUDPSocket
+12-16 23:47:51.669 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.669 17473 17707 E MvfstCallbacks.cpp: onConnectionSetupError: error=TransportError: Internal Error, Error on socket write Operation not permitted, 
+12-16 23:47:51.673 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.689 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.706  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:51.707 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.709  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:51.711  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-109lteSnr=6,phoneId=1
+12-16 23:47:51.712  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 14,phoneId= 1
+12-16 23:47:51.716  2917 26983 D NetworkSpeedTracker: updateSignalInfo lteRsrp=-109lteSnr=6,phoneId=1
+12-16 23:47:51.716  2917 26983 D NetworkSpeedTracker: updateSignalInfo nrRsrp= -114,nrSnr= 14,phoneId= 1
+12-16 23:47:51.730 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.750 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.769 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.789 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.810 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.830 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.869 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.871  1914  2570 I SmartPower: com.whatsapp/10317(16893): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=900.
+12-16 23:47:51.874  1914  2570 I SmartPower: com.google.android.googlequicksearchbox:interactor/10164(19966): background->idle(3003ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=100.
+12-16 23:47:51.874  1914  2570 I SmartPower: com.facebook.orca/10316(28395): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=900.
+12-16 23:47:51.874 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.874  1914  2570 I SmartPower: ai.perplexity.app.android/10324(19716): background->idle(3002ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=250.
+12-16 23:47:51.876  1914  2570 I SmartPower: com.instagram.android/10318(17473): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=915.
+12-16 23:47:51.876  1914  2570 I SmartPower: com.facebook.katana/10296(23498): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.876  1914  2570 I SmartPower: com.google.android.apps.tachyon/10193(26565): background->idle(3000ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=915.
+12-16 23:47:51.878  1914  2570 I SmartPower: com.google.android.youtube/10213(27262): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.878  1914  2570 I SmartPower: com.android.chrome/10171(19817): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.879  1914  2570 I SmartPower: com.miui.android.fashiongallery/10280(28797): background->idle(3000ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.879  1914  2570 I SmartPower: com.google.android.apps.youtube.music/10211(8011): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.880  1914  2570 I SmartPower: com.microsoft.skydrive/10300(12294): background->idle(3000ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.880  1914  2570 I SmartPower: com.xiaomi.discover/10185(29999): background->idle(3001ms) R(broadcast start Intent { act=android.intent.action.BATTERY_CHANGED flg=0x60000010 (has extras) }) adj=905.
+12-16 23:47:51.889 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.910 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.930 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.935  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:51.935  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:59
+12-16 23:47:51.950 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.989 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.994 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:51.999  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.13 dur=1014.39 max=16.81 min=16.47
+12-16 23:47:52.000  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.129688,dur:1014.47,max:16.98,min:16.20  
+12-16 23:47:52.009 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.030 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.050 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.068 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.090 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.110 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.124  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:52.130 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.149 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.190 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.195 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.210 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.246  1914  1930 E ApplicationHelper: Fail to get PackageManager
+12-16 23:47:52.249 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.254 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.268 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.290 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.310 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.338  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.338  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.339  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.339  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.339  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.339  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.339  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.339  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.340  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.340  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.340  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.340  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.340  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.340  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.341  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.341  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.341  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.341  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.341  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.342  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.342  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.342  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.342  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.342  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.342  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/11b20000.i2c/i2c-5/5-0034/11b20000.i2c:mt6375@34:mtk_gauge/power_supply/battery
+12-16 23:47:52.345  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.345  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.345  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.346  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.347  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.347  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.347  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.347  1231  2535 I android.hardware.usb@1.2-service-mediatekv2: uevent_event change@/devices/platform/charger/power_supply/mtk-master-charger
+12-16 23:47:52.349 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.354 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.363  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:52.363  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:52.369 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.373  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:52.374  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:52.374  1701  1701 D AALLightSensor: oldLux=55 [SA:56 LA:53] newLux=55 (oriLux: 56)
+12-16 23:47:52.376  5415  9449 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:52.376  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:52.376  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:52.376  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:52.376  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:52.376  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:52.377  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:52.377 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:52.377 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:52.377 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:52.377  5415  9449 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:52.377 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:52.384  1914  1965 D BatteryStatsImpl: status:2, plugType:2, level:60, chargeUah:2970532
+12-16 23:47:52.385  1914  1965 D BatteryStatsImpl: mOnBattery:false, mBatteryChargeUah:2970532, mBatteryStatus:2
+12-16 23:47:52.388 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.398  1914  1914 D UiModeManager: updateConfigurationLocked: mDockState=0; mCarMode=false; mCar=false; mPowerSave=false; mOverrideNightModeOn=false; mOverrideNightModeOff=false; mComputedNightMode=true; mNightModeValue=2; uiMode=33
+12-16 23:47:52.398  1914  1914 D WifiFeatureControl: isCharging = true mInWifiBclMode = false chargePercent = 60
+12-16 23:47:52.399  5415  9358 I android_os_HwBinder: HwBinder: Starting thread pool for getting: vendor.xiaomi.hardware.micharge@1.0::IMiCharge/default
+12-16 23:47:52.400  1258  1272 I vendor.xiaomi.hardware.micharge@1.0-service: ReadFilePathValue path = /sys/class/power_supply/battery/night_charging value = 0
+12-16 23:47:52.400  5415  5415 I PowerUtils: getSurfaceTemprature temp: 32
+12-16 23:47:52.401  5415  9358 I ChargeProtectionUtils: getNightChargingState: 0
+12-16 23:47:52.401  5415  5415 I PowerSaveService: onReceive: android.intent.action.BATTERY_CHANGED
+12-16 23:47:52.401  5415  5415 I PowerNoticeUI: handleBatteryChanged oldPlugType 2 mPlugType 2 oldBatteryLevel 60 mBatteryLevel 60 temperature 310
+12-16 23:47:52.401  5415  5415 I ChargerBatteryIntelligenceReceiver: onBatteryChanged temperature´╝Ü31,plugType:2
+12-16 23:47:52.401  5415  5415 D BaseChargeProtect_HighTemp: mCountByMinute:0,isScreenOn:true
+12-16 23:47:52.402 11575 12585 D PowerCheckerService: onBatteryChanged, mBatteryLevel = 60, status = 2, level = 60, plug = 2, scale = 100
+12-16 23:47:52.402 11575 11802 I ProcAudioPowerManager: onBatteryChanged, onBattery is false
+12-16 23:47:52.402 11575 11802 D PowerKeeper.FrozenApp: onBatteryChanged plug=true mBatteryPlugged=2
+12-16 23:47:52.402 11575 12570 D PowerKeeper.Thermal: mBatteryTemperature: 31
+12-16 23:47:52.408 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.449 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.455 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.490 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.495 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.510 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.549 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.554 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.568 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.590 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.602  2917  2917 W Settings: Setting airplane_mode_on has moved from android.provider.Settings.System to android.provider.Settings.Global, returning read-only value.
+12-16 23:47:52.610 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.626  1914  5863 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:52.630 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.649 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.669 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.690 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.710 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.729  1245  1359 I libPowerHal: perfUserScnCheckAll
+12-16 23:47:52.730  1245  1359 I libPowerHal: perfScnDumpAll cmd:0
+12-16 23:47:52.730  1245  1359 I libPowerHal: ========================
+12-16 23:47:52.730  1245  1359 I libPowerHal: MTKPOWER_HINT_AUDIO_DISABLE_WIFI_POWER_SAVE - freq:-1, -1, HL:-1, -1
+12-16 23:47:52.730  1245  1359 I libPowerHal: MTKPOWER_HINT_AUDIO_DISABLE_WIFI_POWER_SAVE - freq:-1, -1, HL:-1, -1
+12-16 23:47:52.730  1245  1359 I libPowerHal: MTKPOWER_HINT_AUDIO_DISABLE_WIFI_POWER_SAVE - gpu freq min:-1, max:-1, scn_action:1
+12-16 23:47:52.730  1245  1359 I libPowerHal: ========================
+12-16 23:47:52.731 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.749 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.770 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.790 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.810 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.849 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.855 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.869 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.890 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.910 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.935  1245  1316 I libPerfCtl: xgfGetFPS pid:2932 fps:-1
+12-16 23:47:52.935  1245  1316 I libPerfCtl: xgfGetFPS pid:31213 fps:60
+12-16 23:47:52.949 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.954 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.969 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:52.990 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.010 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.013  1344  1344 I BufferQueueProducer: [ai.pipecat.gemini_multimodal_websocket_demo/ai.pipecat.gemini_multimodal_websocket_demo.MainActivity#60781](this:0xb400007dc502b9f8,id:-1,api:0,p:-1,c:1344) queueBuffer: fps=60.16 dur=1013.88 max=16.88 min=16.38
+12-16 23:47:53.014  1220  1370 I hwcomposer: [HWCDisplay] [Display_0 (type:1)] fps:60.162647,dur:1013.92,max:16.95,min:16.26  
+12-16 23:47:53.026  1688  1852 D ULogGuard: Monitoring: 9 threads, 0 requests, 0 time-bombs; 4 guards. ResetFlags = 0x7
+12-16 23:47:53.050 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.055 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.068 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.090 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.110 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.128  1914  2964 D ActivityManager: getProcessesInErrorState callingUid=10323, CallingPid=27554
+12-16 23:47:53.130 31213 31264 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.169 31213 31262 W GeminiClient: Cannot send audio - not connected
+12-16 23:47:53.174 31213 31264 W GeminiClient: Cannot send audio - not connected
