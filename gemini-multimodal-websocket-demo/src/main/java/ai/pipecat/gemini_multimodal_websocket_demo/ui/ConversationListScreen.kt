@@ -87,8 +87,17 @@ fun ConversationListScreen(
     var configDialogSettings by remember { mutableStateOf<ThreadSettings?>(null) }
     var editingOfflineConversation by remember { mutableStateOf<ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation?>(null) }
 
-    // Load LibreChat threads when screen opens
+    // Load LibreChat threads when screen opens (only if logged in)
+    // Requirements 7.1, 7.2: Skip loading if not logged in - show only offline conversations
     LaunchedEffect(Unit) {
+        // Check if user is logged in before attempting to load threads
+        if (!authManager.isTokenValid() && !authManager.hasStoredCredentials()) {
+            // Not logged in - skip loading, show only offline conversations
+            isLoading = false
+            librechatThreads = emptyList()
+            return@LaunchedEffect
+        }
+        
         isLoading = true
         error = null
         
@@ -120,11 +129,13 @@ fun ConversationListScreen(
                             ?: LibreChatError.NetworkError("Nieznany błąd")
                     }
                 } else {
-                    // Auto-login failed, logout user
-                    authManager.logout()
-                    onLogout()
+                    // Auto-login failed - continue in offline mode
+                    // Requirements 7.1, 7.2: Don't force logout, allow offline mode
+                    librechatThreads = emptyList()
+                    error = null
                 }
             } else {
+                // Other errors - show error but don't force logout
                 error = err
             }
         }
@@ -267,6 +278,59 @@ fun ConversationListScreen(
                             .apply()
                     }
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // Offline mode info banner (Requirements 7.4)
+            // Show when user is not logged in to Kumpel-chat and hasn't dismissed the banner
+            val offlineBannerDismissed = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.offlineBannerDismissed.value
+            if (!authManager.isTokenValid() && !authManager.hasStoredCredentials() && !offlineBannerDismissed) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFE3F2FD))
+                        .border(1.dp, Color(0xFF2196F3), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️",
+                            fontSize = 20.sp
+                        )
+                        Text(
+                            text = "Tryb offline: Twoje konwersacje są zapisywane lokalnie. Zaloguj się do Kumpel-chat w zakładce \"Klucze i konta\" aby synchronizować konwersacje.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color(0xFF1976D2),
+                            style = TextStyles.base,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Close button
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF2196F3).copy(alpha = 0.1f))
+                                .clickable {
+                                    ai.pipecat.gemini_multimodal_websocket_demo.Preferences.offlineBannerDismissed.value = true
+                                }
+                                .padding(4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "✕",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color(0xFF1976D2)
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
             }
             

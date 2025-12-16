@@ -39,7 +39,9 @@ class NavigationController(
         private const val TAG = "NavigationController"
     }
     
-    private val _currentScreen = MutableStateFlow(Screen.LOGIN)
+    // Requirements 7.1, 7.2: Start with THREAD_LIST to show offline conversations by default
+    // checkInitialAuthState() will handle auto-login if credentials exist
+    private val _currentScreen = MutableStateFlow(Screen.THREAD_LIST)
     val currentScreen: StateFlow<Screen> = _currentScreen.asStateFlow()
     
     private val _isAutoLoginInProgress = MutableStateFlow(false)
@@ -73,6 +75,9 @@ class NavigationController(
     /**
      * Check initial authentication state and navigate accordingly.
      * Called on app launch.
+     * 
+     * Requirements 7.1, 7.2: Allow app to start without Kumpel-chat login,
+     * showing offline conversations by default.
      */
     fun checkInitialAuthState() {
         scope.launch {
@@ -87,8 +92,9 @@ class NavigationController(
                     performAutoLogin()
                 }
                 else -> {
-                    Log.d(TAG, "No credentials - showing login screen")
-                    _currentScreen.value = Screen.LOGIN
+                    // Requirements 7.1, 7.2: No credentials - skip login and show offline conversations
+                    Log.d(TAG, "No credentials - showing thread list with offline conversations only")
+                    _currentScreen.value = Screen.THREAD_LIST
                 }
             }
         }
@@ -109,8 +115,10 @@ class NavigationController(
             processOfflineQueue()
         }.onFailure { error ->
             Log.e(TAG, "Auto-login failed: ${error.message}")
-            _currentScreen.value = Screen.LOGIN
-            _autoLoginError.value = "Session expired. Please log in again."
+            // Requirements 7.1, 7.2: On auto-login failure, show thread list with offline conversations
+            // Don't force login screen - user can continue in offline mode
+            _currentScreen.value = Screen.THREAD_LIST
+            _autoLoginError.value = null
         }
     }
     
@@ -125,6 +133,9 @@ class NavigationController(
     
     /**
      * Handle logout
+     * 
+     * Requirements 3.5, 7.1, 7.2: After logout, show thread list with offline conversations.
+     * User can continue using app without Kumpel-chat login.
      */
     fun logout() {
         scope.launch {
@@ -136,9 +147,11 @@ class NavigationController(
             // End any active session
             sessionManager.endSession()
             
-            // Clear credentials and navigate to login
+            // Clear Kumpel-chat credentials
             authManager.logout()
-            _currentScreen.value = Screen.LOGIN
+            
+            // Navigate to thread list (offline conversations remain accessible)
+            _currentScreen.value = Screen.THREAD_LIST
         }
     }
     

@@ -35,6 +35,7 @@ object Preferences {
     private const val PREF_REASONING_AGENT_ENABLED = "reasoning_agent_enabled"
     private const val PREF_REASONING_AGENT_MODEL = "reasoning_agent_model"
     private const val PREF_WHISPERER_MODE_ENABLED = "whisperer_mode_enabled"
+    private const val PREF_OFFLINE_BANNER_DISMISSED = "offline_banner_dismissed"
     private const val PREF_VERSION = "preferences_version"
     private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
 
@@ -50,7 +51,7 @@ object Preferences {
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, telegramBotToken, telegramChatId, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, controlAgentEnabled,
-            reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled
+            reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled, offlineBannerDismissed
         ).forEach { it.init() }
     }
 
@@ -239,4 +240,7 @@ object Preferences {
     val reasoningAgentEnabled = BooleanPref(PREF_REASONING_AGENT_ENABLED, true) // Default: enabled
     val reasoningAgentModel = StringPref(PREF_REASONING_AGENT_MODEL, "deepseek/deepseek-r1") // Default model
     val whispererModeEnabled = BooleanPref(PREF_WHISPERER_MODE_ENABLED, true) // Default: enabled
+    
+    // UI preferences
+    val offlineBannerDismissed = BooleanPref(PREF_OFFLINE_BANNER_DISMISSED, false) // Has user dismissed offline mode banner
 }

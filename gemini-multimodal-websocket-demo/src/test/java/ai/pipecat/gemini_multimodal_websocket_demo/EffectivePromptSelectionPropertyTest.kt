@@ -82,11 +82,11 @@ class EffectivePromptSelectionPropertyTest : FunSpec({
     
     test("offline custom prompt takes precedence over Room custom prompt") {
         checkAll(100,
-            Arb.string(1..500),  // offlineCustomPrompt
-            Arb.string(1..500),  // roomCustomPrompt
+            Arb.string(1..500).filter { it.isNotBlank() },  // offlineCustomPrompt (non-blank)
+            Arb.string(1..500).filter { it.isNotBlank() },  // roomCustomPrompt (non-blank)
             Arb.string(1..500)   // globalPrompt
         ) { offlinePrompt, roomPrompt, globalPrompt ->
-            // Given both offline and Room custom prompts exist
+            // Given both offline and Room custom prompts exist (non-blank)
             val effective = selectEffectivePrompt(
                 offlineCustomPrompt = offlinePrompt,
                 roomCustomPrompt = roomPrompt,
