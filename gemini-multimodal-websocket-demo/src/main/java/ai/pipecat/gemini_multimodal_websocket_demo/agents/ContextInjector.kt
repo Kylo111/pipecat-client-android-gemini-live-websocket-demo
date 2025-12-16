@@ -3,6 +3,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo.agents
 import ai.pipecat.gemini_multimodal_websocket_demo.SessionManager
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConversationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ReasoningTaskResult
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ResultType
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -17,12 +18,16 @@ import kotlinx.coroutines.withContext
  * 
  * Also handles Error Feedback (Negative Feedback Loop).
  * 
- * Requirements: 6.1, 6.2, 6.3, 7.1, 7.2, 14.1, 14.2, 14.3, 14.4
+ * Task 9.1: Updated to include resultId in injected context and save to both
+ * pendingInsight AND ResultsStore for dual persistence.
+ * 
+ * Requirements: 6.1, 6.2, 6.3, 6.4, 7.1, 7.2, 14.1, 14.2, 14.3, 14.4
  */
 class ContextInjector(
     private val context: Context,
     private val sessionManager: SessionManager,
-    private val conversationRepository: ConversationRepository
+    private val conversationRepository: ConversationRepository,
+    private val reasoningResultsStore: ReasoningResultsStore
 ) {
     
     companion object {
@@ -32,27 +37,54 @@ class ContextInjector(
     /**
      * Inject successful result.
      * 
+     * Task 9.1: Updated to include resultId in injected context and save to both
+     * pendingInsight AND ResultsStore for dual persistence.
+     * 
      * Checks if session is active:
      * - If active: inject as hidden prompt
      * - If closed (Orphan Result): save as pendingInsight
      * 
-     * Requirements: 6.1, 6.2, 6.3, 14.1, 14.2, 14.3
+     * Always saves to ResultsStore for persistence across sessions.
+     * 
+     * Requirements: 6.1, 6.2, 6.3, 6.4, 14.1, 14.2, 14.3
      */
     suspend fun injectResult(
+        taskId: String,
         conversationId: String,
-        result: ReasoningTaskResult
-    ) = withContext(Dispatchers.IO) {
-        val formattedResult = formatResultForInjection(result)
+        result: ReasoningTaskResult,
+        topics: List<String>,
+        resultType: ResultType = ResultType.RESEARCH
+    ): String = withContext(Dispatchers.IO) {
+        // Task 9.1: Save to ResultsStore first (dual persistence)
+        // Requirements: 6.1, 6.4
+        val resultId = reasoningResultsStore.saveResult(
+            taskId = taskId,
+            conversationId = conversationId,
+            resultType = resultType,
+            topics = topics,
+            summary = result.contextInjection.summary,
+            keyFacts = result.contextInjection.keyFacts,
+            sources = result.contextInjection.sources,
+            fullContent = result.reasoning
+        )
+        
+        Log.d(TAG, "✅ Saved result to ResultsStore: $resultId")
+        
+        // Format result for injection, including resultId
+        val formattedResult = formatResultForInjection(result, resultId)
         
         if (isSessionActive(conversationId)) {
             // Active session → inject as hidden prompt
             injectToActiveSession(conversationId, formattedResult)
-            Log.d(TAG, "Injected result to active session: $conversationId")
+            Log.d(TAG, "Injected result to active session: $conversationId (resultId: $resultId)")
         } else {
             // Orphan Result → save as pendingInsight
             savePendingInsight(conversationId, formattedResult)
-            Log.d(TAG, "Saved orphan result as pendingInsight: $conversationId")
+            Log.d(TAG, "Saved orphan result as pendingInsight: $conversationId (resultId: $resultId)")
         }
+        
+        // Return resultId for caller
+        resultId
     }
     
     /**
@@ -82,13 +114,17 @@ class ContextInjector(
     /**
      * Format result for injection into Gemini Live.
      * 
-     * Includes: summary, keyFacts, sources, confidence
+     * Task 9.1: Updated to include resultId in injected context.
      * 
-     * Requirements: 14.4
+     * Includes: resultId, summary, keyFacts, sources, confidence
+     * 
+     * Requirements: 6.2, 14.4
      */
-    private fun formatResultForInjection(result: ReasoningTaskResult): String {
+    private fun formatResultForInjection(result: ReasoningTaskResult, resultId: String): String {
         return buildString {
             appendLine("=== REASONING AGENT RESULT ===")
+            appendLine()
+            appendLine("Result ID: $resultId")
             appendLine()
             appendLine("Summary: ${result.contextInjection.summary}")
             appendLine()

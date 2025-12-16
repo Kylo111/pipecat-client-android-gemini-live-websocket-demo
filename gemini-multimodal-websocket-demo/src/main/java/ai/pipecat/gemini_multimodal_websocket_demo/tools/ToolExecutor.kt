@@ -66,11 +66,11 @@ class ToolExecutor(private val context: Context) {
      * Execute a tool call and return the result
      */
     suspend fun executeTool(toolName: String, parameters: JsonObject): String {
-        Log.i(TAG, "Executing tool: $toolName")
-        Log.d(TAG, "Parameters: $parameters")
+        Log.i(TAG, "🔧 Executing tool: $toolName")
+        Log.d(TAG, "📋 Parameters: $parameters")
         
         return try {
-            when (toolName) {
+            val result = when (toolName) {
                 "search_web" -> searchWeb(parameters)
                 "search_perplexity" -> searchPerplexity(parameters)
                 "get_weather" -> getWeather(parameters)
@@ -80,7 +80,10 @@ class ToolExecutor(private val context: Context) {
                 "create_note" -> createNote(parameters)
                 "control_media" -> controlMedia(parameters)
                 "search_nearby" -> searchNearby(parameters)
-                "create_offline_conversation" -> createOfflineConversation(parameters)
+                "create_offline_conversation" -> {
+                    Log.i(TAG, "🤖 CREATE_OFFLINE_CONVERSATION called!")
+                    createOfflineConversation(parameters)
+                }
                 "start_navigation" -> startNavigation(parameters)
                 "copy_to_clipboard" -> copyToClipboard(parameters)
                 "start_reasoning_task" -> startReasoningTask(parameters)
@@ -92,12 +95,16 @@ class ToolExecutor(private val context: Context) {
                     if (customTool != null) {
                         executeCustomTool(customTool, parameters)
                     } else {
+                        Log.e(TAG, "❌ Unknown tool: $toolName")
                         "Error: Unknown tool '$toolName'"
                     }
                 }
             }
+            Log.i(TAG, "✅ Tool $toolName executed successfully")
+            result
         } catch (e: Exception) {
-            Log.e(TAG, "Error executing tool $toolName: ${e.message}", e)
+            Log.e(TAG, "❌ Error executing tool $toolName: ${e.message}", e)
+            e.printStackTrace()
             "Error executing $toolName: ${e.message}"
         }
     }
@@ -1030,11 +1037,28 @@ class ToolExecutor(private val context: Context) {
     /**
      * Create a new offline conversation
      */
-    private suspend fun createOfflineConversation(params: JsonObject): String = withContext(Dispatchers.Main) {
-        val name = params["name"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing name parameter"
-        val systemPrompt = params["systemPrompt"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing systemPrompt parameter"
+    private suspend fun createOfflineConversation(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "🤖 CREATE_OFFLINE_CONVERSATION called with params: $params")
         
-        Log.i(TAG, "Creating offline conversation: $name")
+        val name = params["name"]?.jsonPrimitive?.content
+        val systemPrompt = params["systemPrompt"]?.jsonPrimitive?.content
+        
+        Log.i(TAG, "🤖 Parsed parameters:")
+        Log.i(TAG, "  - name: ${name ?: "MISSING"}")
+        Log.i(TAG, "  - systemPrompt: ${systemPrompt?.take(100) ?: "MISSING"}...")
+        
+        if (name == null) {
+            Log.e(TAG, "❌ Missing 'name' parameter in params: $params")
+            return@withContext "Error: Missing name parameter. Please provide a name for the conversation."
+        }
+        
+        if (systemPrompt == null) {
+            Log.e(TAG, "❌ Missing 'systemPrompt' parameter in params: $params")
+            return@withContext "Error: Missing systemPrompt parameter. Please provide a system prompt that defines the bot's behavior."
+        }
+        
+        Log.i(TAG, "🤖 Creating offline conversation: $name")
+        Log.d(TAG, "System prompt (full): $systemPrompt")
         
         try {
             // Import OfflineConversationManager
@@ -1046,10 +1070,14 @@ class ToolExecutor(private val context: Context) {
                 systemPrompt = systemPrompt
             )
             
+            Log.i(TAG, "✅ Successfully created offline conversation: ${conversation.id}")
+            Log.i(TAG, "✅ Conversation details: title='${conversation.title}', voiceName='${conversation.voiceName}'")
+            
             "Successfully created offline conversation '$name'! You can now find it in the conversation list. The bot is ready to use with the following behavior: ${systemPrompt.take(100)}${if (systemPrompt.length > 100) "..." else ""}"
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating offline conversation: ${e.message}", e)
+            Log.e(TAG, "❌ Error creating offline conversation: ${e.message}", e)
+            e.printStackTrace()
             "Error: Could not create conversation - ${e.message}"
         }
     }

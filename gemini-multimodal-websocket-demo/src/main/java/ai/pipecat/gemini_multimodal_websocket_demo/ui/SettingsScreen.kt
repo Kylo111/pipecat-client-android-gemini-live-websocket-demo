@@ -254,7 +254,7 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(6.dp)
         ) {
             // Header with X button
             Row(

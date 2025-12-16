@@ -97,7 +97,13 @@ class VoiceClientManager(
         val isHelpConversation = settings?.conversationId == "system_help_conversation"
         val toolDeclarations = if (isHelpConversation) {
             Log.d(TAG, "🔧 [DIAGNOSTIC] Using Help conversation tools (includes create_offline_conversation)")
-            ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getHelpConversationTools(context)
+            val tools = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getHelpConversationTools(context)
+            Log.d(TAG, "🔧 [DIAGNOSTIC] Help tools count: ${tools.size}")
+            tools.forEach { tool ->
+                val toolName = tool["name"]?.toString() ?: "unknown"
+                Log.d(TAG, "🔧 [DIAGNOSTIC] Tool available: $toolName")
+            }
+            tools
         } else {
             ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
         }

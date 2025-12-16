@@ -575,10 +575,18 @@ class MainActivity : ComponentActivity() {
                         
                         // Initialize ReasoningAgentManager
                         val snapshotFileManager = ai.pipecat.gemini_multimodal_websocket_demo.agents.SnapshotFileManager(this@MainActivity)
+                        val database = ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase.getDatabase(this@MainActivity)
+                        val topicMatcher = ai.pipecat.gemini_multimodal_websocket_demo.agents.TopicMatcher()
+                        val taskRegistry = ai.pipecat.gemini_multimodal_websocket_demo.agents.TaskRegistry(
+                            taskDao = database.taskRecordDao(),
+                            topicMatcher = topicMatcher
+                        )
                         val reasoningAgentManager = ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager(
                             context = this@MainActivity,
                             sessionRepository = sessionManager.sessionRepository,
                             snapshotFileManager = snapshotFileManager,
+                            taskRegistry = taskRegistry,
+                            topicMatcher = topicMatcher,
                             scope = lifecycleScope
                         )
                         voiceService.setReasoningAgentManager(reasoningAgentManager)

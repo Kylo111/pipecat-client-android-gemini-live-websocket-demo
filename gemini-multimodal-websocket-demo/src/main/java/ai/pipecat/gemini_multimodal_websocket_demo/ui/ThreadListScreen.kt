@@ -101,10 +101,27 @@ fun ThreadListScreen(
             val err = result.exceptionOrNull() as? LibreChatError
                 ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
             
-            // If token expired, logout automatically
+            // If token expired, try auto-login with stored credentials
             if (err is LibreChatError.TokenExpired) {
-                authManager.logout()
-                onLogout()
+                val autoLoginResult = authManager.autoLogin()
+                if (autoLoginResult.isSuccess) {
+                    // Retry loading threads after successful auto-login
+                    isLoading = true
+                    val retryResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        libreChatService.getConversationThreads()
+                    }
+                    isLoading = false
+                    if (retryResult.isSuccess) {
+                        threads = retryResult.getOrNull() ?: emptyList()
+                    } else {
+                        error = retryResult.exceptionOrNull() as? LibreChatError
+                            ?: LibreChatError.NetworkError("Nieznany błąd")
+                    }
+                } else {
+                    // Auto-login failed, logout user
+                    authManager.logout()
+                    onLogout()
+                }
             } else {
                 error = err
             }
@@ -239,11 +256,26 @@ fun ThreadListScreen(
                                         val err = result.exceptionOrNull() as? LibreChatError
                                             ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
                                         
-                                        // If token expired, logout automatically
+                                        // If token expired, try auto-login with stored credentials
                                         if (err is LibreChatError.TokenExpired) {
                                             coroutineScope.launch {
-                                                authManager.logout()
-                                                onLogout()
+                                                val autoLoginResult = authManager.autoLogin()
+                                                if (autoLoginResult.isSuccess) {
+                                                    // Retry loading threads after successful auto-login
+                                                    isLoading = true
+                                                    val retryResult = libreChatService.getConversationThreads()
+                                                    isLoading = false
+                                                    if (retryResult.isSuccess) {
+                                                        threads = retryResult.getOrNull() ?: emptyList()
+                                                    } else {
+                                                        error = retryResult.exceptionOrNull() as? LibreChatError
+                                                            ?: LibreChatError.NetworkError("Nieznany błąd")
+                                                    }
+                                                } else {
+                                                    // Auto-login failed, logout user
+                                                    authManager.logout()
+                                                    onLogout()
+                                                }
                                             }
                                         } else {
                                             error = err

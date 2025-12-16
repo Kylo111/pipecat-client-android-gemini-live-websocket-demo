@@ -16,10 +16,15 @@ import java.util.*
  * - Google Keep via Intent
  * - Local storage fallback
  * - Metadata (date, source conversation)
+ * - Note enrichment with research results
  * 
- * Requirements: 11.1, 11.2, 11.3
+ * Requirements: 11.1, 11.2, 11.3, 4.1, 4.3, 4.4
  */
-class NoteService(private val context: Context) {
+class NoteService(
+    private val context: Context,
+    private val noteEnricher: NoteEnricher,
+    private val topicMatcher: TopicMatcher
+) {
     
     companion object {
         private const val TAG = "NoteService"
@@ -31,10 +36,15 @@ class NoteService(private val context: Context) {
     /**
      * Create a note with metadata.
      * 
+     * Before creating the note, enriches it with relevant research results
+     * from the ReasoningResultsStore. Marks used results as consumed.
+     * 
      * @param title Note title
      * @param content Note content
      * @param metadata Additional metadata (conversationId, timestamp, etc.)
      * @return Result indicating success or failure
+     * 
+     * Requirements: 4.1, 4.3, 4.4
      */
     suspend fun createNote(
         title: String,
@@ -43,17 +53,83 @@ class NoteService(private val context: Context) {
     ): NoteResult = withContext(Dispatchers.IO) {
         Log.i(TAG, "Creating note: $title (conversation: ${metadata.conversationId})")
         
+        // Extract topics from title and content for enrichment
+        val topics = extractTopicsFromNote(title, content)
+        Log.i(TAG, "Extracted topics for enrichment: $topics")
+        
+        // Enrich note with relevant research results
+        val enrichedNote = if (metadata.conversationId.isNotEmpty() && topics.isNotEmpty()) {
+            try {
+                noteEnricher.enrichNote(
+                    noteContent = content,
+                    conversationId = metadata.conversationId,
+                    topics = topics
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to enrich note, using original content", e)
+                EnrichedNote(
+                    content = content,
+                    hasResearchFindings = false,
+                    usedResultIds = emptyList(),
+                    sources = emptyList()
+                )
+            }
+        } else {
+            Log.i(TAG, "Skipping enrichment: conversationId or topics empty")
+            EnrichedNote(
+                content = content,
+                hasResearchFindings = false,
+                usedResultIds = emptyList(),
+                sources = emptyList()
+            )
+        }
+        
+        if (enrichedNote.hasResearchFindings) {
+            Log.i(TAG, "Note enriched with ${enrichedNote.usedResultIds.size} research results")
+        }
+        
         // Format content with metadata
-        val formattedContent = formatNoteWithMetadata(title, content, metadata)
+        val formattedContent = formatNoteWithMetadata(title, enrichedNote.content, metadata)
         
         // Try Google Keep first
         val keepResult = tryGoogleKeep(title, formattedContent)
-        if (keepResult.success) {
-            return@withContext keepResult
+        val result = if (keepResult.success) {
+            keepResult
+        } else {
+            // Fallback to local storage
+            saveToLocalStorage(title, formattedContent, metadata)
         }
         
-        // Fallback to local storage
-        return@withContext saveToLocalStorage(title, formattedContent, metadata)
+        // Mark results as consumed after successful note creation
+        if (result.success && enrichedNote.usedResultIds.isNotEmpty()) {
+            try {
+                val noteId = result.localPath ?: "keep_${System.currentTimeMillis()}"
+                noteEnricher.markResultsConsumed(enrichedNote.usedResultIds, noteId)
+                Log.i(TAG, "Marked ${enrichedNote.usedResultIds.size} results as consumed by note: $noteId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to mark results as consumed", e)
+                // Don't fail the note creation if marking consumed fails
+            }
+        }
+        
+        return@withContext result
+    }
+    
+    /**
+     * Extract topics from note title and content.
+     * 
+     * Combines topics from both title and content, removes duplicates.
+     * 
+     * @param title Note title
+     * @param content Note content
+     * @return List of extracted topics
+     */
+    private fun extractTopicsFromNote(title: String, content: String): List<String> {
+        val titleTopics = topicMatcher.extractTopics(title)
+        val contentTopics = topicMatcher.extractTopics(content)
+        
+        // Combine and deduplicate
+        return (titleTopics + contentTopics).distinct()
     }
     
     /**

@@ -1,0 +1,33 @@
+
+12-16 16:52:06.612 31307 31307 D VoiceService: ReasoningAgentManager reference set
+12-16 16:52:06.612 31307 31307 D MainActivity: ReasoningAgentManager initialized
+12-16 16:53:08.417 31307 31307 D ReasoningAgentManager: Starting reasoning task: 94149073-9ebd-4819-b89d-00d11cdf1eaf for conversation: 487298db-0567-4c39-8ac4-33c778783566
+12-16 16:53:08.423 31307 31307 D ReasoningAgentManager: Extracted topics: perform, indepth, analysis, google, cloud, speechtotext, microsoft, azure, cognitive, services, pricing, including, monthly, free, tiers, specifically, polish, language, texttospeech, functionalities, summarize, findings, save, detailed, report, note
+12-16 16:53:08.434 31307 31307 D ReasoningAgentManager: Created TaskRecord in registry
+12-16 16:53:08.438 31307 31307 D ReasoningAgentManager: Retrieved 2 recent sessions
+12-16 16:53:08.438 31307 31307 D ReasoningAgentManager: Previous transcript: present (12626 chars)
+12-16 16:53:08.438 31307 31307 D ReasoningAgentManager: Current transcript: 1075 chars
+12-16 16:53:08.443 31307 31307 D ReasoningAgentManager: Created snapshot file: /data/user/0/ai.pipecat.gemini_multimodal_websocket_demo/cache/reasoning-snapshots/task_94149073-9ebd-4819-b89d-00d11cdf1eaf.json
+12-16 16:53:08.444 31307 31307 D ReasoningAgentManager: Scheduled WorkManager task: 94149073-9ebd-4819-b89d-00d11cdf1eaf with priority: HIGH
+12-16 16:53:08.444 31307 31307 D ReasoningAgentManager: Retry policy: Max 3 attempts with exponential backoff (10s, 20s, 40s)
+12-16 16:53:08.506 31307 31769 I ReasoningWorker: ­čžá Starting ReasoningWorker execution
+12-16 16:53:08.507 31307 31769 D ReasoningWorker: ­čôŁ Processing task: 94149073-9ebd-4819-b89d-00d11cdf1eaf, snapshot: /data/user/0/ai.pipecat.gemini_multimodal_websocket_demo/cache/reasoning-snapshots/task_94149073-9ebd-4819-b89d-00d11cdf1eaf.json
+12-16 16:53:08.521 31307 31769 D ReasoningWorker: Ôťů Read snapshot for conversation: 487298db-0567-4c39-8ac4-33c778783566
+12-16 16:53:08.521 31307 31769 D ReasoningWorker:    Task description: Perform an in-depth analysis of Google Cloud Speech-to-Text and Microsoft Azure Cognitive Services pricing, including monthly free tiers, specifically for Polish language speech-to-text and text-to-speech functionalities. Summarize the findings and save the detailed report as a note.
+12-16 16:53:08.521 31307 31769 D ReasoningWorker:    Priority: HIGH
+12-16 16:53:08.521 31307 31769 D ReasoningWorker:    Previous transcript: present (12626 chars)
+12-16 16:53:08.521 31307 31769 D ReasoningWorker:    Current transcript: 1075 chars
+12-16 16:53:08.521 31307 31769 D ReasoningWorker:    Is report task: false
+12-16 16:53:08.525 31307 31769 D ReasoningWorker: ­čöŹ Built full reasoning context
+12-16 16:53:08.526 31307 31769 D ReasoningWorker: ­čôä Formatted context prompt (22152 chars)
+12-16 16:53:08.552 31307 31769 D ReasoningWorker: ­čÜÇ Calling OpenRouter API...
+12-16 16:53:08.554 31307 31769 D OpenRouterClient: ­čöŹ Checking Reasoning Agent config...
+12-16 16:53:08.554 31307 31769 D OpenRouterClient:    - Enabled: true
+12-16 16:53:08.554 31307 31769 D OpenRouterClient:    - Model: deepseek/deepseek-v3.2
+12-16 16:53:08.554 31307 31769 D OpenRouterClient:    - Temperature: 0.4
+12-16 16:53:08.554 31307 31769 D OpenRouterClient: ­čöĹ OpenRouter API key check:
+12-16 16:53:08.554 31307 31769 D OpenRouterClient:    - Key present: true
+12-16 16:53:08.554 31307 31769 D OpenRouterClient:    - Key length: 73
+12-16 16:53:08.554 31307 31769 D OpenRouterClient:    - Key prefix: sk-or-v1-f...
+12-16 16:53:08.554 31307 31769 D OpenRouterClient: Attempting OpenRouter API call (attempt 1/3)
+

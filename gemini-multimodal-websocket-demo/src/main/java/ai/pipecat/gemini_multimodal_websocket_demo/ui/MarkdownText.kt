@@ -1,26 +1,33 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.sp
 
 /**
- * Markdown parser that converts markdown text to AnnotatedString for Compose Text.
+ * Markdown parser that converts markdown text to blocks for rendering.
  * 
  * Supports:
  * - Headers (h1-h6) with different font sizes
@@ -29,18 +36,81 @@ import androidx.compose.ui.unit.sp
  * - Code blocks (```code```)
  * - Bullet lists (- item, * item)
  * - Numbered lists (1. item)
- * - Links ([text](url))
+ * - Links ([text](url)) - clickable
+ * - Tables (| col1 | col2 |) with horizontal scrolling
  * 
  * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
  */
 object MarkdownParser {
     
+    sealed class Block {
+        data class TextBlock(val annotatedString: AnnotatedString) : Block()
+        data class TableBlock(val rows: List<List<String>>) : Block()
+    }
+    
+    data class ParsedContent(
+        val blocks: List<Block>
+    )
+    
     /**
-     * Parse markdown text into AnnotatedString with proper styling.
+     * Parse markdown text into blocks (text or table).
      */
-    fun parseMarkdown(markdown: String): AnnotatedString {
+    fun parseMarkdown(markdown: String): ParsedContent {
+        val blocks = mutableListOf<Block>()
+        val lines = markdown.lines()
+        var i = 0
+        
+        // Accumulator for text lines between tables
+        val textLines = mutableListOf<String>()
+        
+        fun flushTextBlock() {
+            if (textLines.isNotEmpty()) {
+                val textContent = textLines.joinToString("\n")
+                val annotatedString = parseTextBlock(textContent)
+                blocks.add(Block.TextBlock(annotatedString))
+                textLines.clear()
+            }
+        }
+        
+        while (i < lines.size) {
+            val line = lines[i]
+            
+            when {
+                // Tables (| col1 | col2 |)
+                line.trim().startsWith("|") && line.trim().endsWith("|") -> {
+                    val tableResult = parseTable(lines, i)
+                    if (tableResult != null) {
+                        // Flush accumulated text before table
+                        flushTextBlock()
+                        // Add table block
+                        blocks.add(Block.TableBlock(tableResult.first))
+                        i = tableResult.second
+                    } else {
+                        textLines.add(line)
+                        i++
+                    }
+                }
+                
+                // All other lines - accumulate as text
+                else -> {
+                    textLines.add(line)
+                    i++
+                }
+            }
+        }
+        
+        // Flush remaining text
+        flushTextBlock()
+        
+        return ParsedContent(blocks)
+    }
+    
+    /**
+     * Parse a text block (non-table content) into AnnotatedString.
+     */
+    private fun parseTextBlock(text: String): AnnotatedString {
         return buildAnnotatedString {
-            val lines = markdown.lines()
+            val lines = text.lines()
             var i = 0
             
             while (i < lines.size) {
@@ -91,6 +161,59 @@ object MarkdownParser {
             }
         }
     }
+    
+    /**
+     * Parse table starting from current line index.
+     * Returns the table rows and the next line index to process.
+     */
+    private fun parseTable(lines: List<String>, startIndex: Int): Pair<List<List<String>>, Int>? {
+        val tableRows = mutableListOf<List<String>>()
+        var i = startIndex
+        
+        // Parse header row
+        if (i >= lines.size || !lines[i].trim().startsWith("|")) return null
+        val headerCells = parseTableRow(lines[i])
+        if (headerCells.isEmpty()) return null
+        tableRows.add(headerCells)
+        i++
+        
+        // Check for separator row (|---|---|)
+        if (i >= lines.size) return Pair(tableRows, i)
+        val separatorLine = lines[i].trim()
+        if (separatorLine.startsWith("|") && separatorLine.contains("-")) {
+            i++ // Skip separator
+        }
+        
+        // Parse data rows
+        while (i < lines.size) {
+            val line = lines[i].trim()
+            if (!line.startsWith("|") || !line.endsWith("|")) break
+            
+            val cells = parseTableRow(line)
+            if (cells.isEmpty()) break
+            tableRows.add(cells)
+            i++
+        }
+        
+        return if (tableRows.size > 1) Pair(tableRows, i) else null
+    }
+    
+    /**
+     * Parse a single table row into cells.
+     * Cleans HTML tags and markdown formatting for better table display.
+     */
+    private fun parseTableRow(line: String): List<String> {
+        val trimmed = line.trim().removeSurrounding("|")
+        return trimmed.split("|").map { cell ->
+            cell.trim()
+                .replace(Regex("<br>|<br/>|<br />"), " ") // Remove HTML line breaks
+                .replace(Regex("\\*\\*([^*]+)\\*\\*"), "$1") // Remove bold **text**
+                .replace(Regex("\\*([^*]+)\\*"), "$1") // Remove italic *text*
+                .replace(Regex("`([^`]+)`"), "$1") // Remove inline code `text`
+        }
+    }
+    
+
     
     /**
      * Parse code block starting from current line index.
@@ -192,6 +315,7 @@ object MarkdownParser {
     
     /**
      * Apply inline formatting (bold, italic, code, links) to text.
+     * Also auto-detects plain URLs and makes them clickable.
      */
     private fun AnnotatedString.Builder.appendInlineFormatting(text: String) {
         var i = 0
@@ -199,12 +323,24 @@ object MarkdownParser {
         
         while (i < chars.size) {
             when {
-                // Links [text](url)
+                // Markdown links [text](url)
                 i < chars.size - 3 && chars[i] == '[' -> {
                     val linkResult = parseLinkAt(text, i)
                     if (linkResult != null) {
                         appendLink(linkResult.first, linkResult.second)
                         i = linkResult.third
+                    } else {
+                        append(chars[i])
+                        i++
+                    }
+                }
+                
+                // Auto-detect plain URLs (http:// or https://)
+                i < chars.size - 7 && (text.substring(i).startsWith("http://") || text.substring(i).startsWith("https://")) -> {
+                    val urlResult = parseUrlAt(text, i)
+                    if (urlResult != null) {
+                        appendLink(urlResult.first, urlResult.first) // Use URL as both text and link
+                        i = urlResult.second
                     } else {
                         append(chars[i])
                         i++
@@ -285,6 +421,28 @@ object MarkdownParser {
     }
     
     /**
+     * Parse plain URL at given position. Returns (url, nextIndex) or null if not a valid URL.
+     * Detects URLs starting with http:// or https://
+     */
+    private fun parseUrlAt(text: String, startIndex: Int): Pair<String, Int>? {
+        if (startIndex >= text.length) return null
+        
+        // Check if starts with http:// or https://
+        val isHttp = text.substring(startIndex).startsWith("http://")
+        val isHttps = text.substring(startIndex).startsWith("https://")
+        if (!isHttp && !isHttps) return null
+        
+        // Find end of URL (space, newline, or end of string)
+        var i = startIndex
+        while (i < text.length && !text[i].isWhitespace() && text[i] != ')' && text[i] != ']') {
+            i++
+        }
+        
+        val url = text.substring(startIndex, i)
+        return Pair(url, i)
+    }
+    
+    /**
      * Parse bold text at given position. Returns (text, nextIndex) or null if not valid bold.
      */
     private fun parseBoldAt(text: String, startIndex: Int): Pair<String, Int>? {
@@ -344,19 +502,22 @@ object MarkdownParser {
     }
     
     /**
-     * Append link with styling and URL annotation.
+     * Append link with styling and URL annotation using new LinkAnnotation API.
      */
     private fun AnnotatedString.Builder.appendLink(text: String, url: String) {
-        pushStringAnnotation(tag = "URL", annotation = url)
-        pushStyle(
-            SpanStyle(
-                color = Color(0xFF1976D2),
-                textDecoration = TextDecoration.Underline
+        withLink(
+            LinkAnnotation.Url(
+                url = url,
+                styles = TextLinkStyles(
+                    style = SpanStyle(
+                        color = Color(0xFF1976D2),
+                        textDecoration = TextDecoration.Underline
+                    )
+                )
             )
-        )
-        append(text)
-        pop()
-        pop()
+        ) {
+            append(text)
+        }
     }
     
     /**
@@ -395,6 +556,8 @@ object MarkdownParser {
 
 /**
  * Composable that renders markdown text with proper formatting.
+ * Links are clickable and open in browser using new LinkAnnotation API.
+ * Text wraps normally - tables have horizontal scroll.
  * 
  * @param markdown The markdown text to render
  * @param modifier Modifier for the composable
@@ -406,27 +569,108 @@ fun MarkdownText(
     modifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current
 ) {
-    val uriHandler = LocalUriHandler.current
-    val annotatedString = remember(markdown) {
+    val parsedContent = remember(markdown) {
         MarkdownParser.parseMarkdown(markdown)
     }
     
-    SelectionContainer {
-        ClickableText(
-            text = annotatedString,
-            modifier = modifier,
-            style = style,
-            onClick = { offset ->
-                // Handle link clicks
-                annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                    .firstOrNull()?.let { annotation ->
-                        try {
-                            uriHandler.openUri(annotation.item)
-                        } catch (e: Exception) {
-                            // Handle invalid URLs gracefully
+    // Render blocks - text blocks wrap, table blocks scroll horizontally
+    Column(modifier = modifier) {
+        parsedContent.blocks.forEach { block ->
+            when (block) {
+                is MarkdownParser.Block.TextBlock -> {
+                    // Regular text - wraps normally
+                    SelectionContainer {
+                        Text(
+                            text = block.annotatedString,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = style
+                        )
+                    }
+                }
+                is MarkdownParser.Block.TableBlock -> {
+                    // Table - horizontal scroll
+                    TableView(
+                        rows = block.rows,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Renders a table with horizontal scrolling.
+ * Uses monospace font for proper column alignment.
+ */
+@Composable
+fun TableView(
+    rows: List<List<String>>,
+    modifier: Modifier = Modifier
+) {
+    if (rows.isEmpty()) return
+    
+    val columnCount = rows.maxOfOrNull { it.size } ?: 0
+    val columnWidths = IntArray(columnCount) { col ->
+        rows.maxOfOrNull { row -> row.getOrNull(col)?.length ?: 0 } ?: 0
+    }
+    
+    // Build table as AnnotatedString
+    val tableText = buildAnnotatedString {
+        pushStyle(
+            SpanStyle(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                background = Color(0xFFF8F8F8)
+            )
+        )
+        
+        rows.forEachIndexed { rowIndex, row ->
+            row.forEachIndexed { colIndex, cell ->
+                val paddedCell = cell.padEnd(columnWidths[colIndex] + 1)
+                
+                if (rowIndex == 0) {
+                    // Header row - bold
+                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                    append(paddedCell)
+                    pop()
+                } else {
+                    append(paddedCell)
+                }
+                
+                if (colIndex < row.size - 1) {
+                    append(" | ")
+                }
+            }
+            
+            if (rowIndex < rows.size - 1) {
+                append("\n")
+                
+                // Add separator after header
+                if (rowIndex == 0) {
+                    columnWidths.forEachIndexed { index, width ->
+                        append("-".repeat(width + 1))
+                        if (index < columnWidths.size - 1) {
+                            append("-+-")
                         }
                     }
+                    append("\n")
+                }
             }
+        }
+        
+        pop()
+    }
+    
+    // Horizontal scroll for table
+    SelectionContainer {
+        Text(
+            text = tableText,
+            modifier = modifier.horizontalScroll(rememberScrollState()),
+            style = LocalTextStyle.current.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp
+            )
         )
     }
 }

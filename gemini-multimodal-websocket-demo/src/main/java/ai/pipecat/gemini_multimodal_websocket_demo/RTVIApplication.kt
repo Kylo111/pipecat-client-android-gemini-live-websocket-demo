@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
 import android.app.Application
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.CleanupWorker
 import ai.pipecat.gemini_multimodal_websocket_demo.config.AgentConfigProvider
 import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConfigurationRepository
@@ -10,10 +11,16 @@ import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.SessionReposi
 import ai.pipecat.gemini_multimodal_websocket_demo.data.GlobalMemoryDataStore
 import ai.pipecat.gemini_multimodal_websocket_demo.data.OfflineContextBuilder
 import ai.pipecat.gemini_multimodal_websocket_demo.usecases.ImportAssistantUseCase
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import java.util.concurrent.TimeUnit
 
 class RTVIApplication : Application() {
     
@@ -55,11 +62,19 @@ class RTVIApplication : Application() {
     
     // Memory update service for Gemini Live conversations
     val memoryUpdateService by lazy {
+        val database = ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase.getDatabase(this)
+        val topicMatcher = ai.pipecat.gemini_multimodal_websocket_demo.agents.TopicMatcher()
+        val taskRegistry = ai.pipecat.gemini_multimodal_websocket_demo.agents.TaskRegistry(
+            taskDao = database.taskRecordDao(),
+            topicMatcher = topicMatcher
+        )
         MemoryUpdateService(
             context = this,
             conversationRepository = conversationRepository,
             globalMemoryDataStore = GlobalMemoryDataStore(this),
-            systemPrompts = SystemPrompts
+            systemPrompts = SystemPrompts,
+            taskRegistry = taskRegistry,
+            topicMatcher = topicMatcher
         )
     }
     
@@ -80,10 +95,18 @@ class RTVIApplication : Application() {
     
     // Reasoning Agent Manager for background reasoning tasks
     val reasoningAgentManager by lazy {
+        val database = ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase.getDatabase(this)
+        val topicMatcher = ai.pipecat.gemini_multimodal_websocket_demo.agents.TopicMatcher()
+        val taskRegistry = ai.pipecat.gemini_multimodal_websocket_demo.agents.TaskRegistry(
+            taskDao = database.taskRecordDao(),
+            topicMatcher = topicMatcher
+        )
         ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager(
             context = this,
             sessionRepository = sessionRepository,
             snapshotFileManager = snapshotFileManager,
+            taskRegistry = taskRegistry,
+            topicMatcher = topicMatcher,
             scope = CoroutineScope(Dispatchers.Default)
         )
     }
@@ -98,6 +121,10 @@ class RTVIApplication : Application() {
         OfflineConversationManager.init(this)
         PicovoiceManager.initialize(this)
         AgentConfigProvider.init(this)
+        
+        // Schedule periodic cleanup of reasoning results
+        // Requirements: 7.1
+        scheduleCleanupWorker()
         
         // Load configuration on app startup
         CoroutineScope(Dispatchers.IO).launch {
@@ -127,6 +154,47 @@ class RTVIApplication : Application() {
         // Picovoice is disabled by default - user can enable it in settings
         // This prevents crash on Android 14+ which requires RECORD_AUDIO permission
         // before starting foreground service with microphone type
+    }
+    
+    /**
+     * Schedule periodic cleanup worker for reasoning results.
+     * 
+     * Runs daily to:
+     * - Archive old consumed results (>7 days)
+     * - Delete full content from very old results (>30 days)
+     * 
+     * Requirements: 7.1
+     */
+    private fun scheduleCleanupWorker() {
+        try {
+            // Define constraints - only run when device is idle and charging
+            val constraints = Constraints.Builder()
+                .setRequiresCharging(false) // Don't require charging - cleanup is lightweight
+                .setRequiresDeviceIdle(false) // Don't require idle - can run anytime
+                .setRequiresBatteryNotLow(true) // Only when battery is not low
+                .setRequiredNetworkType(NetworkType.NOT_REQUIRED) // No network needed
+                .build()
+            
+            // Create periodic work request - runs once per day
+            val cleanupRequest = PeriodicWorkRequestBuilder<CleanupWorker>(
+                repeatInterval = 1,
+                repeatIntervalTimeUnit = TimeUnit.DAYS
+            )
+                .setConstraints(constraints)
+                .build()
+            
+            // Schedule the work - replace existing if already scheduled
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                CleanupWorker.WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP, // Keep existing schedule if already running
+                cleanupRequest
+            )
+            
+            android.util.Log.i("RTVIApplication", "✅ Scheduled daily cleanup worker for reasoning results")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("RTVIApplication", "❌ Failed to schedule cleanup worker", e)
+        }
     }
     
     // This method is called from MainActivity after permissions are granted

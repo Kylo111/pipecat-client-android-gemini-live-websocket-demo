@@ -2,6 +2,8 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 
 import android.content.Context
 import android.util.Log
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.TaskRegistry
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.TopicMatcher
 import ai.pipecat.gemini_multimodal_websocket_demo.data.GlobalMemoryDataStore
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConversationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.models.memory.GlobalUserCard
@@ -28,12 +30,18 @@ import java.util.concurrent.TimeUnit
  * - Global User Card (persistent facts about the user)
  * - Local Conversation Card (conversation-specific state)
  * - Meta-Summary (narrative history of the conversation)
+ * 
+ * Also coordinates with TaskRegistry to prevent duplicate Reasoning Agent calls.
+ * 
+ * Requirements: 5.1, 5.2, 5.3, 5.4
  */
 class MemoryUpdateService(
     private val context: Context,
     private val conversationRepository: ConversationRepository,
     private val globalMemoryDataStore: GlobalMemoryDataStore,
-    private val systemPrompts: SystemPrompts
+    private val systemPrompts: SystemPrompts,
+    private val taskRegistry: TaskRegistry,
+    private val topicMatcher: TopicMatcher
 ) {
     
     companion object {
@@ -134,9 +142,14 @@ class MemoryUpdateService(
             Log.d(TAG, "Response length: ${responseText.length} chars")
             
             // Parse response
-            val memoryUpdateResult = parseMemoryUpdateResult(responseText)
+            var memoryUpdateResult = parseMemoryUpdateResult(responseText)
             
             Log.d(TAG, "✅ Memory update parsed successfully")
+            
+            // Check deduplication if report is needed
+            if (memoryUpdateResult.needsReport && memoryUpdateResult.reportTopics.isNotEmpty()) {
+                memoryUpdateResult = checkReportDeduplication(conversationId, memoryUpdateResult)
+            }
             
             Result.success(memoryUpdateResult)
             
@@ -289,6 +302,73 @@ Return ONLY the JSON object as specified in the instructions.
         }
         
         return cleaned
+    }
+    
+    /**
+     * Check if report should be skipped due to deduplication.
+     * 
+     * Before setting needs_report=true, checks TaskRegistry for recent tasks
+     * covering similar topics. If found, overrides needs_report to false.
+     * 
+     * Requirements: 5.1, 5.2, 5.3, 5.4
+     * 
+     * @param conversationId The conversation ID
+     * @param memoryUpdateResult The original memory update result
+     * @return Modified memory update result with needs_report potentially set to false
+     */
+    internal suspend fun checkReportDeduplication(
+        conversationId: String,
+        memoryUpdateResult: MemoryUpdateResult
+    ): MemoryUpdateResult {
+        try {
+            Log.d(TAG, "Checking report deduplication for topics: ${memoryUpdateResult.reportTopics}")
+            
+            // Extract and normalize topics
+            val reportTopics = memoryUpdateResult.reportTopics
+            if (reportTopics.isEmpty()) {
+                Log.d(TAG, "No report topics to check")
+                return memoryUpdateResult
+            }
+            
+            // Check TaskRegistry for similar tasks
+            val deduplicationResult = taskRegistry.checkDeduplication(
+                conversationId = conversationId,
+                requestedTopics = reportTopics
+            )
+            
+            Log.d(TAG, "Deduplication check result:")
+            Log.d(TAG, "  shouldSkip: ${deduplicationResult.shouldSkip}")
+            Log.d(TAG, "  coveredTopics: ${deduplicationResult.coveredTopics}")
+            Log.d(TAG, "  uncoveredTopics: ${deduplicationResult.uncoveredTopics}")
+            Log.d(TAG, "  reason: ${deduplicationResult.reason}")
+            
+            // If should skip, override needs_report to false
+            if (deduplicationResult.shouldSkip) {
+                Log.d(TAG, "⚠️ Skipping report generation - ${deduplicationResult.reason}")
+                return memoryUpdateResult.copy(
+                    needsReport = false,
+                    reportTopics = emptyList()
+                )
+            }
+            
+            // If partial overlap, update report topics to only uncovered topics
+            if (deduplicationResult.coveredTopics.isNotEmpty() && 
+                deduplicationResult.uncoveredTopics.isNotEmpty()) {
+                Log.d(TAG, "⚠️ Partial overlap detected - updating report topics to uncovered only")
+                return memoryUpdateResult.copy(
+                    reportTopics = deduplicationResult.uncoveredTopics
+                )
+            }
+            
+            // No overlap - proceed with original report request
+            Log.d(TAG, "✅ No overlap detected - proceeding with report generation")
+            return memoryUpdateResult
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error checking report deduplication", e)
+            // On error, return original result (fail-safe: allow report)
+            return memoryUpdateResult
+        }
     }
     
     /**

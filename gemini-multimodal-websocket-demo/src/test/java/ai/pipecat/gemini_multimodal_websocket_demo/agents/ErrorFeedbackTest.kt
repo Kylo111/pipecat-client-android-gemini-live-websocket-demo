@@ -43,14 +43,25 @@ class ErrorFeedbackTest {
     
     private val testConversationId = "test-conv-error-123"
     
+    @Mock
+    private lateinit var mockReasoningResultsStore: ReasoningResultsStore
+    
     @Before
-    fun setup() {
-        MockitoAnnotations.openMocks(this)
+    fun setup() = runBlocking {
+        MockitoAnnotations.openMocks(this@ErrorFeedbackTest)
+        
+        // Mock saveResult to return a test result ID (suspend function)
+        doAnswer { invocation ->
+            runBlocking { "test-result-id" }
+        }.`when`(mockReasoningResultsStore).saveResult(
+            any(), any(), any(), any(), any(), any(), any(), any()
+        )
         
         contextInjector = ContextInjector(
             context = mockContext,
             sessionManager = mockSessionManager,
-            conversationRepository = mockConversationRepository
+            conversationRepository = mockConversationRepository,
+            reasoningResultsStore = mockReasoningResultsStore
         )
     }
     

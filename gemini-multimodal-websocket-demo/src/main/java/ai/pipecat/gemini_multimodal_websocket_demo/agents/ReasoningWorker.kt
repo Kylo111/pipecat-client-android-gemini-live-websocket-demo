@@ -81,6 +81,18 @@ class ReasoningWorker(
         )
     }
     
+    private val reasoningResultsStore by lazy {
+        val database = AppDatabase.getDatabase(applicationContext)
+        val topicMatcher = TopicMatcher()
+        ReasoningResultsStore(database.reasoningResultDao(), topicMatcher)
+    }
+    
+    private val taskRegistry by lazy {
+        val database = AppDatabase.getDatabase(applicationContext)
+        val topicMatcher = TopicMatcher()
+        TaskRegistry(database.taskRecordDao(), topicMatcher)
+    }
+    
     private val conversationRepositoryForInjector by lazy {
         val database = AppDatabase.getDatabase(applicationContext)
         ConversationRepository(
@@ -101,7 +113,10 @@ class ReasoningWorker(
     }
     
     private val noteService by lazy {
-        NoteService(applicationContext)
+        val database = AppDatabase.getDatabase(applicationContext)
+        val topicMatcher = TopicMatcher()
+        val noteEnricher = NoteEnricher(reasoningResultsStore, topicMatcher)
+        NoteService(applicationContext, noteEnricher, topicMatcher)
     }
     
     private val clipboardService by lazy {
@@ -219,6 +234,34 @@ class ReasoningWorker(
                     // Requirements: 14.1, 14.4
                     val finalResult = taskResult.copy(actions = executedActions)
                     
+                    // Task 8.2: Save result to ReasoningResultsStore
+                    // Requirements: 2.1, 1.4
+                    try {
+                        val topics = TopicMatcher().extractTopics(snapshot.taskDescription)
+                        val resultId = reasoningResultsStore.saveResult(
+                            taskId = taskId,
+                            conversationId = snapshot.conversationId,
+                            resultType = ResultType.RESEARCH,
+                            topics = topics,
+                            summary = finalResult.contextInjection.summary,
+                            keyFacts = finalResult.contextInjection.keyFacts,
+                            sources = finalResult.contextInjection.sources,
+                            fullContent = reasoningResult
+                        )
+                        Log.i(TAG, "✅ Saved result to ResultsStore: $resultId")
+                        
+                        // Update TaskRegistry status to COMPLETED
+                        taskRegistry.updateTaskStatus(
+                            taskId = taskId,
+                            status = TaskStatus.COMPLETED,
+                            resultSummary = finalResult.contextInjection.summary
+                        )
+                        Log.i(TAG, "✅ Updated TaskRegistry status to COMPLETED")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Failed to save result to store", e)
+                        // Continue anyway - result will still be injected
+                    }
+                    
                     // Try to inject result immediately to active session via broadcast
                     // If session is not active, it will be saved as pendingInsight
                     // Requirements: 6.3, 6.4
@@ -238,6 +281,35 @@ class ReasoningWorker(
                             confidence = 0.5
                         )
                     )
+                    
+                    // Task 8.2: Save fallback result to ReasoningResultsStore
+                    // Requirements: 2.1, 1.4
+                    try {
+                        val topics = TopicMatcher().extractTopics(snapshot.taskDescription)
+                        val resultId = reasoningResultsStore.saveResult(
+                            taskId = taskId,
+                            conversationId = snapshot.conversationId,
+                            resultType = ResultType.RESEARCH,
+                            topics = topics,
+                            summary = fallbackResult.contextInjection.summary,
+                            keyFacts = emptyList(),
+                            sources = emptyList(),
+                            fullContent = reasoningResult
+                        )
+                        Log.i(TAG, "✅ Saved fallback result to ResultsStore: $resultId")
+                        
+                        // Update TaskRegistry status to COMPLETED
+                        taskRegistry.updateTaskStatus(
+                            taskId = taskId,
+                            status = TaskStatus.COMPLETED,
+                            resultSummary = fallbackResult.contextInjection.summary
+                        )
+                        Log.i(TAG, "✅ Updated TaskRegistry status to COMPLETED")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Failed to save fallback result to store", e)
+                        // Continue anyway - result will still be injected
+                    }
+                    
                     saveResultAsPendingInsight(snapshot.conversationId, fallbackResult)
                 }
                 
@@ -257,6 +329,20 @@ class ReasoningWorker(
                     // Max retries reached - save error via Negative Feedback Loop
                     // Requirements: 7.1, 7.2
                     Log.e(TAG, "❌ Max retries reached, saving error feedback")
+                    
+                    // Task 8.3: Update TaskRegistry status to FAILED
+                    // Requirements: 1.5
+                    try {
+                        taskRegistry.updateTaskStatus(
+                            taskId = taskId,
+                            status = TaskStatus.FAILED,
+                            errorMessage = error?.message ?: "Unknown error"
+                        )
+                        Log.i(TAG, "✅ Updated TaskRegistry status to FAILED")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Failed to update TaskRegistry", e)
+                    }
+                    
                     try {
                         saveErrorAsPendingInsight(
                             conversationId = snapshot.conversationId,
@@ -287,6 +373,19 @@ class ReasoningWorker(
                     // Only save error on final attempt (after all retries exhausted)
                     // Requirements: 7.1
                     if (runAttemptCount >= 2) {
+                        // Task 8.3: Update TaskRegistry status to FAILED
+                        // Requirements: 1.5
+                        try {
+                            taskRegistry.updateTaskStatus(
+                                taskId = taskId,
+                                status = TaskStatus.FAILED,
+                                errorMessage = e.message ?: "Internal error: ${e.javaClass.simpleName}"
+                            )
+                            Log.i(TAG, "✅ Updated TaskRegistry status to FAILED")
+                        } catch (registryError: Exception) {
+                            Log.e(TAG, "❌ Failed to update TaskRegistry", registryError)
+                        }
+                        
                         saveErrorAsPendingInsight(
                             conversationId = snapshot.conversationId,
                             error = e.message ?: "Internal error: ${e.javaClass.simpleName}"
@@ -770,18 +869,48 @@ class ReasoningWorker(
                 if (saveResults.savedToLocal) appendLine("- Local storage")
             }
             
+            val reportResult = ReasoningTaskResult(
+                reasoning = "Report generated successfully",
+                actions = emptyList(),
+                contextInjection = ContextInjection(
+                    summary = summary,
+                    keyFacts = topics,
+                    sources = topicResults.values.flatMap { extractSources(it) },
+                    confidence = 0.9
+                )
+            )
+            
+            // Task 8.2: Save report result to ReasoningResultsStore
+            // Requirements: 2.1, 1.4
+            try {
+                val taskId = inputData.getString(KEY_TASK_ID) ?: "unknown"
+                val resultId = reasoningResultsStore.saveResult(
+                    taskId = taskId,
+                    conversationId = snapshot.conversationId,
+                    resultType = ResultType.REPORT,
+                    topics = topics,
+                    summary = summary,
+                    keyFacts = topics,
+                    sources = topicResults.values.flatMap { extractSources(it) },
+                    fullContent = report
+                )
+                Log.i(TAG, "✅ Saved report to ResultsStore: $resultId")
+                
+                // Update TaskRegistry status to COMPLETED
+                taskRegistry.updateTaskStatus(
+                    taskId = taskId,
+                    status = TaskStatus.COMPLETED,
+                    resultSummary = summary
+                )
+                Log.i(TAG, "✅ Updated TaskRegistry status to COMPLETED")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to save report to store", e)
+                // Continue anyway - report was still generated
+            }
+            
             saveResultAsPendingInsight(
                 conversationId = snapshot.conversationId,
-                result = ReasoningTaskResult(
-                    reasoning = "Report generated successfully",
-                    actions = emptyList(),
-                    contextInjection = ContextInjection(
-                        summary = summary,
-                        keyFacts = topics,
-                        sources = topicResults.values.flatMap { extractSources(it) },
-                        confidence = 0.9
-                    )
-                )
+                result = reportResult
             )
             
             return Result.success()
@@ -791,6 +920,19 @@ class ReasoningWorker(
             
             // Save error feedback
             if (runAttemptCount >= 2) {
+                // Task 8.3: Update TaskRegistry status to FAILED
+                // Requirements: 1.5
+                try {
+                    taskRegistry.updateTaskStatus(
+                        taskId = inputData.getString(KEY_TASK_ID) ?: "unknown",
+                        status = TaskStatus.FAILED,
+                        errorMessage = "Report generation failed: ${e.message}"
+                    )
+                    Log.i(TAG, "✅ Updated TaskRegistry status to FAILED")
+                } catch (registryError: Exception) {
+                    Log.e(TAG, "❌ Failed to update TaskRegistry", registryError)
+                }
+                
                 saveErrorAsPendingInsight(
                     conversationId = snapshot.conversationId,
                     error = "Report generation failed: ${e.message}"

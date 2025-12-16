@@ -239,10 +239,21 @@ class ReasoningAgentIntegrationTest {
         // Given - Mock session manager
         val mockSessionManager = mock(ai.pipecat.gemini_multimodal_websocket_demo.SessionManager::class.java)
         
+        // Create mock ReasoningResultsStore for ContextInjector
+        val mockResultsStore = mock(ReasoningResultsStore::class.java)
+        
+        // Mock saveResult to return a test result ID (suspend function)
+        doAnswer { invocation ->
+            runBlocking { "test-result-id" }
+        }.`when`(mockResultsStore).saveResult(
+            any(), any(), any(), any(), any(), any(), any(), any()
+        )
+        
         contextInjector = ContextInjector(
             context = context,
             sessionManager = mockSessionManager,
-            conversationRepository = conversationRepository
+            conversationRepository = conversationRepository,
+            reasoningResultsStore = mockResultsStore
         )
 
         // Simulate active session with current session
@@ -269,11 +280,22 @@ class ReasoningAgentIntegrationTest {
             )
         )
 
-        // When - Inject result
-        contextInjector.injectResult(testConversationId, testResult)
+        // When - Inject result (Task 9.1: Updated signature with taskId and topics)
+        val resultId = contextInjector.injectResult(
+            taskId = "test-task-123",
+            conversationId = testConversationId,
+            result = testResult,
+            topics = listOf("transformers", "AI research")
+        )
 
         // Then - Verify injection was called
         verify(mockSessionManager, times(1)).updateContext(anyString())
+        
+        // Task 9.1: Verify result was saved to ResultsStore
+        verify(mockResultsStore, times(1)).saveResult(
+            any(), any(), any(), any(), any(), any(), any(), any()
+        )
+        assertNotNull("Result ID should be returned", resultId)
 
         println("✓ Context injection verified")
         println("  - Result injected to active session")

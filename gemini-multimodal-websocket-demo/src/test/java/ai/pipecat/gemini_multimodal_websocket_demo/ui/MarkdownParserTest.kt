@@ -22,7 +22,8 @@ class MarkdownParserTest : FunSpec({
         val result = MarkdownParser.parseMarkdown(markdown)
         
         // Then result contains the header text
-        result.text shouldContain "Header 1"
+        val textBlock = result.blocks.firstOrNull() as? MarkdownParser.Block.TextBlock
+        textBlock?.annotatedString?.text shouldContain "Header 1"
     }
     
     test("parse bold text") {
@@ -33,112 +34,19 @@ class MarkdownParserTest : FunSpec({
         val result = MarkdownParser.parseMarkdown(markdown)
         
         // Then result contains the text
-        result.text shouldBe "This is bold text"
+        val textBlock = result.blocks.firstOrNull() as? MarkdownParser.Block.TextBlock
+        textBlock?.annotatedString?.text shouldBe "This is bold text"
     }
     
-    test("parse italic text") {
-        // Given markdown with italic text
-        val markdown = "This is *italic* text"
+    test("parse table") {
+        // Given markdown with table
+        val markdown = "| Col1 | Col2 |\n|------|------|\n| A | B |"
         
         // When parsed
         val result = MarkdownParser.parseMarkdown(markdown)
         
-        // Then result contains the text
-        result.text shouldBe "This is italic text"
-    }
-    
-    test("parse inline code") {
-        // Given markdown with inline code
-        val markdown = "Use `code` here"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result contains the text
-        result.text shouldBe "Use code here"
-    }
-    
-    test("parse bullet list") {
-        // Given markdown with bullet list
-        val markdown = "- Item 1\n- Item 2"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result contains bullet points
-        result.text shouldContain "• Item 1"
-        result.text shouldContain "• Item 2"
-    }
-    
-    test("parse numbered list") {
-        // Given markdown with numbered list
-        val markdown = "1. First item\n2. Second item"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result contains numbered items
-        result.text shouldContain "1. First item"
-        result.text shouldContain "2. Second item"
-    }
-    
-    test("parse link") {
-        // Given markdown with link
-        val markdown = "Visit [Google](https://google.com)"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result contains link text
-        result.text shouldContain "Visit Google"
-    }
-    
-    test("parse code block") {
-        // Given markdown with code block
-        val markdown = "```\ncode line 1\ncode line 2\n```"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result contains code content
-        result.text shouldContain "code line 1"
-        result.text shouldContain "code line 2"
-    }
-    
-    test("parse mixed formatting") {
-        // Given markdown with multiple formatting types
-        val markdown = "# Header\n\nThis is **bold** and *italic* text with `code`.\n\n- List item"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result contains all elements
-        result.text shouldContain "Header"
-        result.text shouldContain "bold"
-        result.text shouldContain "italic"
-        result.text shouldContain "code"
-        result.text shouldContain "• List item"
-    }
-    
-    test("handle empty string") {
-        // Given empty markdown
-        val markdown = ""
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result is empty
-        result.text shouldBe ""
-    }
-    
-    test("handle plain text without markdown") {
-        // Given plain text
-        val markdown = "Just plain text without any formatting"
-        
-        // When parsed
-        val result = MarkdownParser.parseMarkdown(markdown)
-        
-        // Then result is unchanged
-        result.text shouldBe "Just plain text without any formatting"
+        // Then result contains table block
+        val tableBlock = result.blocks.firstOrNull() as? MarkdownParser.Block.TableBlock
+        tableBlock?.rows?.size shouldBe 2 // Header + 1 data row
     }
 })

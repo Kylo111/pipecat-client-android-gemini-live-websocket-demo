@@ -1,7 +1,11 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.agents.ClipboardService
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.NoteEnricher
 import ai.pipecat.gemini_multimodal_websocket_demo.agents.NoteService
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningResultsStore
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.TopicMatcher
+import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import android.content.Context
@@ -42,7 +46,16 @@ fun NotesScreen(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    val noteService = remember { NoteService(context) }
+    
+    // Initialize dependencies for NoteService
+    val noteService = remember {
+        val database = AppDatabase.getDatabase(context)
+        val topicMatcher = TopicMatcher()
+        val reasoningResultsStore = ReasoningResultsStore(database.reasoningResultDao(), topicMatcher)
+        val noteEnricher = NoteEnricher(reasoningResultsStore, topicMatcher)
+        NoteService(context, noteEnricher, topicMatcher)
+    }
+    
     val clipboardService = remember { ClipboardService(context) }
     val coroutineScope = rememberCoroutineScope()
     
@@ -202,7 +215,7 @@ fun NotesListView(
         modifier = Modifier
             .fillMaxSize()
             .background(Colors.activityBackground)
-            .padding(24.dp)
+            .padding(6.dp)
     ) {
         // Header
         Row(
@@ -361,7 +374,7 @@ fun NoteDetailView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -399,26 +412,31 @@ fun NoteDetailView(
         }
         
         // Content area with Markdown rendering and text selection
+        // Note: MarkdownText handles horizontal scrolling internally for tables
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
+                .padding(horizontal = 4.dp)
+                .padding(bottom = 6.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color.White)
-                .padding(16.dp)
         ) {
-            MarkdownText(
-                markdown = content,
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                style = TextStyles.base.copy(
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = Color.Black
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(8.dp)
+            ) {
+                MarkdownText(
+                    markdown = content,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = TextStyles.base.copy(
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        color = Color.Black
+                    )
                 )
-            )
+            }
         }
     }
 }
