@@ -562,6 +562,7 @@ class VoiceClientManager(
     
     /**
      * Pause the session (mute microphone).
+     * Picovoice runs independently - no need to coordinate.
      */
     fun pause() {
         Log.d(TAG, "pause() called")
@@ -577,6 +578,7 @@ class VoiceClientManager(
     
     /**
      * Resume the session (unmute microphone).
+     * Picovoice runs independently - no need to coordinate.
      */
     fun resume() {
         Log.d(TAG, "resume() called")

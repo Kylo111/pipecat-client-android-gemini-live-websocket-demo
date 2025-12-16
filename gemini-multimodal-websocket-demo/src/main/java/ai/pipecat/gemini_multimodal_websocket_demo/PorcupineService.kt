@@ -32,6 +32,12 @@ class PorcupineService : Service() {
     private var isInitialized = false
     private var isPorcupinePaused = false
     private var controlReceiver: android.content.BroadcastReceiver? = null
+    private var screenReceiver: android.content.BroadcastReceiver? = null
+    private var pendingResume = false  // True when resume was requested but screen was off
+    
+    // NEW: Flag to ignore wake word detections when user is unmuted
+    // This allows Picovoice to keep running (AudioRecord alive) even when user is talking
+    private var shouldIgnoreDetections = false
     
     override fun onCreate() {
         super.onCreate()
@@ -39,6 +45,38 @@ class PorcupineService : Service() {
         wakeWordHandler = WakeWordHandler(this)
         createNotificationChannel()
         registerControlReceiver()
+        registerScreenReceiver()
+    }
+    
+    /**
+     * Register broadcast receiver for screen on/off events.
+     * When screen turns ON and pendingResume is true, resume Porcupine.
+     */
+    private fun registerScreenReceiver() {
+        screenReceiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    Intent.ACTION_SCREEN_ON -> {
+                        Log.d(TAG, "📱 Screen turned ON")
+                        if (pendingResume) {
+                            Log.i(TAG, "🔵 Pending resume detected - resuming Porcupine now")
+                            pendingResume = false
+                            resumePorcupine()
+                        }
+                    }
+                    Intent.ACTION_SCREEN_OFF -> {
+                        Log.d(TAG, "📱 Screen turned OFF")
+                    }
+                }
+            }
+        }
+        
+        val filter = android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        registerReceiver(screenReceiver, filter)
+        Log.d(TAG, "Screen receiver registered")
     }
     
     /**
@@ -68,73 +106,60 @@ class PorcupineService : Service() {
     
     /**
      * Pause Porcupine wake word detection
-     * CRITICAL: Must call stop() before delete() to stop internal processing thread
+     * NEW APPROACH: Don't destroy PorcupineManager - just set flag to ignore detections.
+     * This keeps AudioRecord alive so we can resume even with screen OFF.
      */
     private fun pausePorcupine() {
-        if (isPorcupinePaused) {
-            Log.d(TAG, "Porcupine already paused")
-            return
-        }
-        
-        try {
-            // CRITICAL: Stop processing thread first
-            porcupineManager?.stop()
-            
-            // CRITICAL: Wait for internal thread to fully stop
-            // PorcupineManager has background thread that needs time to exit
-            Log.d(TAG, "Waiting 300ms for Porcupine thread to stop...")
-            Thread.sleep(300)
-            
-            // Then delete to release AudioRecord
-            porcupineManager?.delete()
-            porcupineManager = null
-            isPorcupinePaused = true
-            Log.i(TAG, "🔵 Porcupine PAUSED (PorcupineManager stopped and deleted, AudioRecord released)")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error pausing Porcupine", e)
-        }
+        Log.d(TAG, "pausePorcupine() - setting shouldIgnoreDetections=true")
+        shouldIgnoreDetections = true
+        isPorcupinePaused = true
+        Log.i(TAG, "🔵 Porcupine PAUSED (ignoring detections, AudioRecord still active)")
     }
     
     /**
      * Resume Porcupine wake word detection
-     * CRITICAL: Wait longer to ensure VoiceClientManager has FULLY released AudioRecord
-     * CRITICAL: Only works when screen is ON (Android 14+ restriction)
+     * NEW APPROACH: Just clear the ignore flag - PorcupineManager is still running.
+     * If PorcupineManager was destroyed (shouldn't happen), reinitialize.
      */
     private fun resumePorcupine() {
-        if (!isPorcupinePaused) {
-            Log.d(TAG, "Porcupine already running")
-            return
-        }
-        
-        if (!isInitialized) {
-            Log.w(TAG, "Cannot resume - Porcupine not initialized yet")
-            return
-        }
-        
-        // Check if screen is ON
         val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         val isScreenOn = powerManager.isInteractive
         
-        if (!isScreenOn) {
-            Log.w(TAG, "⚠️ Screen is OFF - cannot resume Porcupine (Android 14+ restriction)")
-            Log.w(TAG, "   Wake word detection disabled until screen is turned ON")
+        Log.d(TAG, "resumePorcupine() called - isPaused=$isPorcupinePaused, isInitialized=$isInitialized, " +
+                "manager=${if (porcupineManager != null) "exists" else "NULL"}, screenOn=$isScreenOn, " +
+                "shouldIgnore=$shouldIgnoreDetections")
+        
+        // Clear ignore flag - this is the main action
+        shouldIgnoreDetections = false
+        isPorcupinePaused = false
+        pendingResume = false
+        
+        // If PorcupineManager exists, we're done - it's already listening
+        if (porcupineManager != null) {
+            Log.i(TAG, "🔵 Porcupine RESUMED (cleared ignore flag, AudioRecord was already active)")
             return
         }
         
-        // Recreate PorcupineManager in background thread
+        // PorcupineManager is null - need to reinitialize
+        Log.w(TAG, "⚠️ PorcupineManager is NULL - need to reinitialize")
+        
+        if (!isScreenOn) {
+            Log.w(TAG, "Screen is OFF - cannot reinitialize, setting pendingResume")
+            pendingResume = true
+            isPorcupinePaused = true
+            return
+        }
+        
+        // Reinitialize in background thread
         Thread {
             try {
-                // CRITICAL: Longer delay (500ms) to ensure VoiceClientManager has FULLY released AudioRecord
-                // This prevents AudioRecord conflict (Error -38)
-                Log.d(TAG, "Waiting 500ms before resuming Porcupine...")
-                Thread.sleep(500)
-                
-                // Reinitialize Porcupine (creates new PorcupineManager and AudioRecord)
+                Thread.sleep(300)
                 initializePorcupine()
-                isPorcupinePaused = false
-                Log.i(TAG, "🔵 Porcupine RESUMED (PorcupineManager recreated, AudioRecord active)")
+                Log.i(TAG, "🔵 Porcupine RESUMED (reinitialized)")
             } catch (e: Exception) {
-                Log.e(TAG, "Error resuming Porcupine", e)
+                Log.e(TAG, "❌ Error reinitializing Porcupine: ${e.message}", e)
+                pendingResume = true
+                isPorcupinePaused = true
             }
         }.start()
     }
@@ -160,23 +185,26 @@ class PorcupineService : Service() {
         
         isInitializing = true
         
-        // Start in PAUSED state - will be resumed via broadcast when needed
-        isPorcupinePaused = true
+        // Start Porcupine running and listening immediately
+        // ALEXA will always work as toggle (mute/unmute)
+        isPorcupinePaused = false
+        shouldIgnoreDetections = false
         
         // Initialize Porcupine asynchronously to avoid blocking
-        // NOTE: This creates PorcupineManager but we immediately delete it
-        // It will be recreated when RESUME broadcast is received
         Thread {
             try {
                 initializePorcupine()
                 isInitialized = true
                 
-                // Immediately pause (stop and delete) after initialization
-                // This ensures we start in PAUSED state
-                porcupineManager?.stop()
-                porcupineManager?.delete()
-                porcupineManager = null
-                Log.d(TAG, "Porcupine initialized and immediately paused (waiting for RESUME)")
+                // DON'T stop PorcupineManager - keep it running but ignoring detections
+                // This is the key change that allows screen-off operation
+                Log.d(TAG, "Porcupine initialized and running (ignoring detections until RESUME)")
+                
+                // Check if there's a pending resume request
+                if (pendingResume) {
+                    Log.d(TAG, "Processing pending resume after initialization")
+                    resumePorcupine()
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize Porcupine", e)
                 handleInitializationError(e)
@@ -201,6 +229,16 @@ class PorcupineService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error unregistering control receiver", e)
+        }
+        
+        try {
+            screenReceiver?.let {
+                unregisterReceiver(it)
+                screenReceiver = null
+                Log.d(TAG, "Screen receiver unregistered")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering screen receiver", e)
         }
         
         try {
@@ -346,6 +384,7 @@ class PorcupineService : Service() {
     
     /**
      * Handle wake word detection callback.
+     * ALEXA always triggers toggle - no ignore logic.
      */
     private fun onWakeWordDetected(keywordIndex: Int) {
         try {
@@ -355,7 +394,7 @@ class PorcupineService : Service() {
             }
             
             val wakeWord = loadedWakeWords[keywordIndex]
-            Log.d(TAG, "Wake word detected: ${wakeWord.name} (${wakeWord.type})")
+            Log.i(TAG, "🎤 Wake word detected: ${wakeWord.name} (${wakeWord.type})")
             
             // Play activation sound
             playActivationSound(wakeWord.type == WakeWordType.SYSTEM)
