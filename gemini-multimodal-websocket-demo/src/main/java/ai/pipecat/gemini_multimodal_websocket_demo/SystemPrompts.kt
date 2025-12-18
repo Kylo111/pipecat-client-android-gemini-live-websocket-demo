@@ -440,6 +440,10 @@ Podsumowanie powinno być:
 - Napisane w tym samym języku co odpowiedzi asystenta
 - Pomocne dla kontynuacji rozmowy
 - Uwzględniające prawdziwe intencje użytkownika (nie literalnie błędną transkrypcję)
+
+RAPORT Z SESJI (jeśli potrzebny):
+Jeśli stwierdzisz, że rozmowa wymaga wygenerowania szczegółowego raportu z badaniami (np. użytkownik pytał o złożone tematy wymagające research), użyj funkcji reasoner_task z instrukcją:
+"Generate report on topics: [lista tematów]. CRITICAL: Report MUST be in user's language (same language as assistant responses in the transcript), even if Perplexity searches are in English."
     """.trimIndent()
     
     /**
@@ -819,8 +823,8 @@ Response:
      */
     val defaultReasoningAgentConfig = ReasoningAgentConfig(
         enabled = true,
-        provider = "openrouter",
-        modelId = "deepseek/deepseek-v3.2",
+        provider = "google",
+        modelId = "models/gemini-3-flash-preview",
         temperature = 0.4f,
         systemPrompt = reasoningAgentSystemPrompt,
         tools = ReasoningToolsConfig(

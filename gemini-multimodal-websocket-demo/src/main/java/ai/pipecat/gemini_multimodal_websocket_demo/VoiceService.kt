@@ -107,6 +107,9 @@ class VoiceService : Service() {
                 startForegroundService()
                 acquireWakeLock()
                 
+                // Start PorcupineService if Picovoice is enabled
+                startPorcupineServiceIfEnabled()
+                
                 // Schedule service timeout
                 serviceTimeoutJob?.cancel()
                 serviceTimeoutJob = serviceScope.launch {
@@ -493,6 +496,9 @@ class VoiceService : Service() {
     private fun stopService() {
         Log.d(TAG, "[VoiceService] Stop: Initiating service shutdown")
         
+        // Stop PorcupineService if it was started by this session
+        stopPorcupineServiceIfRunning()
+        
         // Release wake lock first with timeout check
         val releaseStartTime = System.currentTimeMillis()
         releaseWakeLock()
@@ -513,6 +519,43 @@ class VoiceService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         Log.d(TAG, "[VoiceService] Stop: Service shutdown complete")
+    }
+    
+    /**
+     * Start PorcupineService if Picovoice is enabled in settings.
+     * This ensures wake word detection only runs during active conversation.
+     */
+    private fun startPorcupineServiceIfEnabled() {
+        try {
+            if (PicovoiceManager.isEnabled()) {
+                val intent = Intent(this, PorcupineService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+                Log.d(TAG, "PorcupineService started for conversation session")
+            } else {
+                Log.d(TAG, "Picovoice disabled - PorcupineService not started")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start PorcupineService", e)
+        }
+    }
+    
+    /**
+     * Stop PorcupineService when conversation ends.
+     */
+    private fun stopPorcupineServiceIfRunning() {
+        try {
+            if (PicovoiceManager.isEnabled()) {
+                val intent = Intent(this, PorcupineService::class.java)
+                stopService(intent)
+                Log.d(TAG, "PorcupineService stopped after conversation ended")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop PorcupineService", e)
+        }
     }
     
     /**

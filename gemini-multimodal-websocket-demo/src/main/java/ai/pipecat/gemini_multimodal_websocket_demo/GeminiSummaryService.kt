@@ -41,7 +41,13 @@ class GeminiSummaryService(private val context: Context) {
     
     @Serializable
     data class GeminiRequest(
-        val contents: List<Content>
+        val contents: List<Content>,
+        val generationConfig: GenerationConfig? = null
+    )
+    
+    @Serializable
+    data class GenerationConfig(
+        val temperature: Float? = null
     )
     
     @Serializable
@@ -144,7 +150,7 @@ class GeminiSummaryService(private val context: Context) {
             // Combine prompt and transcript
             val fullPrompt = "$summaryPrompt\n\n---\n\n$transcript"
             
-            // Create request
+            // Create request with temperature 0.4
             val requestBody = GeminiRequest(
                 contents = listOf(
                     Content(
@@ -152,6 +158,9 @@ class GeminiSummaryService(private val context: Context) {
                             Part(text = fullPrompt)
                         )
                     )
+                ),
+                generationConfig = GenerationConfig(
+                    temperature = 0.4f
                 )
             )
             

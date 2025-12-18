@@ -58,6 +58,10 @@ class ReasoningWorker(
         OpenRouterClient(applicationContext, AgentConfigProvider)
     }
     
+    private val geminiReasoningClient by lazy {
+        GeminiReasoningClient(applicationContext, AgentConfigProvider)
+    }
+    
     private val reasoningContextBuilder by lazy {
         val database = AppDatabase.getDatabase(applicationContext)
         val conversationRepository = ConversationRepository(
@@ -204,16 +208,26 @@ class ReasoningWorker(
             
             Log.d(TAG, "📄 Formatted context prompt (${contextPrompt.length} chars)")
             
-            // 4. Call OpenRouter API
+            // 4. Call appropriate API based on provider
             val userPrompt = """
                 TASK: ${snapshot.taskDescription}
                 
                 $contextPrompt
             """.trimIndent()
             
-            Log.d(TAG, "🚀 Calling OpenRouter API...")
+            val config = AgentConfigProvider.getReasoningAgentConfig()
+            Log.d(TAG, "🚀 Calling ${config.provider} API with model ${config.modelId}...")
             
-            val result = openRouterClient.complete(userPrompt, "")
+            val apiResult = when (config.provider.lowercase()) {
+                "google", "gemini" -> geminiReasoningClient.complete(userPrompt, "")
+                "openrouter" -> openRouterClient.complete(userPrompt, "")
+                else -> {
+                    Log.e(TAG, "❌ Unknown provider: ${config.provider}")
+                    kotlin.Result.failure(Exception("Unknown provider: ${config.provider}"))
+                }
+            }
+            
+            val result = apiResult
             
             if (result.isSuccess) {
                 val reasoningResult = result.getOrThrow()
@@ -833,13 +847,14 @@ class ReasoningWorker(
                 }
             }
             
-            // Generate Markdown report
+            // Generate Markdown report (in user's language)
             val report = generateMarkdownReport(
                 topics = topics,
                 topicResults = topicResults,
                 conversationTitle = fullContext.conversationTitle,
                 metaSummary = fullContext.metaSummary,
-                timestamp = System.currentTimeMillis()
+                timestamp = System.currentTimeMillis(),
+                transcript = snapshot.currentSessionTranscript
             )
             
             Log.d(TAG, "📝 Generated Markdown report (${report.length} chars)")
@@ -950,57 +965,147 @@ class ReasoningWorker(
     }
     
     /**
+     * Detect user's language from transcript.
+     * 
+     * Analyzes the transcript to determine the primary language used by the user.
+     * Returns language code: "pl" for Polish, "en" for English (default).
+     * 
+     * Detection strategy:
+     * 1. Look for common Polish words/patterns
+     * 2. If not found, default to English
+     */
+    private fun detectLanguageFromTranscript(transcript: String): String {
+        val lowerTranscript = transcript.lowercase()
+        
+        // Polish language indicators (common words and patterns)
+        val polishIndicators = listOf(
+            "jest", "są", "był", "była", "było", "były",
+            "mam", "masz", "ma", "mamy", "macie", "mają",
+            "to", "że", "jak", "co", "gdzie", "kiedy", "dlaczego",
+            "nie", "tak", "może", "można", "trzeba",
+            "chcę", "chcesz", "chce", "chcemy", "chcecie", "chcą",
+            "będzie", "będą", "będę", "będziesz",
+            "proszę", "dziękuję", "dzień dobry", "cześć",
+            "bardzo", "dobrze", "źle", "więc", "także", "również"
+        )
+        
+        // Count Polish indicators
+        var polishCount = 0
+        for (indicator in polishIndicators) {
+            if (lowerTranscript.contains("\\b$indicator\\b".toRegex())) {
+                polishCount++
+            }
+        }
+        
+        // If we found at least 3 Polish indicators, consider it Polish
+        return if (polishCount >= 3) "pl" else "en"
+    }
+    
+    /**
+     * Get localized report strings based on language.
+     */
+    private data class ReportStrings(
+        val title: String,
+        val conversationLabel: String,
+        val generatedLabel: String,
+        val contextHeader: String,
+        val topicsHeader: String,
+        val summaryHeader: String,
+        val summaryText: String,
+        val generatedBy: String,
+        val noResults: String
+    )
+    
+    private fun getReportStrings(language: String): ReportStrings {
+        return when (language) {
+            "pl" -> ReportStrings(
+                title = "Raport Po Sesji",
+                conversationLabel = "Konwersacja:",
+                generatedLabel = "Wygenerowano:",
+                contextHeader = "Kontekst Konwersacji",
+                topicsHeader = "Tematy Badawcze",
+                summaryHeader = "Podsumowanie",
+                summaryText = "Ten raport został automatycznie wygenerowany na podstawie analizy konwersacji. Obejmuje %d temat(ów), które zostały zidentyfikowane jako wymagające głębszych badań.",
+                generatedBy = "Wygenerowane przez Reasoning Agent",
+                noResults = "Brak dostępnych wyników"
+            )
+            else -> ReportStrings(
+                title = "Post-Session Report",
+                conversationLabel = "Conversation:",
+                generatedLabel = "Generated:",
+                contextHeader = "Conversation Context",
+                topicsHeader = "Research Topics",
+                summaryHeader = "Summary",
+                summaryText = "This report was automatically generated based on the conversation analysis. It covers %d topic(s) that were identified as requiring deeper research.",
+                generatedBy = "Generated by Reasoning Agent",
+                noResults = "No results available"
+            )
+        }
+    }
+    
+    /**
      * Generate Markdown report from topic results.
      * 
      * Task 21.2: Generate Markdown report
      * Requirements: 9.4, 9.5
+     * 
+     * LANGUAGE DETECTION:
+     * - Detects user's language from transcript
+     * - Generates report in user's language (Polish or English)
+     * - All headers and labels are localized
      */
     private fun generateMarkdownReport(
         topics: List<String>,
         topicResults: Map<String, String>,
         conversationTitle: String,
         metaSummary: String,
-        timestamp: Long
+        timestamp: Long,
+        transcript: String
     ): String {
+        // Detect user's language from transcript
+        val language = detectLanguageFromTranscript(transcript)
+        val strings = getReportStrings(language)
+        
+        Log.d(TAG, "📝 Generating report in language: $language")
+        
         val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
         val dateStr = dateFormatter.format(java.util.Date(timestamp))
         
         return buildString {
-            appendLine("# Post-Session Report")
+            appendLine("# ${strings.title}")
             appendLine()
-            appendLine("**Conversation:** $conversationTitle")
-            appendLine("**Generated:** $dateStr")
+            appendLine("**${strings.conversationLabel}** $conversationTitle")
+            appendLine("**${strings.generatedLabel}** $dateStr")
             appendLine()
             appendLine("---")
             appendLine()
             
-            appendLine("## Conversation Context")
+            appendLine("## ${strings.contextHeader}")
             appendLine()
             appendLine(metaSummary)
             appendLine()
             appendLine("---")
             appendLine()
             
-            appendLine("## Research Topics")
+            appendLine("## ${strings.topicsHeader}")
             appendLine()
             
             topics.forEachIndexed { index, topic ->
                 appendLine("### ${index + 1}. $topic")
                 appendLine()
                 
-                val result = topicResults[topic] ?: "No results available"
+                val result = topicResults[topic] ?: strings.noResults
                 appendLine(result)
                 appendLine()
                 appendLine("---")
                 appendLine()
             }
             
-            appendLine("## Summary")
+            appendLine("## ${strings.summaryHeader}")
             appendLine()
-            appendLine("This report was automatically generated based on the conversation analysis.")
-            appendLine("It covers ${topics.size} topic(s) that were identified as requiring deeper research.")
+            appendLine(String.format(strings.summaryText, topics.size))
             appendLine()
-            appendLine("*Generated by Reasoning Agent*")
+            appendLine("*${strings.generatedBy}*")
         }
     }
     

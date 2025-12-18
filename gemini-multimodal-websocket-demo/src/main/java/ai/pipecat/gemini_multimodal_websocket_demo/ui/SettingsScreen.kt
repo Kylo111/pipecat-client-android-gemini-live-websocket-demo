@@ -83,7 +83,7 @@ fun SettingsScreen(
     var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
     var summaryModel by remember { 
         val saved = Preferences.summaryModel.value
-        mutableStateOf(if (saved.isNullOrBlank()) "gemini-2.5-flash" else saved)
+        mutableStateOf(if (saved.isNullOrBlank()) "models/gemini-3-flash-preview" else saved)
     }
     var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
@@ -108,7 +108,7 @@ fun SettingsScreen(
     var isLoggedIn by remember { mutableStateOf(authManager.isTokenValid()) }
     
     // Initialize AgentConfigProvider
-    var reasoningAgentModel by remember { mutableStateOf("deepseek/deepseek-v3.2") }
+    var reasoningAgentModel by remember { mutableStateOf("models/gemini-3-flash-preview") }
     
     LaunchedEffect(Unit) {
         try {
@@ -116,8 +116,8 @@ fun SettingsScreen(
             reasoningAgentModel = AgentConfigProvider.getReasoningAgentConfig().modelId
             Log.d("SettingsScreen", "Reasoning agent model loaded: $reasoningAgentModel")
         } catch (e: Exception) {
-            Log.w("SettingsScreen", "Failed to get reasoning agent model, using default: deepseek/deepseek-v3.2", e)
-            reasoningAgentModel = "deepseek/deepseek-v3.2"
+            Log.w("SettingsScreen", "Failed to get reasoning agent model, using default: models/gemini-3-flash-preview", e)
+            reasoningAgentModel = "models/gemini-3-flash-preview"
         }
     }
     
@@ -182,7 +182,7 @@ fun SettingsScreen(
                 // 2. Validate Summary Model if summary mode is enabled
                 if (useSummaryMode) {
                     if (summaryModel.isBlank()) {
-                        validationError = "Brak nazwy modelu podsumowującego. Wpisz nazwę modelu (np. gemini-2.5-flash)."
+                        validationError = "Brak nazwy modelu podsumowującego. Wpisz nazwę modelu (np. models/gemini-3-flash-preview)."
                         showValidationErrorDialog = true
                         isValidatingKeys = false
                         return@launch
@@ -197,14 +197,17 @@ fun SettingsScreen(
                     }
                 }
                 
-                // 3. Validate OpenRouter API key if provided
-                if (openRouterApiKey.isNotBlank()) {
-                    Log.d("SettingsScreen", "Validating OpenRouter API key with model: $reasoningAgentModel")
+                // 3. Validate OpenRouter API key if using OpenRouter models
+                val reasoningModel = Preferences.reasoningAgentModel.value ?: "models/gemini-3-flash-preview"
+                val usesOpenRouter = !reasoningModel.startsWith("models/")
+                
+                if (usesOpenRouter && openRouterApiKey.isNotBlank()) {
+                    Log.d("SettingsScreen", "Validating OpenRouter API key with model: $reasoningModel")
                     val openRouterClient = ai.pipecat.gemini_multimodal_websocket_demo.agents.OpenRouterClient(
                         context,
                         AgentConfigProvider
                     )
-                    val openRouterResult = openRouterClient.validateApiKey(openRouterApiKey, reasoningAgentModel)
+                    val openRouterResult = openRouterClient.validateApiKey(openRouterApiKey, reasoningModel)
                     if (openRouterResult.isFailure) {
                         val errorMsg = openRouterResult.exceptionOrNull()?.message ?: "Unknown error"
                         Log.e("SettingsScreen", "OpenRouter validation failed: $errorMsg")
@@ -213,6 +216,11 @@ fun SettingsScreen(
                         isValidatingKeys = false
                         return@launch
                     }
+                } else if (usesOpenRouter && openRouterApiKey.isBlank()) {
+                    validationError = "Model Reasoning Agent wymaga klucza OpenRouter API. Wpisz klucz lub zmień model na Gemini."
+                    showValidationErrorDialog = true
+                    isValidatingKeys = false
+                    return@launch
                 }
                 
                 // 4. Validate Perplexity API key if provided
@@ -382,7 +390,7 @@ fun SettingsScreen(
                             onReasoningAgentEnabledChange = { enabled ->
                                 Preferences.reasoningAgentEnabled.value = enabled
                             },
-                            reasoningModel = Preferences.reasoningAgentModel.value ?: "deepseek/deepseek-v3.2",
+                            reasoningModel = Preferences.reasoningAgentModel.value ?: "models/gemini-3-flash-preview",
                             onReasoningModelChange = { model ->
                                 Preferences.reasoningAgentModel.value = model
                             },

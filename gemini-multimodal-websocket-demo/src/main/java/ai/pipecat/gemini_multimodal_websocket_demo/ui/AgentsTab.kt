@@ -262,7 +262,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Używa zaawansowanych modeli (DeepSeek, Claude) przez OpenRouter",
+                    text = "• Używa zaawansowanych modeli (Gemini, DeepSeek) przez Gemini API lub OpenRouter",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -311,9 +311,10 @@ fun AgentsTab(
                             ) {
                                 Text(
                                     text = when (reasoningModel) {
-                                        "deepseek/deepseek-v3.2" -> "DeepSeek V3.2 (Zalecany)"
+                                        "models/gemini-3-flash-preview" -> "Gemini 3 Flash Preview (Zalecany)"
+                                        "deepseek/deepseek-v3.2" -> "DeepSeek V3.2"
                                         "deepseek/deepseek-r1-0528" -> "DeepSeek R1"
-                                        "google/gemini-2.5-flash" -> "Gemini 2.5 Flash"
+                                        "google/gemini-2.5-flash" -> "Gemini 2.5 Flash (OpenRouter)"
                                         else -> reasoningModel
                                     },
                                     fontSize = 14.sp,
@@ -338,9 +339,10 @@ fun AgentsTab(
                                 .background(Color.White)
                         ) {
                             listOf(
-                                "deepseek/deepseek-v3.2" to "DeepSeek V3.2 (Zalecany)",
-                                "deepseek/deepseek-r1-0528" to "DeepSeek R1",
-                                "google/gemini-2.5-flash" to "Gemini 2.5 Flash"
+                                "models/gemini-3-flash-preview" to "Gemini 3 Flash Preview (Zalecany)",
+                                "deepseek/deepseek-v3.2" to "DeepSeek V3.2 (OpenRouter)",
+                                "deepseek/deepseek-r1-0528" to "DeepSeek R1 (OpenRouter)",
+                                "google/gemini-2.5-flash" to "Gemini 2.5 Flash (OpenRouter)"
                             ).forEach { (value, label) ->
                                 DropdownMenuItem(
                                     text = {

@@ -51,6 +51,12 @@ class VoiceClientManager(
     private var audioDeviceHandler: AudioDeviceHandler? = null
     private var autoMuteMonitor: AutoMuteMonitor? = null
     
+    // Reconnection manager
+    private var reconnectionManager: ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager? = null
+    
+    // Current session settings (for reconnection)
+    private var currentSettings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings? = null
+    
     // Tool executor for function calling
     private val toolExecutor = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolExecutor(context)
     
@@ -81,6 +87,9 @@ class VoiceClientManager(
      */
     fun start(settings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings? = null) {
         Log.d(TAG, "start() called with settings: $settings")
+        
+        // Save settings for reconnection
+        currentSettings = settings
         
         // Get API key from preferences
         val apiKey = Preferences.geminiApiKey.value
@@ -134,6 +143,37 @@ class VoiceClientManager(
             activityThreshold
         )
         
+        // Initialize reconnection manager
+        reconnectionManager = ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager(
+            context = context,
+            scope = scope
+        ).apply {
+            // Set callbacks
+            isPausedCheck = { _uiState.value.isPaused }
+            onStartConnection = {
+                // Restart connection with same settings
+                startInternal(currentSettings)
+            }
+            onDisconnectWebSocket = { code, reason ->
+                geminiClient?.disconnect()
+            }
+            getConnectionState = { _uiState.value.connectionState.name }
+            isBotReadyCheck = { _uiState.value.isConnected }
+            getWebSocketState = { 
+                if (geminiClient?.isConnected == true) "CONNECTED" else "DISCONNECTED"
+            }
+            onReconnectionAttemptChanged = { attempt ->
+                Log.i(TAG, "🔄 Reconnection attempt: $attempt")
+            }
+            onMaxAttemptsReached = {
+                Log.e(TAG, "❌ Max reconnection attempts reached")
+                errors.add(Error("Nie udało się połączyć ponownie. Spróbuj zakończyć i rozpocząć sesję ponownie."))
+            }
+            onUpdateNotification = {
+                // Update notification if needed
+            }
+        }
+        
         // Set up callback to sync UI state with actual speakerphone state
         audioDeviceHandler?.onAudioRoutingChanged = {
             syncSpeakerphoneState()
@@ -145,34 +185,62 @@ class VoiceClientManager(
         
         // Connect
         scope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(connectionState = ConnectionState.CONNECTING)
-                
-                val voiceName = settings?.voiceName ?: "Puck"
-                val temperature = settings?.temperature ?: 0.8f
-                val topP = settings?.topP
-                val topK = settings?.topK
-                val maxOutputTokens = settings?.maxOutputTokens
-                
-                connect(
-                    voiceName = voiceName,
-                    systemPrompt = systemPrompt,
-                    temperature = temperature,
-                    toolDeclarations = toolDeclarations,
-                    topP = topP,
-                    topK = topK,
-                    maxOutputTokens = maxOutputTokens
-                )
-                
-                _uiState.value = _uiState.value.copy(
-                    connectionState = ConnectionState.CONNECTED,
-                    isConnected = true,
-                    isMicEnabled = true
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to connect", e)
-                errors.add(Error(e.message ?: "Connection failed"))
-                _uiState.value = _uiState.value.copy(connectionState = ConnectionState.DISCONNECTED)
+            startInternal(settings)
+        }
+    }
+    
+    /**
+     * Internal start method used by both start() and reconnection.
+     */
+    private suspend fun startInternal(settings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings?) {
+        try {
+            _uiState.value = _uiState.value.copy(connectionState = ConnectionState.CONNECTING)
+            
+            // Get system prompt from preferences (already contains conversation context)
+            val systemPrompt = Preferences.systemPrompt.value ?: ""
+            
+            // Get tool declarations
+            val isHelpConversation = settings?.conversationId == "system_help_conversation"
+            val toolDeclarations = if (isHelpConversation) {
+                ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getHelpConversationTools(context)
+            } else {
+                ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
+            }
+            
+            val voiceName = settings?.voiceName ?: "Puck"
+            val temperature = settings?.temperature ?: 0.8f
+            val topP = settings?.topP
+            val topK = settings?.topK
+            val maxOutputTokens = settings?.maxOutputTokens
+            
+            connect(
+                voiceName = voiceName,
+                systemPrompt = systemPrompt,
+                temperature = temperature,
+                toolDeclarations = toolDeclarations,
+                topP = topP,
+                topK = topK,
+                maxOutputTokens = maxOutputTokens
+            )
+            
+            _uiState.value = _uiState.value.copy(
+                connectionState = ConnectionState.CONNECTED,
+                isConnected = true,
+                isMicEnabled = true
+            )
+            
+            // Reset reconnection manager on successful connection
+            reconnectionManager?.reset()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to connect", e)
+            errors.add(Error(e.message ?: "Connection failed"))
+            _uiState.value = _uiState.value.copy(connectionState = ConnectionState.DISCONNECTED)
+            
+            // Start reconnection on failure
+            if (!_uiState.value.isPaused && currentSettings != null) {
+                Log.i(TAG, "🔄 Starting reconnection after connection failure...")
+                reconnectionManager?.startReconnection()
             }
         }
     }
@@ -281,12 +349,28 @@ class VoiceClientManager(
                 isConnected = false,
                 isBotTalking = false
             )
+            
+            // Start automatic reconnection if not paused
+            if (!_uiState.value.isPaused && currentSettings != null) {
+                Log.i(TAG, "🔄 Starting automatic reconnection...")
+                scope.launch {
+                    reconnectionManager?.startReconnection()
+                }
+            }
         }
         
         client.onError = { error ->
             Log.e(TAG, "Gemini error: ${error.message}", error)
             _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
             errors.add(Error(error.message ?: "Unknown error"))
+            
+            // Start automatic reconnection on error if not paused
+            if (!_uiState.value.isPaused && currentSettings != null) {
+                Log.i(TAG, "🔄 Starting automatic reconnection after error...")
+                scope.launch {
+                    reconnectionManager?.startReconnection()
+                }
+            }
         }
         
         client.onToolCall = { callId, name, arguments ->
@@ -527,6 +611,13 @@ class VoiceClientManager(
      */
     fun stop() {
         Log.d(TAG, "stop() called")
+        
+        // Cancel any ongoing reconnection
+        reconnectionManager?.cancelReconnection()
+        
+        // Clear current settings to prevent reconnection
+        currentSettings = null
+        
         disconnect()
     }
     
@@ -578,6 +669,10 @@ class VoiceClientManager(
      */
     fun pause() {
         Log.d(TAG, "pause() called")
+        
+        // Cancel any ongoing reconnection when user manually pauses
+        reconnectionManager?.cancelReconnection()
+        
         playBeep()
         _uiState.value = _uiState.value.copy(
             isPaused = true,
@@ -818,6 +913,7 @@ class VoiceClientManager(
      * Release all resources.
      */
     fun release() {
+        reconnectionManager?.cancelReconnection()
         disconnect()
         autoMuteMonitor?.release()
         audioEngine?.release()

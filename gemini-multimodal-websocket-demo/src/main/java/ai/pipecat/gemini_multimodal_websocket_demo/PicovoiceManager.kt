@@ -32,16 +32,17 @@ object PicovoiceManager {
     // ========== Service Control ==========
     
     /**
-     * Enable Picovoice wake word detection and start the service.
+     * Enable Picovoice wake word detection.
+     * Note: Service will start automatically when a conversation begins (via VoiceService).
      */
     fun enablePicovoice(context: Context) {
-        Log.d(TAG, "Enabling Picovoice")
+        Log.d(TAG, "Enabling Picovoice (will start with next conversation)")
         preferences.setEnabled(true)
-        startService(context)
+        // Don't start service here - it will start with VoiceService
     }
     
     /**
-     * Disable Picovoice wake word detection and stop the service.
+     * Disable Picovoice wake word detection and stop the service if running.
      */
     fun disablePicovoice(context: Context) {
         Log.d(TAG, "Disabling Picovoice")
@@ -84,15 +85,24 @@ object PicovoiceManager {
     
     /**
      * Restart the service to reload wake words.
+     * Only restarts if service is currently running (during active conversation).
      * Uses a delay to ensure service is fully stopped before restarting.
      */
     fun restartService(context: Context) {
         if (isEnabled()) {
-            stopService(context)
-            // Use Handler to delay restart without blocking UI thread
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                startService(context)
-            }, 500) // 500ms delay to ensure service is fully stopped
+            // Only restart if service is actually running
+            // Check if VoiceService is running (indicates active conversation)
+            val voiceService = VoiceService.getInstance()
+            if (voiceService != null) {
+                stopService(context)
+                // Use Handler to delay restart without blocking UI thread
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    startService(context)
+                }, 500) // 500ms delay to ensure service is fully stopped
+                Log.d(TAG, "Restarting PorcupineService during active conversation")
+            } else {
+                Log.d(TAG, "No active conversation - PorcupineService restart skipped")
+            }
         }
     }
     

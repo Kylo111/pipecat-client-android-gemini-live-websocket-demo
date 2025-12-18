@@ -155,6 +155,7 @@ class RTVIApplication : Application() {
         }
         
         // Picovoice is disabled by default - user can enable it in settings
+        // PorcupineService will start automatically when a conversation begins (via VoiceService)
         // This prevents crash on Android 14+ which requires RECORD_AUDIO permission
         // before starting foreground service with microphone type
     }
@@ -200,38 +201,11 @@ class RTVIApplication : Application() {
         }
     }
     
-    // This method is called from MainActivity after permissions are granted
+    // DEPRECATED: PorcupineService now starts automatically when conversation begins
+    // This method is kept for backward compatibility but does nothing
+    @Deprecated("PorcupineService now starts automatically with VoiceService")
     fun startPorcupineService() {
-        try {
-            val intent = android.content.Intent(this, PorcupineService::class.java)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
-            android.util.Log.i("RTVIApplication", "PorcupineService started")
-            
-            // Give service time to initialize, then resume Picovoice
-            // (no active session at app start, so Picovoice should be listening)
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                resumePicovoiceOnAppStart()
-            }, 2000) // 2 seconds delay for initialization
-            
-        } catch (e: Exception) {
-            android.util.Log.e("RTVIApplication", "Failed to start PorcupineService", e)
-        }
-    }
-    
-    private fun resumePicovoiceOnAppStart() {
-        try {
-            // Resume Picovoice since no session is active at app start
-            val intent = android.content.Intent("ai.pipecat.gemini_multimodal_websocket_demo.RESUME_PORCUPINE")
-            intent.setPackage(packageName)
-            sendBroadcast(intent)
-            android.util.Log.i("RTVIApplication", "Picovoice resumed on app start")
-        } catch (e: Exception) {
-            android.util.Log.e("RTVIApplication", "Failed to resume Picovoice", e)
-        }
+        android.util.Log.d("RTVIApplication", "startPorcupineService() called but ignored - service starts with conversation")
     }
     
     companion object {

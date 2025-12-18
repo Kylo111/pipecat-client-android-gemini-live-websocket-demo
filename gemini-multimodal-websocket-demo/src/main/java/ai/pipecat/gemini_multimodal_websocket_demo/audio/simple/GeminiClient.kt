@@ -60,7 +60,7 @@ class GeminiClient(
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)  // No timeout for streaming
         .writeTimeout(30, TimeUnit.SECONDS)
-        .pingInterval(30, TimeUnit.SECONDS)
+        .pingInterval(0, TimeUnit.SECONDS)  // DISABLED: Gemini API doesn't respond to pings
         .build()
     
     /**

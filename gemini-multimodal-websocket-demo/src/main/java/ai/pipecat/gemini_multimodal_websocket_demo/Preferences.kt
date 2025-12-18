@@ -224,7 +224,7 @@ object Preferences {
     
     // Summary mode preferences
     val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, true) // Default: Podsumowanie (Summary mode)
-    val summaryModel = StringPref(PREF_SUMMARY_MODEL, "gemini-2.5-flash")
+    val summaryModel = StringPref(PREF_SUMMARY_MODEL, "models/gemini-3-flash-preview")
     val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, SystemPrompts.libreChatSummaryPrompt)
     
     // Parental lock
@@ -238,7 +238,7 @@ object Preferences {
     
     // Reasoning Agent settings
     val reasoningAgentEnabled = BooleanPref(PREF_REASONING_AGENT_ENABLED, true) // Default: enabled
-    val reasoningAgentModel = StringPref(PREF_REASONING_AGENT_MODEL, "deepseek/deepseek-r1") // Default model
+    val reasoningAgentModel = StringPref(PREF_REASONING_AGENT_MODEL, "models/gemini-3-flash-preview") // Default model - uses Gemini API
     val whispererModeEnabled = BooleanPref(PREF_WHISPERER_MODE_ENABLED, true) // Default: enabled
     
     // UI preferences

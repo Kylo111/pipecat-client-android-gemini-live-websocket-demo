@@ -6,25 +6,24 @@ import android.content.Intent
 import android.util.Log
 
 /**
- * BroadcastReceiver that starts PorcupineService after device boot.
- * Only starts the service if Picovoice is enabled in settings.
+ * BroadcastReceiver for device boot events.
+ * 
+ * NOTE: PorcupineService is no longer started on boot.
+ * It now starts automatically when a conversation begins (via VoiceService).
+ * This prevents unnecessary battery drain and microphone access when no conversation is active.
  */
 class BootReceiver : BroadcastReceiver() {
     
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Log.d(TAG, "Boot completed, checking if Picovoice is enabled")
+            Log.d(TAG, "Boot completed")
             
-            try {
-                // Start service if Picovoice is enabled
-                if (PicovoiceManager.isEnabled()) {
-                    Log.d(TAG, "Picovoice is enabled, starting service")
-                    PicovoiceManager.enablePicovoice(context)
-                } else {
-                    Log.d(TAG, "Picovoice is disabled, not starting service")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error starting Picovoice on boot", e)
+            // PorcupineService will start automatically when user starts a conversation
+            // No need to start it here
+            if (PicovoiceManager.isEnabled()) {
+                Log.d(TAG, "Picovoice is enabled - will start with next conversation")
+            } else {
+                Log.d(TAG, "Picovoice is disabled")
             }
         }
     }

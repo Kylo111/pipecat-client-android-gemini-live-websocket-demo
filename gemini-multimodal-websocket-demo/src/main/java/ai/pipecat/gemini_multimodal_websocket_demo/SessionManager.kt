@@ -962,7 +962,7 @@ class SessionManager(
                                                 
                                                 val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
                                                 val summaryPrompt = getEffectiveSummaryPrompt(convId)
-                                                val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
+                                                val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "models/gemini-3-flash-preview"
                                                 
                                                 if (apiKey.isNullOrBlank()) {
                                                     Log.w(TAG, "⚠️ No Gemini API key, skipping summary generation")
@@ -1109,7 +1109,7 @@ class SessionManager(
                     contentToSend = transcriptText
                 } else {
                     // Generate summary using Gemini (infinite retry)
-                    val summaryModel = Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "gemini-2.5-flash"
+                    val summaryModel = Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "models/gemini-3-flash-preview"
                     
                     val summaryResult = geminiSummaryService.generateSummaryWithRetry(
                         transcript = transcriptText,
