@@ -3,6 +3,7 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 import ai.pipecat.gemini_multimodal_websocket_demo.GeminiSummaryService
 import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.config.AgentConfigProvider
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
@@ -73,7 +74,7 @@ fun SettingsScreen(
     
     // Local state for settings
     var geminiApiKey by remember { mutableStateOf(Preferences.geminiApiKey.value ?: "") }
-    var modelName by remember { mutableStateOf(Preferences.modelName.value ?: "models/gemini-2.5-flash-native-audio-preview-09-2025") }
+    var modelName by remember { mutableStateOf(Preferences.modelName.value ?: SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL) }
     var keepScreenAwake by remember { mutableStateOf(Preferences.keepScreenAwake.value) }
     var autoPauseTimeout by remember { mutableStateOf(Preferences.autoPauseTimeoutSeconds.value) }
     var botResponseTimeout by remember { mutableStateOf(Preferences.botResponseTimeoutMinutes.value) }
@@ -83,7 +84,7 @@ fun SettingsScreen(
     var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
     var summaryModel by remember { 
         val saved = Preferences.summaryModel.value
-        mutableStateOf(if (saved.isNullOrBlank()) "models/gemini-3-flash-preview" else saved)
+        mutableStateOf(if (saved.isNullOrBlank()) SystemPrompts.DEFAULT_SUMMARY_MODEL else saved)
     }
     var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
@@ -92,6 +93,7 @@ fun SettingsScreen(
     // API Keys for Reasoning Agent
     var openRouterApiKey by remember { mutableStateOf(Preferences.openRouterApiKey.value ?: "") }
     var perplexityApiKey by remember { mutableStateOf(Preferences.perplexityApiKey.value ?: "") }
+    var googleDirectionsApiKey by remember { mutableStateOf(Preferences.googleDirectionsApiKey.value ?: "") }
     
     // Telegram settings
     var telegramBotToken by remember { mutableStateOf(Preferences.telegramBotToken.value ?: "") }
@@ -108,7 +110,7 @@ fun SettingsScreen(
     var isLoggedIn by remember { mutableStateOf(authManager.isTokenValid()) }
     
     // Initialize AgentConfigProvider
-    var reasoningAgentModel by remember { mutableStateOf("models/gemini-3-flash-preview") }
+    var reasoningAgentModel by remember { mutableStateOf(SystemPrompts.DEFAULT_REASONING_MODEL) }
     
     LaunchedEffect(Unit) {
         try {
@@ -116,8 +118,8 @@ fun SettingsScreen(
             reasoningAgentModel = AgentConfigProvider.getReasoningAgentConfig().modelId
             Log.d("SettingsScreen", "Reasoning agent model loaded: $reasoningAgentModel")
         } catch (e: Exception) {
-            Log.w("SettingsScreen", "Failed to get reasoning agent model, using default: models/gemini-3-flash-preview", e)
-            reasoningAgentModel = "models/gemini-3-flash-preview"
+            Log.w("SettingsScreen", "Failed to get reasoning agent model, using default: ${SystemPrompts.DEFAULT_REASONING_MODEL}", e)
+            reasoningAgentModel = SystemPrompts.DEFAULT_REASONING_MODEL
         }
     }
     
@@ -153,6 +155,7 @@ fun SettingsScreen(
         // Save Reasoning Agent API keys
         Preferences.openRouterApiKey.value = openRouterApiKey
         Preferences.perplexityApiKey.value = perplexityApiKey
+        Preferences.googleDirectionsApiKey.value = googleDirectionsApiKey
         
         // Save Telegram settings
         Preferences.telegramBotToken.value = telegramBotToken
@@ -182,7 +185,7 @@ fun SettingsScreen(
                 // 2. Validate Summary Model if summary mode is enabled
                 if (useSummaryMode) {
                     if (summaryModel.isBlank()) {
-                        validationError = "Brak nazwy modelu podsumowującego. Wpisz nazwę modelu (np. models/gemini-3-flash-preview)."
+                        validationError = "Brak nazwy modelu podsumowującego. Wpisz nazwę modelu (np. ${SystemPrompts.DEFAULT_SUMMARY_MODEL})."
                         showValidationErrorDialog = true
                         isValidatingKeys = false
                         return@launch
@@ -198,7 +201,7 @@ fun SettingsScreen(
                 }
                 
                 // 3. Validate OpenRouter API key if using OpenRouter models
-                val reasoningModel = Preferences.reasoningAgentModel.value ?: "models/gemini-3-flash-preview"
+                val reasoningModel = Preferences.reasoningAgentModel.value ?: SystemPrompts.DEFAULT_REASONING_MODEL
                 val usesOpenRouter = !reasoningModel.startsWith("models/")
                 
                 if (usesOpenRouter && openRouterApiKey.isNotBlank()) {
@@ -327,6 +330,8 @@ fun SettingsScreen(
                             onPerplexityApiKeyChange = { perplexityApiKey = it },
                             openRouterApiKey = openRouterApiKey,
                             onOpenRouterApiKeyChange = { openRouterApiKey = it },
+                            googleDirectionsApiKey = googleDirectionsApiKey,
+                            onGoogleDirectionsApiKeyChange = { googleDirectionsApiKey = it },
                             picovoiceAccessKey = picovoiceAccessKey,
                             onPicovoiceAccessKeyChange = { picovoiceAccessKey = it },
                             telegramBotToken = telegramBotToken,
@@ -390,7 +395,7 @@ fun SettingsScreen(
                             onReasoningAgentEnabledChange = { enabled ->
                                 Preferences.reasoningAgentEnabled.value = enabled
                             },
-                            reasoningModel = Preferences.reasoningAgentModel.value ?: "models/gemini-3-flash-preview",
+                            reasoningModel = Preferences.reasoningAgentModel.value ?: SystemPrompts.DEFAULT_REASONING_MODEL,
                             onReasoningModelChange = { model ->
                                 Preferences.reasoningAgentModel.value = model
                             },

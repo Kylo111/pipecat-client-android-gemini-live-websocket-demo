@@ -211,6 +211,21 @@ fun NotesListView(
     onNoteLongPress: (File) -> Unit,
     onClose: () -> Unit
 ) {
+    // State for showing special notes screens
+    var showShoppingList by remember { mutableStateOf(false) }
+    var showTodoList by remember { mutableStateOf(false) }
+    
+    // Show special notes screens
+    if (showShoppingList) {
+        ShoppingListScreen(onClose = { showShoppingList = false })
+        return
+    }
+    
+    if (showTodoList) {
+        TodoListScreen(onClose = { showTodoList = false })
+        return
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -252,37 +267,9 @@ fun NotesListView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (notes.isEmpty()) {
-            // Empty state
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "📝",
-                        fontSize = 48.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Brak notatek",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.W600,
-                        color = Color.Gray,
-                        style = TextStyles.base
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Powiedz: 'Zapisz w notatkach: ...'",
-                        fontSize = 14.sp,
-                        color = Color.Gray,
-                        style = TextStyles.base
-                    )
-                }
-            }
-        } else {
+        // Always show notes list (with special notes at top)
+        // Requirements: 7.8, 4.8
+        run {
             // Notes list - sorted by modification date descending
             val sortedNotes = remember(notes) { 
                 notes.sortedByDescending { it.lastModified() }
@@ -292,6 +279,57 @@ fun NotesListView(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Special notes at the top (Requirements: 7.8, 4.8)
+                item {
+                    SpecialNoteItem(
+                        icon = "🛒",
+                        title = "Lista zakupów",
+                        backgroundColor = Color(0xFFFFF3E0), // Light orange for shopping
+                        onClick = { showShoppingList = true }
+                    )
+                }
+                
+                item {
+                    SpecialNoteItem(
+                        icon = "✓",
+                        title = "Rzeczy do zrobienia",
+                        backgroundColor = Color(0xFFE3F2FD), // Light blue for TODO
+                        onClick = { showTodoList = true }
+                    )
+                }
+                
+                // Empty state message if no regular notes
+                if (sortedNotes.isEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "📝",
+                                fontSize = 48.sp
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Brak innych notatek",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.W600,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Powiedz: 'Zapisz w notatkach: ...'",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                style = TextStyles.base
+                            )
+                        }
+                    }
+                }
+                
+                // Regular notes
                 items(sortedNotes) { note ->
                     NoteListItem(
                         note = note,
@@ -301,6 +339,55 @@ fun NotesListView(
                 }
             }
         }
+    }
+}
+
+/**
+ * Special note item with distinct icon and highlighted color.
+ * 
+ * Requirements: 7.8, 4.8
+ */
+@Composable
+fun SpecialNoteItem(
+    icon: String,
+    title: String,
+    backgroundColor: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Icon
+        Text(
+            text = icon,
+            fontSize = 28.sp
+        )
+        
+        // Title
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.W700,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        // Arrow indicator
+        Text(
+            text = "→",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.W600,
+            color = Color.Black
+        )
     }
 }
 

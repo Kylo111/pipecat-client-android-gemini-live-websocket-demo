@@ -130,6 +130,12 @@ fun IntegrationsTab(
             telegramTestResult = telegramTestResult
         )
         
+        // System Integrations Section
+        SystemIntegrationsPanel()
+        
+        // System Assistant Section
+        SystemAssistantPanel()
+        
         // Custom Tools Section
         CustomToolsPanel()
         
@@ -853,6 +859,722 @@ private fun TelegramConfigurationPanel(
                 color = Color.DarkGray,
                 style = TextStyles.base,
                 lineHeight = 14.sp
+            )
+        }
+    }
+}
+
+/**
+ * System integrations panel for managing system integration toggles and permissions.
+ */
+@Composable
+private fun SystemIntegrationsPanel() {
+    val context = LocalContext.current
+    val integrationManager = remember { ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationManager(context) }
+    
+    // State for each integration
+    val integrationStates = remember {
+        ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType.values().associate { type ->
+            type to mutableStateOf(integrationManager.isIntegrationEnabled(type))
+        }
+    }
+    
+    // Permission states
+    val permissionStates = remember {
+        ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType.values().associate { type ->
+            type to mutableStateOf(integrationManager.hasRequiredPermissions(type))
+        }
+    }
+    
+    // Permission request launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Update permission states after request
+        ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType.values().forEach { type ->
+            permissionStates[type]?.value = integrationManager.hasRequiredPermissions(type)
+        }
+    }
+    
+    SettingsSection(title = "Integracje systemowe") {
+        Text(
+            text = "Włącz lub wyłącz poszczególne integracje systemowe. Wyłączone integracje nie będą dostępne dla asystenta głosowego.",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W400,
+            color = Color.Gray,
+            style = TextStyles.base,
+            lineHeight = 16.sp
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // List all integrations
+        ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType.values().forEach { integrationType ->
+            val isEnabled = integrationStates[integrationType]?.value ?: false
+            val hasPermissions = permissionStates[integrationType]?.value ?: false
+            val missingPermissions = integrationManager.getMissingPermissions(integrationType)
+            
+            IntegrationToggleItem(
+                integrationType = integrationType,
+                isEnabled = isEnabled,
+                hasPermissions = hasPermissions,
+                missingPermissions = missingPermissions,
+                onToggle = { enabled ->
+                    integrationManager.setIntegrationEnabled(integrationType, enabled)
+                    integrationStates[integrationType]?.value = enabled
+                },
+                onRequestPermissions = {
+                    // Request missing permissions
+                    val permissions = integrationManager.getMissingPermissions(integrationType)
+                    if (permissions.isNotEmpty()) {
+                        // Filter out SCHEDULE_EXACT_ALARM as it requires special handling
+                        val regularPermissions = permissions.filter { 
+                            it != android.Manifest.permission.SCHEDULE_EXACT_ALARM 
+                        }
+                        
+                        if (regularPermissions.isNotEmpty()) {
+                            permissionLauncher.launch(regularPermissions.toTypedArray())
+                        }
+                        
+                        // Handle SCHEDULE_EXACT_ALARM separately
+                        if (permissions.contains(android.Manifest.permission.SCHEDULE_EXACT_ALARM) && 
+                            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                android.net.Uri.fromParts("package", context.packageName, null)
+                            )
+                            context.startActivity(intent)
+                        }
+                    }
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+/**
+ * Individual integration toggle item with permission status.
+ */
+@Composable
+private fun IntegrationToggleItem(
+    integrationType: ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType,
+    isEnabled: Boolean,
+    hasPermissions: Boolean,
+    missingPermissions: List<String>,
+    onToggle: (Boolean) -> Unit,
+    onRequestPermissions: () -> Unit
+) {
+    val context = LocalContext.current
+    val integrationManager = remember { ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationManager(context) }
+    
+    // Dialog state for POST_NOTIFICATIONS explanation
+    var showNotificationExplanation by remember { mutableStateOf(false) }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = if (isEnabled && hasPermissions) Color(0xFF4CAF50) else Colors.textFieldBorder,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        // Header with toggle
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = integrationType.displayName,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                // Status text
+                Text(
+                    text = when {
+                        !isEnabled -> "Wyłączone"
+                        hasPermissions -> "Aktywne"
+                        else -> "Wymaga uprawnień"
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = when {
+                        !isEnabled -> Color.Gray
+                        hasPermissions -> Color(0xFF4CAF50)
+                        else -> Color(0xFFFF9800)
+                    },
+                    style = TextStyles.base
+                )
+                
+                // Show unavailable message when disabled
+                if (!isEnabled) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = integrationManager.getUnavailableMessage(integrationType),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 13.sp
+                    )
+                }
+            }
+            
+            androidx.compose.material3.Switch(
+                checked = isEnabled,
+                onCheckedChange = onToggle,
+                colors = androidx.compose.material3.SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Colors.buttonNormal,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Colors.lightGrey
+                )
+            )
+        }
+        
+        // Required permissions info
+        if (integrationType.requiredPermissions.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Permission status indicator
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (hasPermissions) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (hasPermissions) "✓" else "!",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.W700,
+                        color = Color.White,
+                        style = TextStyles.base
+                    )
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Wymaga: ${integrationManager.getPermissionDisplayNames(integrationType.requiredPermissions).joinToString(", ")}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 14.sp
+                    )
+                    
+                    // Show missing permissions warning
+                    if (isEnabled && !hasPermissions && missingPermissions.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "⚠️ Brak: ${integrationManager.getPermissionDisplayNames(missingPermissions).joinToString(", ")}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color(0xFFFF9800),
+                            style = TextStyles.base,
+                            lineHeight = 13.sp
+                        )
+                    }
+                }
+            }
+            
+            // Permission request buttons when permissions are denied
+            if (isEnabled && !hasPermissions && missingPermissions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Request permissions button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Colors.buttonNormal)
+                            .clickable { 
+                                // Check if POST_NOTIFICATIONS is needed and show explanation
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+                                    missingPermissions.contains(android.Manifest.permission.POST_NOTIFICATIONS) &&
+                                    integrationType == ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType.ALARMS_REMINDERS) {
+                                    showNotificationExplanation = true
+                                } else {
+                                    onRequestPermissions()
+                                }
+                            }
+                            .padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Przyznaj uprawnienia",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.White,
+                            style = TextStyles.base
+                        )
+                    }
+                    
+                    // Settings button
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(
+                                width = 1.dp,
+                                color = Colors.buttonNormal,
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .background(Color.White)
+                            .clickable {
+                                // Open app settings
+                                val intent = android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.fromParts("package", context.packageName, null)
+                                )
+                                context.startActivity(intent)
+                            }
+                            .padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "⚙️ Ustawienia",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Colors.buttonNormal,
+                            style = TextStyles.base
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    // POST_NOTIFICATIONS explanation dialog for Android 13+
+    if (showNotificationExplanation) {
+        AlertDialog(
+            onDismissRequest = { showNotificationExplanation = false },
+            title = {
+                Text(
+                    text = "Uprawnienie do powiadomień",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Aby przypomnienia mogły działać poprawnie, aplikacja potrzebuje uprawnienia do wyświetlania powiadomień.",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Black,
+                        style = TextStyles.base,
+                        lineHeight = 18.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Text(
+                        text = "Powiadomienia są używane do:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "• Wyświetlania przypomnień o zaplanowanej godzinie\n• Odtwarzania dźwięku przypomnienia\n• Działania nawet gdy aplikacja jest zamknięta",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.DarkGray,
+                        style = TextStyles.base,
+                        lineHeight = 17.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showNotificationExplanation = false
+                        onRequestPermissions()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Colors.buttonNormal
+                    )
+                ) {
+                    Text("Przyznaj uprawnienie", style = TextStyles.base)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showNotificationExplanation = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.LightGray
+                    )
+                ) {
+                    Text("Anuluj", style = TextStyles.base, color = Color.Black)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+}
+
+/**
+ * System assistant panel for setting app as default assistant.
+ */
+@Composable
+private fun SystemAssistantPanel() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val assistantManager = remember { ai.pipecat.gemini_multimodal_websocket_demo.assistant.AssistantManager(context) }
+    val authManager = remember { ai.pipecat.gemini_multimodal_websocket_demo.AuthManager(context) }
+    val libreChatService = remember { ai.pipecat.gemini_multimodal_websocket_demo.LibreChatService(authManager) }
+    val sessionManager = remember { 
+        ai.pipecat.gemini_multimodal_websocket_demo.SessionManager(context, libreChatService, coroutineScope) 
+    }
+    
+    var isDefaultAssistant by remember { mutableStateOf(assistantManager.isDefaultAssistant()) }
+    var selectedThreadId by remember { mutableStateOf(assistantManager.getDefaultThreadId()) }
+    var threads by remember { mutableStateOf<List<ai.pipecat.gemini_multimodal_websocket_demo.LibreChatService.ConversationThread>>(emptyList()) }
+    var expanded by remember { mutableStateOf(false) }
+    
+    // Load threads
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        threads = sessionManager.getConversationThreads()
+    }
+    
+    SettingsSection(title = "Asystent systemowy") {
+        Text(
+            text = "Ustaw aplikację jako domyślnego asystenta systemowego. Po ustawieniu możesz uruchomić wybraną konwersację przytrzymując przycisk Power (zależy od urządzenia).",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.W400,
+            color = Color.Gray,
+            style = TextStyles.base,
+            lineHeight = 16.sp
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Status indicator
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    if (isDefaultAssistant) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                    RoundedCornerShape(8.dp)
+                )
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = if (isDefaultAssistant) "✓" else "ℹ️",
+                fontSize = 24.sp
+            )
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isDefaultAssistant) "Ustawiona jako asystent" else "Nie ustawiona jako asystent",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = if (isDefaultAssistant) Color(0xFF2E7D32) else Color(0xFFE65100),
+                    style = TextStyles.base
+                )
+                
+                Text(
+                    text = if (isDefaultAssistant) 
+                        "Możesz uruchomić aplikację przytrzymując Power" 
+                    else 
+                        "Kliknij przycisk poniżej aby otworzyć ustawienia",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = if (isDefaultAssistant) Color(0xFF2E7D32) else Color(0xFFE65100),
+                    style = TextStyles.base,
+                    lineHeight = 14.sp
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Thread selection
+        Text(
+            text = "Konwersacja do uruchomienia:",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.W600,
+            color = Color.Black,
+            style = TextStyles.base
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Thread selection button
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .border(
+                    width = 1.dp,
+                    color = Colors.textFieldBorder,
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = threads.find { it.id == selectedThreadId }?.title ?: "Wybierz konwersację",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                    color = if (selectedThreadId != null) Color.Black else Color.Gray,
+                    style = TextStyles.base,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                Text(
+                    text = "▼",
+                    fontSize = 16.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+        
+        // Thread selection dialog
+        if (expanded) {
+            AlertDialog(
+                onDismissRequest = { expanded = false },
+                title = {
+                    Text(
+                        text = "Wybierz konwersację",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.W700,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (threads.isEmpty()) {
+                            Text(
+                                text = "Brak dostępnych konwersacji. Zaloguj się do LibreChat i utwórz konwersację.",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.W400,
+                                color = Color.Gray,
+                                style = TextStyles.base,
+                                lineHeight = 18.sp
+                            )
+                        } else {
+                            threads.forEach { thread ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (thread.id == selectedThreadId) 
+                                                Colors.buttonNormal.copy(alpha = 0.1f) 
+                                            else 
+                                                Color.Transparent
+                                        )
+                                        .clickable {
+                                            selectedThreadId = thread.id
+                                            assistantManager.setDefaultThreadId(thread.id)
+                                            expanded = false
+                                        }
+                                        .padding(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = thread.title,
+                                            fontSize = 14.sp,
+                                            fontWeight = if (thread.id == selectedThreadId) FontWeight.W600 else FontWeight.W400,
+                                            color = Color.Black,
+                                            style = TextStyles.base,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        
+                                        if (thread.id == selectedThreadId) {
+                                            Text(
+                                                text = "✓",
+                                                fontSize = 18.sp,
+                                                color = Colors.buttonNormal,
+                                                fontWeight = FontWeight.W700
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { expanded = false },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Colors.buttonNormal
+                        )
+                    ) {
+                        Text("Zamknij", style = TextStyles.base)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Set as assistant button
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (selectedThreadId != null) Colors.buttonNormal else Color.LightGray
+                )
+                .clickable(enabled = selectedThreadId != null) {
+                    android.util.Log.d("IntegrationsTab", "Opening assistant settings...")
+                    assistantManager.openAssistantSettings()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Otwórz ustawienia asystenta",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.W600,
+                color = Color.White,
+                style = TextStyles.base
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Instructions
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                .padding(12.dp)
+        ) {
+            Text(
+                text = "ℹ️ Jak to skonfigurować:",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W600,
+                color = Color.Black,
+                style = TextStyles.base
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "1. Wybierz konwersację, która ma się uruchomić",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.DarkGray,
+                style = TextStyles.base,
+                lineHeight = 14.sp
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "2. Kliknij 'Ustaw jako asystenta' - otworzy się ekran ustawień",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.DarkGray,
+                style = TextStyles.base,
+                lineHeight = 14.sp
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "3. W ustawieniach znajdź 'Aplikacja asystenta' lub 'Assist & voice input'",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.DarkGray,
+                style = TextStyles.base,
+                lineHeight = 14.sp
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "4. Wybierz 'Kumpel Chat' jako domyślnego asystenta",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.DarkGray,
+                style = TextStyles.base,
+                lineHeight = 14.sp
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "5. Przytrzymaj przycisk Power aby uruchomić aplikację",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.DarkGray,
+                style = TextStyles.base,
+                lineHeight = 14.sp
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "⚠️ Ważne ograniczenia:",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W600,
+                color = Color(0xFFE65100),
+                style = TextStyles.base
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "• Na urządzeniach Samsung może być zablokowane przez Bixby\n• Niektóre producenci nie pozwalają zmienić domyślnego asystenta\n• Funkcja 'przytrzymaj Power' może być niedostępna\n• W takim przypadku uruchamiaj aplikację normalnie z ekranu głównego",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.W400,
+                color = Color.Gray,
+                style = TextStyles.base,
+                lineHeight = 13.sp
             )
         }
     }

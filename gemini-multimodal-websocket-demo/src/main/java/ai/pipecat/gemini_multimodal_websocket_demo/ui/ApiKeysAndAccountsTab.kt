@@ -2,11 +2,13 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.AuthManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ApiKeysConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.LibreChatError
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.ApiKeysImporter
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.ApiKeysExporter
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -74,6 +76,8 @@ fun ApiKeysAndAccountsTab(
     onPerplexityApiKeyChange: (String) -> Unit,
     openRouterApiKey: String,
     onOpenRouterApiKeyChange: (String) -> Unit,
+    googleDirectionsApiKey: String,
+    onGoogleDirectionsApiKeyChange: (String) -> Unit,
     picovoiceAccessKey: String,
     onPicovoiceAccessKeyChange: (String) -> Unit,
     telegramBotToken: String,
@@ -94,9 +98,11 @@ fun ApiKeysAndAccountsTab(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     
-    // JSON import state
+    // JSON import/export state
     var showImportDialog by remember { mutableStateOf(false) }
     var importResult by remember { mutableStateOf<String?>(null) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportResult by remember { mutableStateOf<String?>(null) }
     
     // Kumpel-chat login state
     val isLoggedIn = authManager.hasStoredCredentials()
@@ -129,6 +135,7 @@ fun ApiKeysAndAccountsTab(
                 config.modelName?.let { name -> onModelNameChange(name) }
                 config.perplexityApiKey?.let { key -> onPerplexityApiKeyChange(key) }
                 config.openRouterApiKey?.let { key -> onOpenRouterApiKeyChange(key) }
+                config.googleDirectionsApiKey?.let { key -> onGoogleDirectionsApiKeyChange(key) }
                 config.picovoiceAccessKey?.let { key -> onPicovoiceAccessKeyChange(key) }
                 config.telegramBotToken?.let { token -> onTelegramBotTokenChange(token) }
                 config.telegramChatId?.let { id -> onTelegramChatIdChange(id) }
@@ -138,6 +145,32 @@ fun ApiKeysAndAccountsTab(
                 importResult = "❌ Błąd: ${result.exceptionOrNull()?.message}"
             }
             showImportDialog = true
+        }
+    }
+    
+    // File creator for JSON export
+    val fileCreatorLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let {
+            val config = ApiKeysConfig(
+                geminiApiKey = geminiApiKey.takeIf { it.isNotBlank() },
+                modelName = modelName.takeIf { it.isNotBlank() },
+                perplexityApiKey = perplexityApiKey.takeIf { it.isNotBlank() },
+                openRouterApiKey = openRouterApiKey.takeIf { it.isNotBlank() },
+                googleDirectionsApiKey = googleDirectionsApiKey.takeIf { it.isNotBlank() },
+                picovoiceAccessKey = picovoiceAccessKey.takeIf { it.isNotBlank() },
+                telegramBotToken = telegramBotToken.takeIf { it.isNotBlank() },
+                telegramChatId = telegramChatId.takeIf { it.isNotBlank() }
+            )
+            
+            val result = ApiKeysExporter.exportToUri(context, uri, config)
+            if (result.isSuccess) {
+                exportResult = "✅ Wyeksportowano klucze API pomyślnie!"
+            } else {
+                exportResult = "❌ Błąd: ${result.exceptionOrNull()?.message}"
+            }
+            showExportDialog = true
         }
     }
     
@@ -205,6 +238,29 @@ fun ApiKeysAndAccountsTab(
                 
                 Text(
                     text = "OpenRouter API zapewnia dostęp do zaawansowanych modeli AI (Claude, GPT-4, etc.) dla Reasoning Agent. Zdobądź klucz na: https://openrouter.ai/keys",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Gray,
+                    style = TextStyles.base,
+                    lineHeight = 14.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Google Directions API Key
+            Column {
+                SettingsTextField(
+                    label = "Klucz API Google Directions (opcjonalny)",
+                    value = googleDirectionsApiKey,
+                    onValueChange = onGoogleDirectionsApiKeyChange,
+                    isPassword = true
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = "Google Directions API umożliwia wyszukiwanie tras transportu publicznego. Możesz użyć tego samego klucza co Google Places API. Zdobądź klucz na: https://console.cloud.google.com",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -295,6 +351,29 @@ fun ApiKeysAndAccountsTab(
             ) {
                 Text(
                     text = "Importuj z JSON",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.White,
+                    style = TextStyles.base
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Export to JSON button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Colors.buttonNormal)
+                    .clickable { 
+                        fileCreatorLauncher.launch("api_keys_${System.currentTimeMillis()}.json")
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Eksportuj do JSON",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
@@ -425,6 +504,55 @@ fun ApiKeysAndAccountsTab(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
+                // Summary Model field (for offline mode)
+                Column {
+                    Text(
+                        text = "Model do podsumowań",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    TextField(
+                        value = summaryModel,
+                        onValueChange = onSummaryModelChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
+                            focusedIndicatorColor = Colors.buttonNormal,
+                            unfocusedIndicatorColor = Color.LightGray
+                        ),
+                        textStyle = TextStyles.base.copy(fontSize = 14.sp),
+                        placeholder = {
+                            Text(
+                                SystemPrompts.DEFAULT_SUMMARY_MODEL,
+                                style = TextStyles.base,
+                                fontSize = 14.sp
+                            )
+                        },
+                        singleLine = true
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = "Domyślnie: ${SystemPrompts.DEFAULT_SUMMARY_MODEL}. Używany do generowania podsumowań konwersacji offline.",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.W400,
+                        color = Color.Gray,
+                        style = TextStyles.base,
+                        lineHeight = 14.sp
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 // Offline mode info
                 Column(
                     modifier = Modifier
@@ -474,7 +602,7 @@ fun ApiKeysAndAccountsTab(
                 
                 Text(
                     text = if (useSummaryMode) {
-                        "Transkrypcja będzie przetwarzana przez Gemini 2.5 Pro i wysyłane będzie podsumowanie"
+                        "Transkrypcja będzie przetwarzana przez Gemini 3 Flash Preview i wysyłane będzie podsumowanie"
                     } else {
                         "Pełna transkrypcja będzie wysyłana bezpośrednio do LibreChat"
                     },
@@ -516,7 +644,7 @@ fun ApiKeysAndAccountsTab(
                             textStyle = TextStyles.base.copy(fontSize = 14.sp),
                             placeholder = {
                                 Text(
-                                    "gemini-2.5-flash",
+                                    SystemPrompts.DEFAULT_SUMMARY_MODEL,
                                     style = TextStyles.base,
                                     fontSize = 14.sp
                                 )
@@ -527,7 +655,7 @@ fun ApiKeysAndAccountsTab(
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         Text(
-                            text = "Domyślnie: gemini-2.5-flash. Możesz użyć: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp, itp.",
+                            text = "Domyślnie: ${SystemPrompts.DEFAULT_SUMMARY_MODEL}. Możesz użyć: models/gemini-1.5-flash, models/gemini-1.5-pro, models/gemini-exp-1206, itp.",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,
@@ -657,6 +785,49 @@ fun ApiKeysAndAccountsTab(
                     onClick = { 
                         showImportDialog = false
                         importResult = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Colors.buttonNormal
+                    )
+                ) {
+                    Text("OK", style = TextStyles.base)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+    
+    // Export result dialog
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showExportDialog = false
+                exportResult = null
+            },
+            title = {
+                Text(
+                    text = if (exportResult?.startsWith("✅") == true) "Sukces" else "Błąd",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            text = {
+                Text(
+                    text = exportResult ?: "",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showExportDialog = false
+                        exportResult = null
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Colors.buttonNormal

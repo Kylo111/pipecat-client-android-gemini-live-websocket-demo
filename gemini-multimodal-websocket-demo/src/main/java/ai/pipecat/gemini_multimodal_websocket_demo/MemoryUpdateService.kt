@@ -47,7 +47,7 @@ class MemoryUpdateService(
     companion object {
         private const val TAG = "MemoryUpdateService"
         private const val GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-        private const val MODEL_NAME = "gemini-2.0-flash-exp" // Gemini 2.5 Flash
+        private val MODEL_NAME = SystemPrompts.DEFAULT_MEMORY_MODEL // Gemini 3 Flash Preview
         private const val TIMEOUT_SECONDS = 120L
     }
     
@@ -244,7 +244,9 @@ Return ONLY the JSON object as specified in the instructions.
 }
         """.trimIndent()
         
-        val url = "$GEMINI_API_BASE/models/$MODEL_NAME:generateContent?key=$apiKey"
+        // Remove "models/" prefix if present to avoid double prefix in URL
+        val cleanModelName = MODEL_NAME.removePrefix("models/")
+        val url = "$GEMINI_API_BASE/models/$cleanModelName:generateContent?key=$apiKey"
         
         val request = Request.Builder()
             .url(url)

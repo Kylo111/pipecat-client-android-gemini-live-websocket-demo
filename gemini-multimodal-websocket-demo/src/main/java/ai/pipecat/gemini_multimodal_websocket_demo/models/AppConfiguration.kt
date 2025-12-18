@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.models
 
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import kotlinx.serialization.Serializable
 
 /**
@@ -44,7 +45,7 @@ data class NewsAnnouncement(
  */
 @Serializable
 data class GlobalSettings(
-    val defaultModel: String = "gemini-1.5-flash",
+    val defaultModel: String = SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL,
     val hiddenSystemPrompt: String? = null
 )
 

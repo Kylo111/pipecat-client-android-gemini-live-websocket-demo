@@ -49,7 +49,7 @@ object Preferences {
 
         listOf(
             apiKey, systemPrompt, selectedVoice, modelName,
-            geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, telegramBotToken, telegramChatId, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
+            geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, googleDirectionsApiKey, telegramBotToken, telegramChatId, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, controlAgentEnabled,
             reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled, offlineBannerDismissed
         ).forEach { it.init() }
@@ -201,13 +201,14 @@ object Preferences {
     val apiKey = StringPref(PREF_API_KEY)
     val systemPrompt = StringPref(PREF_SYSTEM_PROMPT, SystemPrompts.defaultSystemPrompt)
     val selectedVoice = StringPref(PREF_SELECTED_VOICE, "Puck")
-    val modelName = StringPref(PREF_MODEL_NAME, "models/gemini-2.5-flash-native-audio-preview-09-2025")
+    val modelName = StringPref(PREF_MODEL_NAME, SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL)
 
     // New preferences
     val geminiApiKey = StringPref(PREF_GEMINI_API_KEY)
     val googleCloudApiKey = StringPref(PREF_GOOGLE_CLOUD_API_KEY) // For Google Cloud Speech-to-Text API (optional)
     val perplexityApiKey = StringPref("perplexity_api_key") // For Perplexity Sonar API
     val openRouterApiKey = StringPref("openrouter_api_key") // For OpenRouter API (Reasoning Agent)
+    val googleDirectionsApiKey = StringPref("google_directions_api_key") // For Google Directions API (Public Transit)
     val telegramBotToken = StringPref("telegram_bot_token") // For Telegram Bot API
     val telegramChatId = StringPref("telegram_chat_id") // Telegram chat ID for sending messages
     val sessionTimeoutMinutes = IntPref(PREF_SESSION_TIMEOUT_MINUTES, 30) // Legacy - kept for compatibility
@@ -224,7 +225,7 @@ object Preferences {
     
     // Summary mode preferences
     val useSummaryMode = BooleanPref(PREF_USE_SUMMARY_MODE, true) // Default: Podsumowanie (Summary mode)
-    val summaryModel = StringPref(PREF_SUMMARY_MODEL, "models/gemini-3-flash-preview")
+    val summaryModel = StringPref(PREF_SUMMARY_MODEL, SystemPrompts.DEFAULT_SUMMARY_MODEL)
     val summaryPrompt = StringPref(PREF_SUMMARY_PROMPT, SystemPrompts.libreChatSummaryPrompt)
     
     // Parental lock
@@ -238,7 +239,7 @@ object Preferences {
     
     // Reasoning Agent settings
     val reasoningAgentEnabled = BooleanPref(PREF_REASONING_AGENT_ENABLED, true) // Default: enabled
-    val reasoningAgentModel = StringPref(PREF_REASONING_AGENT_MODEL, "models/gemini-3-flash-preview") // Default model - uses Gemini API
+    val reasoningAgentModel = StringPref(PREF_REASONING_AGENT_MODEL, SystemPrompts.DEFAULT_REASONING_MODEL) // Default model - uses Gemini API
     val whispererModeEnabled = BooleanPref(PREF_WHISPERER_MODE_ENABLED, true) // Default: enabled
     
     // UI preferences

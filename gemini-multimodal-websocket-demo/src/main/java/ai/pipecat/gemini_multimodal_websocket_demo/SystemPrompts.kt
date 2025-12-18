@@ -10,13 +10,41 @@ import ai.pipecat.gemini_multimodal_websocket_demo.models.ClipboardConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.WhispererModeConfig
 
 /**
- * Centralized configuration for all system prompts used in the application.
+ * Centralized configuration for all system prompts and default models used in the application.
  * 
- * This object provides default prompts that can be overridden in user preferences
- * where appropriate. It serves as the single source of truth for system-level
- * prompt configuration.
+ * This object provides default prompts and model names that can be overridden in user preferences
+ * where appropriate. It serves as the single source of truth for system-level configuration.
  */
 object SystemPrompts {
+    
+    // ============================================================================
+    // DEFAULT MODEL NAMES
+    // ============================================================================
+    
+    /**
+     * Default model for Gemini Live (multimodal voice conversations)
+     */
+    const val DEFAULT_GEMINI_LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+    
+    /**
+     * Default model for Summary generation (text-only)
+     */
+    const val DEFAULT_SUMMARY_MODEL = "models/gemini-3-flash-preview"
+    
+    /**
+     * Default model for Reasoning Agent (text-only)
+     */
+    const val DEFAULT_REASONING_MODEL = "models/gemini-3-flash-preview"
+    
+    /**
+     * Default model for Memory Update Service (text-only)
+     */
+    const val DEFAULT_MEMORY_MODEL = "models/gemini-3-flash-preview"
+    
+    /**
+     * Default model for Control Agent (lightweight, fast classification)
+     */
+    const val DEFAULT_CONTROL_AGENT_MODEL = "models/gemini-2.5-flash-lite"
     
     /**
      * Whisperer Mode instruction for Gemini Live.
@@ -811,7 +839,7 @@ Response:
     val defaultControlAgentConfig = ControlAgentConfig(
         enabled = true,
         provider = "google",
-        modelId = "gemini-2.5-flash-lite",
+        modelId = DEFAULT_CONTROL_AGENT_MODEL,
         temperature = 0.0f,
         timeoutMs = 1000,
         systemPrompt = controlAgentSystemPrompt
@@ -824,7 +852,7 @@ Response:
     val defaultReasoningAgentConfig = ReasoningAgentConfig(
         enabled = true,
         provider = "google",
-        modelId = "models/gemini-3-flash-preview",
+        modelId = DEFAULT_REASONING_MODEL,
         temperature = 0.4f,
         systemPrompt = reasoningAgentSystemPrompt,
         tools = ReasoningToolsConfig(

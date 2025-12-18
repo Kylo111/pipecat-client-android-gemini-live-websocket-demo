@@ -16,7 +16,7 @@ class AgentConfigProviderTest {
         
         assert(defaultConfig.enabled == true)
         assert(defaultConfig.provider == "google")
-        assert(defaultConfig.modelId == "gemini-2.5-flash-lite")
+        assert(defaultConfig.modelId == "models/gemini-2.5-flash-lite")
         assert(defaultConfig.temperature == 0.0f)
         assert(defaultConfig.timeoutMs == 1000L)
         assert(defaultConfig.systemPrompt.isNotEmpty())

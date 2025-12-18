@@ -25,6 +25,7 @@ data class ApiKeysConfig(
     val modelName: String? = null,
     val perplexityApiKey: String? = null,
     val openRouterApiKey: String? = null,
+    val googleDirectionsApiKey: String? = null,
     val picovoiceAccessKey: String? = null,
     val telegramBotToken: String? = null,
     val telegramChatId: String? = null

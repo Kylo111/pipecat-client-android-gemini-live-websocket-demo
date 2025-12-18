@@ -64,7 +64,14 @@ adb -s EM95IBKZEYIFSO69 logcat | grep -E "MainActivity.*Lifecycle|MainActivity.*
 ./gradlew :gemini-multimodal-websocket-demo:installDebug
 ```
 
-**Uninstall before fresh install** (if needed):
+**CRITICAL - NEVER UNINSTALL WITHOUT USER PERMISSION**:
+- NEVER run `adb uninstall` command without explicit user permission
+- Uninstalling deletes ALL user data: API keys, settings, offline conversations, database
+- If installation fails, report the error to user and ask for permission before uninstalling
+- If ADB connection issues occur, wait or suggest user to reconnect device
+- User data is precious and cannot be recovered after uninstall
+
+**Uninstall command (ONLY with user permission)**:
 ```bash
 adb -s EM95IBKZEYIFSO69 uninstall ai.pipecat.gemini_multimodal_websocket_demo
 ```

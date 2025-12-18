@@ -46,10 +46,10 @@ class EffectivePromptSelectionPropertyTest : FunSpec({
     
     test("custom prompt from offline conversation takes precedence over global") {
         checkAll(100, 
-            Arb.string(1..500),  // customPrompt (non-empty)
+            Arb.string(1..500).filter { it.isNotBlank() },  // customPrompt (non-blank)
             Arb.string(1..500)   // globalPrompt
         ) { customPrompt, globalPrompt ->
-            // Given a conversation with non-empty custom prompt
+            // Given a conversation with non-blank custom prompt
             val effective = selectEffectivePrompt(
                 offlineCustomPrompt = customPrompt,
                 roomCustomPrompt = null,
@@ -64,10 +64,10 @@ class EffectivePromptSelectionPropertyTest : FunSpec({
     
     test("custom prompt from Room database takes precedence over global") {
         checkAll(100,
-            Arb.string(1..500),  // customPrompt (non-empty)
+            Arb.string(1..500).filter { it.isNotBlank() },  // customPrompt (non-blank)
             Arb.string(1..500)   // globalPrompt
         ) { customPrompt, globalPrompt ->
-            // Given a conversation with non-empty Room custom prompt
+            // Given a conversation with non-blank Room custom prompt
             val effective = selectEffectivePrompt(
                 offlineCustomPrompt = null,
                 roomCustomPrompt = customPrompt,
@@ -174,7 +174,7 @@ class EffectivePromptSelectionPropertyTest : FunSpec({
     test("Room custom prompt used when offline is blank but Room is not") {
         checkAll(100,
             Arb.element("", " ", "\n"),  // blank offline prompt
-            Arb.string(1..500),           // non-blank Room prompt
+            Arb.string(1..500).filter { it.isNotBlank() },  // non-blank Room prompt
             Arb.string(1..500)            // globalPrompt
         ) { blankOffline, roomPrompt, globalPrompt ->
             // Given blank offline prompt but non-blank Room prompt

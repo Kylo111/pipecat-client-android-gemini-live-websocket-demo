@@ -1,0 +1,271 @@
+# Implementation Plan: Vertex AI RAG Engine + Gemini Live API Integration
+
+## Overview
+
+This implementation plan covers the integration of Vertex AI RAG Engine with Gemini Live API for the Android voice assistant application. The plan is organized into phases that build incrementally on each other.
+
+---
+
+- [ ] 1. Database Schema and Data Models
+  - [ ] 1.1 Add corpus_cache table to Room database
+    - Create `CorpusCacheEntity` with fields: corpusResourceName, corpusType, ownerId, displayName, isValid, lastSyncedAt
+    - Add migration from version 6 to 7
+    - _Requirements: 1.3, 8.1_
+  - [ ] 1.2 Add document_conversation_associations table
+    - Create `DocumentConversationAssociation` entity with composite primary key (documentId, conversationId)
+    - Create `DocumentConversationDao` with CRUD operations
+    - _Requirements: 5.2_
+  - [ ] 1.3 Extend DocumentEntity with RAG fields
+    - Add `displayName` field for UI mapping
+    - Ensure `vertexRagFileId` and `uploadStatus` fields exist
+    - _Requirements: 2.3, 7.5_
+  - [ ] 1.4 Extend ConversationTemplate with RAG configuration
+    - Add `ragCorpusResourceName: String?` field
+    - Add `ragEnabled: Boolean` field
+    - _Requirements: 6.1_
+  - [ ]* 1.5 Write property test for corpus cache round-trip
+    - **Property 2: RAG resource ID round-trip**
+    - **Validates: Requirements 1.3, 2.3**
+
+- [ ] 2. Backend RAG Client
+  - [ ] 2.1 Create BackendRAGClient class
+    - Implement HTTP client with OkHttp
+    - Add auth token management (integrate with existing AuthManager)
+    - _Requirements: 10.2_
+  - [ ] 2.2 Implement signed URL upload flow
+    - `getSignedUploadUrl()` - request signed URL from backend
+    - `uploadToGCS()` - upload file bytes to GCS using signed URL
+    - `importFileToRAG()` - trigger RAG import after GCS upload
+    - _Requirements: 2.2_
+  - [ ] 2.3 Implement corpus management endpoints
+    - `getUserCorpusInfo()` - get user's private corpus info
+    - `getTemplateCorpusInfo()` - get template's global corpus info
+    - `syncCorpusMappings()` - sync all corpus mappings
+    - `getAllowedCorpora()` - get allowed corpora for session
+    - _Requirements: 1.4, 9.2_
+  - [ ] 2.4 Implement file deletion endpoint
+    - `deleteFile()` - request file deletion from backend
+    - _Requirements: 2.6_
+  - [ ]* 2.5 Write property test for auth failure handling
+    - **Property 15: Auth failure disables RAG features**
+    - **Validates: Requirements 10.4**
+
+- [ ] 3. RAG Corpus Manager
+  - [ ] 3.1 Create RAGCorpusManager class
+    - Implement corpus cache management
+    - Implement sync with backend
+    - _Requirements: 1.2, 1.4_
+  - [ ] 3.2 Implement lazy corpus creation trigger
+    - Detect first document upload or first RAG-enabled conversation
+    - Trigger corpus creation via backend
+    - _Requirements: 1.1_
+  - [ ] 3.3 Implement template corpus association
+    - Associate template's global corpus with conversation on import
+    - _Requirements: 6.2_
+  - [ ]* 3.4 Write property test for lazy corpus creation
+    - **Property 1: Lazy corpus creation**
+    - **Validates: Requirements 1.1, 1.3**
+
+- [ ] 4. Document Upload Service
+  - [ ] 4.1 Create DocumentUploadService class
+    - Implement file picker integration
+    - Implement file validation (type, size)
+    - _Requirements: 2.1_
+  - [ ] 4.2 Implement upload state machine
+    - Define UploadState sealed class (Pending, Uploading, Uploaded, Failed)
+    - Implement Flow-based progress tracking
+    - _Requirements: 2.4_
+  - [ ] 4.3 Implement full upload flow
+    - Persist DocumentEntity with status=pending BEFORE upload (so UI always has record to show)
+    - Validate → Persist pending → Get signed URL → Upload to GCS → Trigger RAG import → Update status
+    - _Requirements: 2.2, 2.3_
+  - [ ] 4.4 Implement document deletion
+    - Delete from backend and update local DB
+    - _Requirements: 2.6_
+  - [ ] 4.5 Implement document-conversation association
+    - Create/remove associations in database
+    - Get documents for conversation
+    - _Requirements: 5.2, 5.4_
+  - [ ]* 4.6 Write property test for document validation
+    - **Property 3: Document validation**
+    - **Validates: Requirements 2.1**
+  - [ ]* 4.7 Write property test for upload state machine
+    - **Property 4: Upload status state machine**
+    - **Validates: Requirements 2.4, 2.5**
+
+- [ ] 5. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 6. Live API RAG Spike (Proof of Concept)
+  - [ ] 6.1 Create minimal Live API + RAG test
+    - Connect to Live API with retrieval tool configured
+    - Use test corpus (can be empty or with single test file)
+    - Verify toolCall event is received when model decides to retrieve
+    - _Requirements: 3.1, 3.3_
+  - [ ] 6.2 Determine exact toolResponse payload for vertex_rag_store
+    - Test different response formats ({}, {"status": "ok"}, etc.)
+    - Document working payload structure
+    - _Requirements: 3.4, 3.8_
+  - [ ] 6.3 Verify grounding metadata parsing
+    - Confirm groundingMetadata structure in responses
+    - Extract groundingChunks format
+    - _Requirements: 3.5_
+  - Note: This spike de-risks the Live API integration before building full protocol support
+
+- [ ] 7. GeminiProtocol RAG Extensions
+  - [ ] 7.1 Implement retrieval tool configuration builder
+    - Build `vertex_rag_store` tool config with rag_resources
+    - Handle single vs multiple corpus based on API schema (use spike findings from task 6)
+    - _Requirements: 3.1, 3.2_
+  - [ ] 7.2 Implement RAGConfig with corpus selection
+    - Implement `selectSingleCorpus()` fallback strategy
+    - _Requirements: 3.2_
+  - [ ] 7.3 Extend buildSetupMessage with RAG config
+    - Add retrieval tool to setup message when RAG enabled
+    - _Requirements: 3.1_
+  - [ ] 7.4 Implement tool response serialization
+    - `serializeToolResponse()` with correct `toolResponse` message structure (NOT clientContent)
+    - `buildRetrievalToolResponse()` using payload format determined in spike (task 6.2)
+    - _Requirements: 3.4, 3.8_
+  - [ ] 7.5 Implement grounding metadata parsing
+    - Parse `groundingMetadata` from serverContent
+    - Extract `groundingChunks` with retrieved context
+    - _Requirements: 3.5, 7.1_
+  - [ ]* 7.6 Write property test for ToolCall-ToolResponse round-trip
+    - **Property 5: ToolCall-ToolResponse round-trip**
+    - Test based on simulated WebSocket events (not deterministic message order)
+    - **Validates: Requirements 3.4, 3.8**
+  - [ ]* 7.7 Write integration test for rag_resources schema validation
+    - Validate rag_resources shape against current Live API schema
+    - _Requirements: 3.9_
+
+- [ ] 8. GeminiClient RAG Extensions
+  - [ ] 8.1 Add RAG-specific callbacks
+    - `onRetrievalStarted`, `onRetrievalCompleted`, `onRetrievalCancelled`
+    - _Requirements: 4.1, 4.2_
+  - [ ] 8.2 Extend connect() with RAGConfig parameter
+    - Pass RAG config to protocol for setup message
+    - _Requirements: 3.1_
+  - [ ] 8.3 Implement tool response sending
+    - `sendToolResponse(functionResponses: List<FunctionResponse>)`
+    - Handle retrieval tool calls specifically
+    - _Requirements: 3.4_
+  - [ ] 8.4 Handle ToolCallCancellation
+    - Detect cancellation and invoke callback
+    - Skip sending ToolResponse for cancelled calls
+    - _Requirements: 3.6_
+  - [ ] 8.5 Parse and emit grounding metadata
+    - Extract grounding metadata from responses
+    - Invoke `onRetrievalCompleted` with metadata
+    - _Requirements: 3.5_
+
+- [ ] 9. RAG Configuration Repository
+  - [ ] 9.1 Create RAGConfigurationRepository class
+    - Implement local cache management
+    - Implement sync with backend on app start (only if user logged in and RAG enabled)
+    - _Requirements: 8.1, 8.2_
+  - [ ] 9.2 Implement corpus validation
+    - Mark invalid corpora after sync
+    - Notify user of invalid associations
+    - _Requirements: 8.4_
+  - [ ] 9.3 Implement getRAGConfigForConversation
+    - Build RAGConfig from conversation and user data
+    - _Requirements: 5.3, 6.3_
+  - [ ]* 9.4 Write property test for configuration persistence
+    - **Property 12: Configuration persistence across restart**
+    - **Validates: Requirements 8.1**
+  - [ ]* 9.5 Write property test for backend sync updates cache
+    - **Property 13: Backend sync updates local cache**
+    - **Validates: Requirements 8.3**
+
+- [ ] 10. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 11. UI Components - RAG Search Indicator
+  - [ ] 11.1 Create RAGSearchIndicator composable
+    - Implement "searching documents" animation
+    - Distinct visual style from speaking indicator
+    - _Requirements: 4.1, 4.3_
+  - [ ] 11.2 Implement timeout hint display
+    - Show "Searching your documents..." after 3 seconds
+    - _Requirements: 4.4_
+  - [ ] 11.3 Integrate with VoiceClientManager state
+    - Show/hide based on retrieval state
+    - _Requirements: 4.1, 4.2_
+  - [ ]* 11.4 Write property test for animation state machine
+    - **Property 6: RAG search animation state machine**
+    - **Validates: Requirements 4.1, 4.2**
+
+- [ ] 12. UI Components - Document List
+  - [ ] 12.1 Create DocumentListView composable
+    - Display attached documents with names and status
+    - _Requirements: 5.1_
+  - [ ] 12.2 Implement document upload button
+    - File picker integration
+    - Progress indicator during upload
+    - _Requirements: 2.4_
+  - [ ] 12.3 Implement document removal
+    - Remove association (not document)
+    - _Requirements: 5.4_
+  - [ ]* 12.4 Write property test for document-conversation association
+    - **Property 7: Document-conversation association CRUD**
+    - **Validates: Requirements 5.2, 5.4**
+  - [ ]* 12.5 Write property test for document preservation
+    - **Property 8: Document preservation on association removal**
+    - **Validates: Requirements 5.4, 5.5**
+
+- [ ] 13. UI Components - Citation Display
+  - [ ] 13.1 Create CitationIndicator composable
+    - Show citation markers in transcript
+    - _Requirements: 7.1_
+  - [ ] 13.2 Implement citation expansion
+    - Show grounding chunk text on tap
+    - _Requirements: 7.3_
+  - [ ] 13.3 Implement file ID to display name mapping
+    - Map RAG file IDs to cached display names
+    - _Requirements: 7.2_
+  - [ ]* 13.4 Write property test for citation display logic
+    - **Property 10: Citation display based on grounding metadata**
+    - **Validates: Requirements 7.1, 7.4**
+  - [ ]* 13.5 Write property test for file ID mapping
+    - **Property 11: RAG file ID to display name mapping**
+    - **Validates: Requirements 7.2, 7.5**
+
+- [ ] 14. Marketplace Template Integration
+  - [ ] 14.1 Update template import flow
+    - Associate global corpus on template import
+    - _Requirements: 6.2_
+  - [ ] 14.2 Update conversation start flow
+    - Include template corpus in RAG config
+    - _Requirements: 6.3_
+  - [ ] 14.3 Handle corpus reuse for shared templates
+    - Reuse existing corpus reference
+    - _Requirements: 6.4_
+  - [ ]* 14.4 Write property test for template corpus association
+    - **Property 9: Template corpus association on import**
+    - **Validates: Requirements 6.2**
+
+- [ ] 15. Session Manager Integration
+  - [ ] 15.1 Integrate RAGConfigurationRepository with SessionManager
+    - Get RAG config before starting conversation
+    - _Requirements: 5.3_
+  - [ ] 15.2 Pass RAG config to GeminiClient
+    - Include in connect() call
+    - _Requirements: 3.1_
+  - [ ] 15.3 Handle retrieval events in session
+    - Update UI state on retrieval start/complete/cancel
+    - _Requirements: 4.1, 4.2_
+
+- [ ] 16. App Startup Integration
+  - [ ] 16.1 Sync corpus mappings on app start
+    - Call RAGConfigurationRepository.syncWithBackend() only if user logged in and RAG enabled
+    - _Requirements: 8.2_
+  - [ ] 16.2 Handle sync errors gracefully
+    - Use cached data if sync fails
+    - _Requirements: 8.2_
+  - [ ] 16.3 Validate corpus associations
+    - Mark invalid and notify user
+    - _Requirements: 8.4_
+
+- [ ] 17. Final Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.

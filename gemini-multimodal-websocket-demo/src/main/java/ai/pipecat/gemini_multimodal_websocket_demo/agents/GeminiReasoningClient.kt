@@ -18,7 +18,7 @@ import kotlin.math.pow
  * HTTP client for Gemini API for Reasoning Agent.
  * 
  * Implements retry with exponential backoff (3 attempts).
- * Uses Gemini REST API with models like models/gemini-3-flash-preview.
+ * Uses Gemini REST API with models like ${SystemPrompts.DEFAULT_REASONING_MODEL}.
  */
 class GeminiReasoningClient(
     private val context: Context,
@@ -230,7 +230,9 @@ class GeminiReasoningClient(
             val requestBody = json.encodeToString(GeminiRequest.serializer(), request)
                 .toRequestBody("application/json".toMediaType())
             
-            val url = "$GEMINI_API_BASE/$modelId:generateContent?key=$apiKey"
+            // Remove "models/" prefix if present to avoid double prefix in URL
+            val cleanModelId = modelId.removePrefix("models/")
+            val url = "$GEMINI_API_BASE/models/$cleanModelId:generateContent?key=$apiKey"
             
             val httpRequest = Request.Builder()
                 .url(url)

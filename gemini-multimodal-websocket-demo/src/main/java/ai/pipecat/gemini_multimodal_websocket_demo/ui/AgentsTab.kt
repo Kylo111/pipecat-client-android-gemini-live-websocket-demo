@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.compose.foundation.background
@@ -311,7 +312,7 @@ fun AgentsTab(
                             ) {
                                 Text(
                                     text = when (reasoningModel) {
-                                        "models/gemini-3-flash-preview" -> "Gemini 3 Flash Preview (Zalecany)"
+                                        SystemPrompts.DEFAULT_REASONING_MODEL -> "Gemini 3 Flash Preview (Zalecany)"
                                         "deepseek/deepseek-v3.2" -> "DeepSeek V3.2"
                                         "deepseek/deepseek-r1-0528" -> "DeepSeek R1"
                                         "google/gemini-2.5-flash" -> "Gemini 2.5 Flash (OpenRouter)"
@@ -339,7 +340,7 @@ fun AgentsTab(
                                 .background(Color.White)
                         ) {
                             listOf(
-                                "models/gemini-3-flash-preview" to "Gemini 3 Flash Preview (Zalecany)",
+                                SystemPrompts.DEFAULT_REASONING_MODEL to "Gemini 3 Flash Preview (Zalecany)",
                                 "deepseek/deepseek-v3.2" to "DeepSeek V3.2 (OpenRouter)",
                                 "deepseek/deepseek-r1-0528" to "DeepSeek R1 (OpenRouter)",
                                 "google/gemini-2.5-flash" to "Gemini 2.5 Flash (OpenRouter)"

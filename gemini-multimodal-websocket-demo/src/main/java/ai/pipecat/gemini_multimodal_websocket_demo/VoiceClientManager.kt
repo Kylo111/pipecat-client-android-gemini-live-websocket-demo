@@ -118,8 +118,8 @@ class VoiceClientManager(
         }
         Log.d(TAG, "🔧 [DIAGNOSTIC] Configuring ${toolDeclarations.size} tools for function calling")
         
-        // Get model from preferences (default to gemini-2.5-flash-exp for Gemini Live)
-        val model = Preferences.modelName.value ?: "gemini-2.5-flash-exp"
+        // Get model from preferences (default to Gemini Live model)
+        val model = Preferences.modelName.value ?: SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL
         Log.d(TAG, "🔍 [DIAGNOSTIC] Using model: $model")
         
         // Get auto-mute settings from preferences

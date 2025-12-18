@@ -166,7 +166,9 @@ class FlashLiteClient(
             val requestBody = requestJson.toRequestBody("application/json".toMediaType())
             
             // Build HTTP request
-            val url = "${GEMINI_BASE_URL}${config.modelId}:generateContent"
+            // Remove "models/" prefix if present to avoid double prefix in URL
+            val cleanModelId = config.modelId.removePrefix("models/")
+            val url = "${GEMINI_BASE_URL}${cleanModelId}:generateContent"
             val httpRequest = Request.Builder()
                 .url(url)
                 .addHeader("x-goog-api-key", apiKey)

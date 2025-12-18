@@ -166,14 +166,16 @@ class GeminiSummaryService(private val context: Context) {
             
             val requestJson = json.encodeToString(GeminiRequest.serializer(), requestBody)
             
-            val url = "$GEMINI_API_BASE/models/$modelName:generateContent?key=$apiKey"
+            // Remove "models/" prefix if present to avoid double prefix in URL
+            val cleanModelName = modelName.removePrefix("models/")
+            val url = "$GEMINI_API_BASE/models/$cleanModelName:generateContent?key=$apiKey"
             
             val request = Request.Builder()
                 .url(url)
                 .post(requestJson.toRequestBody("application/json".toMediaType()))
                 .build()
             
-            Log.d(TAG, "Sending request to Gemini API...")
+            Log.d(TAG, "Sending request to Gemini API for model: $cleanModelName")
             
             val response = client.newCall(request).execute()
             
@@ -257,7 +259,11 @@ class GeminiSummaryService(private val context: Context) {
             )
             
             val requestJson = json.encodeToString(GeminiRequest.serializer(), testRequest)
-            val url = "$GEMINI_API_BASE/models/$modelName:generateContent?key=$apiKey"
+            // Remove "models/" prefix if present to avoid double prefix in URL
+            val cleanModelName = modelName.removePrefix("models/")
+            val url = "$GEMINI_API_BASE/models/$cleanModelName:generateContent?key=$apiKey"
+            
+            Log.d(TAG, "🔍 Validation URL: $url")
             
             val request = Request.Builder()
                 .url(url)
@@ -266,20 +272,22 @@ class GeminiSummaryService(private val context: Context) {
             
             val response = client.newCall(request).execute()
             
+            val responseBody = response.body?.string() ?: ""
+            Log.d(TAG, "🔍 Validation response for $modelName: code=${response.code}, body=${responseBody.take(200)}")
+            
             when (response.code) {
                 200 -> {
                     Log.d(TAG, "✅ Model $modelName is valid")
                     Result.success(true)
                 }
                 404 -> {
-                    Log.e(TAG, "❌ Model $modelName not found")
-                    Result.failure(Exception("Model '$modelName' not found. Check the model name."))
+                    Log.e(TAG, "❌ Model $modelName not found. Response: $responseBody")
+                    Result.failure(Exception("Model '$modelName' not found. Sprawdź nazwę modelu w Google AI Studio."))
                 }
                 400 -> {
-                    val errorBody = response.body?.string() ?: ""
-                    if (errorBody.contains("models/") || errorBody.contains("model")) {
-                        Log.e(TAG, "❌ Invalid model: $errorBody")
-                        Result.failure(Exception("Invalid model name: $modelName"))
+                    if (responseBody.contains("models/") || responseBody.contains("model")) {
+                        Log.e(TAG, "❌ Invalid model: $responseBody")
+                        Result.failure(Exception("Nieprawidłowa nazwa modelu: $modelName"))
                     } else {
                         // Other 400 errors might be OK (e.g. empty content)
                         Log.d(TAG, "✅ Model $modelName exists (400 but not model error)")
@@ -287,10 +295,12 @@ class GeminiSummaryService(private val context: Context) {
                     }
                 }
                 403 -> {
-                    Result.failure(Exception("API key doesn't have access to this model"))
+                    Log.e(TAG, "❌ API key access denied: $responseBody")
+                    Result.failure(Exception("Klucz API nie ma dostępu do tego modelu"))
                 }
                 else -> {
-                    Result.failure(Exception("Error validating model: ${response.code}"))
+                    Log.e(TAG, "❌ Validation error ${response.code}: $responseBody")
+                    Result.failure(Exception("Błąd walidacji modelu: ${response.code}"))
                 }
             }
         } catch (e: Exception) {

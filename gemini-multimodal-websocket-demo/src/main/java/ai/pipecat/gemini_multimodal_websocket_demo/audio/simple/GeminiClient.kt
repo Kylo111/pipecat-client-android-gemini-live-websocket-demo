@@ -1,5 +1,6 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.audio.simple
 
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.protocol.GeminiEvent
 import ai.pipecat.gemini_multimodal_websocket_demo.protocol.GeminiProtocol
 import android.util.Base64
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit
  */
 class GeminiClient(
     private val apiKey: String,
-    private val model: String = "gemini-2.5-flash-exp",
+    private val model: String = SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL,
     private val scope: CoroutineScope
 ) {
     companion object {

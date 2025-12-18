@@ -962,7 +962,7 @@ class SessionManager(
                                                 
                                                 val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
                                                 val summaryPrompt = getEffectiveSummaryPrompt(convId)
-                                                val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "models/gemini-3-flash-preview"
+                                                val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: SystemPrompts.DEFAULT_SUMMARY_MODEL
                                                 
                                                 if (apiKey.isNullOrBlank()) {
                                                     Log.w(TAG, "⚠️ No Gemini API key, skipping summary generation")
@@ -1109,7 +1109,7 @@ class SessionManager(
                     contentToSend = transcriptText
                 } else {
                     // Generate summary using Gemini (infinite retry)
-                    val summaryModel = Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: "models/gemini-3-flash-preview"
+                    val summaryModel = Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: SystemPrompts.DEFAULT_SUMMARY_MODEL
                     
                     val summaryResult = geminiSummaryService.generateSummaryWithRetry(
                         transcript = transcriptText,
@@ -1454,6 +1454,40 @@ class SessionManager(
         suspend fun processOfflineQueue(): Int {
             Log.d(TAG, "📦 Processing offline queue, size: ${offlineQueue.size()}")
             return offlineQueue.processQueue(libreChatService)
+        }
+    }
+    
+    /**
+     * Get list of conversation threads from both LibreChat and offline conversations.
+     * Used for assistant integration to select which conversation to launch.
+     */
+    suspend fun getConversationThreads(): List<LibreChatService.ConversationThread> {
+        return withContext(Dispatchers.IO) {
+            val threads = mutableListOf<LibreChatService.ConversationThread>()
+            
+            // Add offline conversations first
+            val offlineConversations = OfflineConversationManager.getAll()
+            offlineConversations.forEach { offlineConv ->
+                threads.add(
+                    LibreChatService.ConversationThread(
+                        id = offlineConv.id,
+                        title = offlineConv.title,
+                        subject = "Offline",
+                        lastActivity = System.currentTimeMillis()
+                    )
+                )
+            }
+            
+            // Add LibreChat conversations if available
+            val result = libreChatService.getConversationThreads()
+            if (result.isSuccess) {
+                val libreChatThreads = result.getOrNull() ?: emptyList()
+                threads.addAll(libreChatThreads)
+            } else {
+                Log.d(TAG, "LibreChat threads not available: ${result.exceptionOrNull()?.message}")
+            }
+            
+            threads
         }
     }
 

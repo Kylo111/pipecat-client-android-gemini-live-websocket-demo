@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.data.repository
 
 import android.content.Context
+import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AppConfiguration
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationTemplate
 import ai.pipecat.gemini_multimodal_websocket_demo.models.GlobalSettings
@@ -101,7 +102,7 @@ class ConfigurationRepository(
      */
     fun getGlobalSettings(): GlobalSettings {
         return cachedConfig?.globalSettings 
-            ?: GlobalSettings(defaultModel = "gemini-1.5-flash")
+            ?: GlobalSettings(defaultModel = SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL)
     }
     
     /**

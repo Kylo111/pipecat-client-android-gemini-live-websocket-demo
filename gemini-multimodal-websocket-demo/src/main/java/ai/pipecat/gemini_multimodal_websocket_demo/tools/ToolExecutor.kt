@@ -22,6 +22,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
@@ -51,6 +52,7 @@ class ToolExecutor(private val context: Context) {
         private const val SERPER_API_KEY = "b00f6ead8e8e1daa98a4626bcbbd0b966b696dfa" // Get from serper.dev
         private const val OPENWEATHER_API_KEY = "1b85680953dd294e20c59029dc0f40fe" // Get from openweathermap.org
         private const val GOOGLE_PLACES_API_KEY = "AIzaSyBXYJBEy7GnoKkEhgCHVak0FUazdjQjk1Q" // Get from Google Cloud Console
+        private const val GOOGLE_DIRECTIONS_API_KEY = "YOUR_GOOGLE_DIRECTIONS_API_KEY" // Get from Google Cloud Console (same as Places API key)
     }
     
     private val httpClient = OkHttpClient.Builder()
@@ -87,6 +89,28 @@ class ToolExecutor(private val context: Context) {
                 "start_navigation" -> startNavigation(parameters)
                 "copy_to_clipboard" -> copyToClipboard(parameters)
                 "start_reasoning_task" -> startReasoningTask(parameters)
+                "search_contacts" -> searchContacts(parameters)
+                "send_sms" -> sendSms(parameters)
+                "set_alarm" -> setAlarm(parameters)
+                "create_reminder" -> createReminder(parameters)
+                "list_reminders" -> listReminders(parameters)
+                "delete_reminder" -> deleteReminder(parameters)
+                "get_calendar_events" -> getCalendarEvents(parameters)
+                "create_calendar_event" -> createCalendarEvent(parameters)
+                "delete_calendar_event" -> deleteCalendarEvent(parameters)
+                "get_todo_tasks" -> getTodoTasks(parameters)
+                "add_todo_task" -> addTodoTask(parameters)
+                "complete_todo_task" -> completeTodoTask(parameters)
+                "delete_todo_task" -> deleteTodoTask(parameters)
+                "navigate_to" -> navigateTo(parameters)
+                "search_on_map" -> searchOnMap(parameters)
+                "show_on_map" -> showOnMap(parameters)
+                "find_transit_route" -> findTransitRoute(parameters)
+                "get_shopping_list" -> getShoppingList(parameters)
+                "add_to_shopping_list" -> addToShoppingList(parameters)
+                "remove_from_shopping_list" -> removeFromShoppingList(parameters)
+                "mark_item_purchased" -> markItemPurchased(parameters)
+                "clear_purchased_items" -> clearPurchasedItems(parameters)
                 else -> {
                     // Check if it's a custom tool
                     val customTools = CustomToolsManager.loadCustomTools(context)
@@ -1240,6 +1264,1027 @@ class ToolExecutor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error starting reasoning task: ${e.message}", e)
             "I've noted your request, but I encountered an error starting the background task: ${e.message}"
+        }
+    }
+    
+    /**
+     * Search contacts by name or phone number
+     */
+    private suspend fun searchContacts(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val query = params["query"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing query parameter"
+        
+        Log.i(TAG, "Searching contacts for: $query")
+        
+        try {
+            val contactsIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.contacts.ContactsIntegration(context)
+            
+            // Check permission
+            if (!contactsIntegration.hasContactsPermission()) {
+                return@withContext "I need permission to access your contacts. Please grant the READ_CONTACTS permission in your device settings, then try again."
+            }
+            
+            val contacts = contactsIntegration.searchContacts(query)
+            
+            if (contacts.isEmpty()) {
+                return@withContext "No contacts found matching '$query'. Please check the spelling or try a different search term."
+            }
+            
+            val result = StringBuilder("Found ${contacts.size} contact(s) matching '$query':\n\n")
+            
+            contacts.forEachIndexed { index, contact ->
+                result.append("${index + 1}. ${contact.displayName}\n")
+                contact.phoneNumbers.forEachIndexed { phoneIndex, phone ->
+                    result.append("   Phone ${phoneIndex + 1}: $phone\n")
+                }
+                result.append("\n")
+            }
+            
+            result.toString()
+            
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permission denied for contacts: ${e.message}", e)
+            "I need permission to access your contacts. Please grant the READ_CONTACTS permission in your device settings, then try again."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching contacts: ${e.message}", e)
+            "Error searching contacts: ${e.message}"
+        }
+    }
+    
+    /**
+     * Send SMS message (opens SMS app with pre-filled message)
+     */
+    private suspend fun sendSms(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val contactName = params["contact_name"]?.jsonPrimitive?.content
+        val phoneNumber = params["phone_number"]?.jsonPrimitive?.content
+        val message = params["message"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing message parameter"
+        
+        Log.i(TAG, "Sending SMS - contact: $contactName, phone: $phoneNumber")
+        
+        try {
+            val contactsIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.contacts.ContactsIntegration(context)
+            
+            // Check permission if using contact name
+            if (contactName != null && !contactsIntegration.hasContactsPermission()) {
+                return@withContext "I need permission to access your contacts to look up '$contactName'. Please grant the READ_CONTACTS permission in your device settings, then try again."
+            }
+            
+            // Open SMS app with pre-filled message
+            val result = contactsIntegration.openSmsApp(
+                phoneNumber = phoneNumber,
+                contactName = contactName,
+                message = message
+            )
+            
+            return@withContext if (result.isSuccess) {
+                result.getOrNull() ?: "SMS app opened with your message ready to send."
+            } else {
+                val error = result.exceptionOrNull()
+                when (error) {
+                    is IllegalArgumentException -> error.message ?: "Error: Invalid parameters"
+                    is SecurityException -> "I need permission to access your contacts. Please grant the READ_CONTACTS permission in your device settings."
+                    else -> "Error opening SMS app: ${error?.message}"
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending SMS: ${e.message}", e)
+            "Error: ${e.message}"
+        }
+    }
+    
+    /**
+     * Set a recurring system alarm
+     */
+    private suspend fun setAlarm(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val hour = params["hour"]?.jsonPrimitive?.content?.toIntOrNull() 
+            ?: return@withContext "Error: Missing or invalid hour parameter"
+        val minutes = params["minutes"]?.jsonPrimitive?.content?.toIntOrNull() 
+            ?: return@withContext "Error: Missing or invalid minutes parameter"
+        
+        // Parse days array if provided
+        val daysArray = params["days"]?.let { daysElement ->
+            try {
+                val jsonArray = daysElement as? kotlinx.serialization.json.JsonArray
+                jsonArray?.mapNotNull { it.jsonPrimitive.content.toIntOrNull() }
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        val label = params["label"]?.jsonPrimitive?.content
+        
+        Log.i(TAG, "Setting alarm: $hour:$minutes, days=$daysArray, label=$label")
+        
+        try {
+            val alarmIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.AlarmIntegration(context)
+            alarmIntegration.setSystemAlarm(hour, minutes, daysArray, label)
+            
+            val timeStr = String.format("%02d:%02d", hour, minutes)
+            val daysStr = when {
+                daysArray == null || daysArray.isEmpty() -> "one-time"
+                daysArray.size == 7 -> "every day"
+                else -> {
+                    val dayNames = mapOf(
+                        1 to "Sunday", 2 to "Monday", 3 to "Tuesday", 4 to "Wednesday",
+                        5 to "Thursday", 6 to "Friday", 7 to "Saturday"
+                    )
+                    daysArray.mapNotNull { dayNames[it] }.joinToString(", ")
+                }
+            }
+            
+            val labelStr = label?.let { " - $it" } ?: ""
+            "Alarm set for $timeStr ($daysStr)$labelStr. The Clock app has been opened for you to review."
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting alarm: ${e.message}", e)
+            "Error setting alarm: ${e.message}"
+        }
+    }
+    
+    /**
+     * Create a reminder for a specific date and time
+     */
+    private suspend fun createReminder(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val title = params["title"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing title parameter"
+        val date = params["date"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing date parameter"
+        val time = params["time"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing time parameter"
+        
+        Log.i(TAG, "Creating reminder: $title at $date $time")
+        
+        try {
+            // Parse date and time
+            val dateTime = java.time.LocalDateTime.parse("${date}T${time}")
+            
+            // Check if date is in the past
+            if (dateTime.isBefore(java.time.LocalDateTime.now())) {
+                return@withContext "Error: Cannot create reminder for a past date/time. Please specify a future date and time."
+            }
+            
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            
+            // Check if we can schedule exact alarms
+            if (!reminderManager.canScheduleExactAlarms()) {
+                return@withContext "I need permission to schedule exact alarms. Please go to Settings > Apps > Kumpel Chat > Alarms & reminders and enable 'Allow setting alarms and reminders'. Then try again."
+            }
+            
+            val reminder = reminderManager.createReminder(title, dateTime)
+            
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d 'at' h:mm a", Locale.getDefault())
+            val formattedDateTime = dateTime.format(formatter)
+            
+            "Reminder created: '$title' on $formattedDateTime (ID: ${reminder.id})"
+            
+        } catch (e: java.time.format.DateTimeParseException) {
+            Log.e(TAG, "Error parsing date/time: ${e.message}", e)
+            "Error: Invalid date or time format. Please use YYYY-MM-DD for date and HH:MM for time (24-hour format)."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating reminder: ${e.message}", e)
+            "Error creating reminder: ${e.message}"
+        }
+    }
+    
+    /**
+     * List all active reminders
+     */
+    private suspend fun listReminders(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Listing reminders")
+        
+        try {
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            val reminders = reminderManager.getReminders()
+            
+            if (reminders.isEmpty()) {
+                return@withContext "You don't have any active reminders."
+            }
+            
+            val result = StringBuilder("You have ${reminders.size} active reminder(s):\n\n")
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d 'at' h:mm a", Locale.getDefault())
+            
+            reminders.forEachIndexed { index, reminder ->
+                val formattedDateTime = reminder.dateTime.format(formatter)
+                result.append("${index + 1}. ${reminder.title}\n")
+                result.append("   When: $formattedDateTime\n")
+                result.append("   ID: ${reminder.id}\n\n")
+            }
+            
+            result.toString()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error listing reminders: ${e.message}", e)
+            "Error listing reminders: ${e.message}"
+        }
+    }
+    
+    /**
+     * Delete a reminder
+     */
+    private suspend fun deleteReminder(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val reminderId = params["reminder_id"]?.jsonPrimitive?.content?.toLongOrNull() 
+            ?: return@withContext "Error: Missing or invalid reminder_id parameter"
+        
+        Log.i(TAG, "Deleting reminder: $reminderId")
+        
+        try {
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            reminderManager.deleteReminder(reminderId)
+            
+            "Reminder deleted successfully (ID: $reminderId)"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting reminder: ${e.message}", e)
+            "Error deleting reminder: ${e.message}. Make sure the reminder ID is correct."
+        }
+    }
+    
+    /**
+     * Get calendar events for a specific date
+     */
+    private suspend fun getCalendarEvents(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val dateStr = params["date"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing date parameter"
+        
+        Log.i(TAG, "Getting calendar events for: $dateStr")
+        
+        try {
+            val calendarIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.calendar.CalendarIntegration(context)
+            
+            // Check permission
+            if (!calendarIntegration.hasReadPermission()) {
+                return@withContext "I need permission to read your calendar. Please go to Settings > Apps > Kumpel Chat > Permissions and enable 'Calendar' access. Then try again."
+            }
+            
+            // Parse date (handle 'today' and 'tomorrow')
+            val date = when (dateStr.lowercase()) {
+                "today" -> java.time.LocalDate.now()
+                "tomorrow" -> java.time.LocalDate.now().plusDays(1)
+                else -> java.time.LocalDate.parse(dateStr)
+            }
+            
+            val events = calendarIntegration.getEventsForDate(date)
+            
+            if (events.isEmpty()) {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault())
+                return@withContext "You don't have any events scheduled for ${date.format(formatter)}."
+            }
+            
+            val result = StringBuilder()
+            val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault())
+            val timeFormatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+            
+            result.append("You have ${events.size} event(s) on ${date.format(dateFormatter)}:\n\n")
+            
+            events.forEachIndexed { index, event ->
+                result.append("${index + 1}. ${event.title}\n")
+                result.append("   Time: ${event.startTime.format(timeFormatter)} - ${event.endTime.format(timeFormatter)}\n")
+                if (!event.description.isNullOrBlank()) {
+                    result.append("   Details: ${event.description}\n")
+                }
+                result.append("   ID: ${event.id}\n\n")
+            }
+            
+            result.toString()
+            
+        } catch (e: java.time.format.DateTimeParseException) {
+            Log.e(TAG, "Error parsing date: ${e.message}", e)
+            "Error: Invalid date format. Please use YYYY-MM-DD format, or say 'today' or 'tomorrow'."
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permission denied: ${e.message}", e)
+            "I need permission to read your calendar. Please enable Calendar access in app settings."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting calendar events: ${e.message}", e)
+            "Error getting calendar events: ${e.message}"
+        }
+    }
+    
+    /**
+     * Create a new calendar event
+     */
+    private suspend fun createCalendarEvent(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val title = params["title"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing title parameter"
+        val startDate = params["start_date"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing start_date parameter"
+        val startTime = params["start_time"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing start_time parameter"
+        val endTime = params["end_time"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing end_time parameter"
+        
+        val endDate = params["end_date"]?.jsonPrimitive?.content ?: startDate
+        val description = params["description"]?.jsonPrimitive?.content
+        
+        Log.i(TAG, "Creating calendar event: $title on $startDate $startTime - $endDate $endTime")
+        
+        try {
+            val calendarIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.calendar.CalendarIntegration(context)
+            
+            // Parse date and time
+            val startDateTime = java.time.LocalDateTime.parse("${startDate}T${startTime}")
+            val endDateTime = java.time.LocalDateTime.parse("${endDate}T${endTime}")
+            
+            // Validate times
+            if (endDateTime.isBefore(startDateTime)) {
+                return@withContext "Error: End time cannot be before start time."
+            }
+            
+            // Check if we have write permission
+            if (!calendarIntegration.hasWritePermission()) {
+                // Use Intent fallback
+                Log.i(TAG, "No WRITE_CALENDAR permission, using Intent fallback")
+                
+                val startMillis = startDateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val endMillis = endDateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                
+                val result = calendarIntegration.openCalendarInsert(title, startMillis, endMillis)
+                
+                return@withContext if (result.isSuccess) {
+                    "Calendar app opened with event ready to create: '$title'. Please review and save the event."
+                } else {
+                    "Error opening calendar app: ${result.exceptionOrNull()?.message}"
+                }
+            }
+            
+            // Create event directly
+            val event = ai.pipecat.gemini_multimodal_websocket_demo.integrations.calendar.CalendarEvent(
+                title = title,
+                description = description,
+                startTime = startDateTime,
+                endTime = endDateTime
+            )
+            
+            val eventId = calendarIntegration.createEvent(event)
+            
+            if (eventId != null) {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d 'at' h:mm a", Locale.getDefault())
+                val formattedStart = startDateTime.format(formatter)
+                "Calendar event created: '$title' on $formattedStart (ID: $eventId)"
+            } else {
+                "Error: Failed to create calendar event. Please try again."
+            }
+            
+        } catch (e: java.time.format.DateTimeParseException) {
+            Log.e(TAG, "Error parsing date/time: ${e.message}", e)
+            "Error: Invalid date or time format. Please use YYYY-MM-DD for date and HH:MM for time (24-hour format)."
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permission denied: ${e.message}", e)
+            "I need permission to write to your calendar. Please enable Calendar access in app settings."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating calendar event: ${e.message}", e)
+            "Error creating calendar event: ${e.message}"
+        }
+    }
+    
+    /**
+     * Delete a calendar event
+     */
+    private suspend fun deleteCalendarEvent(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val eventId = params["event_id"]?.jsonPrimitive?.content?.toLongOrNull() 
+            ?: return@withContext "Error: Missing or invalid event_id parameter"
+        
+        Log.i(TAG, "Deleting calendar event: $eventId")
+        
+        try {
+            val calendarIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.calendar.CalendarIntegration(context)
+            
+            // Check permission
+            if (!calendarIntegration.hasWritePermission()) {
+                return@withContext "I need permission to modify your calendar. Please go to Settings > Apps > Kumpel Chat > Permissions and enable 'Calendar' access. Then try again."
+            }
+            
+            val success = calendarIntegration.deleteEvent(eventId)
+            
+            if (success) {
+                "Calendar event deleted successfully (ID: $eventId)"
+            } else {
+                "Error: Failed to delete calendar event. Make sure the event ID is correct."
+            }
+            
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Permission denied: ${e.message}", e)
+            "I need permission to modify your calendar. Please enable Calendar access in app settings."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting calendar event: ${e.message}", e)
+            "Error deleting calendar event: ${e.message}"
+        }
+    }
+    
+    /**
+     * Get TODO tasks
+     */
+    private suspend fun getTodoTasks(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Getting TODO tasks")
+        
+        try {
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            val todoManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.TodoListManager(context, reminderManager)
+            
+            val dateStr = params["date"]?.jsonPrimitive?.content
+            
+            val tasks = if (dateStr != null) {
+                // Filter by date
+                val date = java.time.LocalDate.parse(dateStr)
+                todoManager.getTasksForDate(date)
+            } else {
+                // Get all tasks
+                todoManager.getTasks()
+            }
+            
+            if (tasks.isEmpty()) {
+                if (dateStr != null) {
+                    "No tasks found for $dateStr"
+                } else {
+                    "Your TODO list is empty. You have no tasks."
+                }
+            } else {
+                val taskList = tasks.joinToString("\n") { task ->
+                    val status = if (task.isCompleted) "✓" else "○"
+                    val dueDateStr = task.dueDate?.let { " (due: ${it.toLocalDate()})" } ?: ""
+                    val priorityStr = when (task.priority) {
+                        ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.Priority.HIGH -> " [HIGH]"
+                        ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.Priority.LOW -> " [LOW]"
+                        else -> ""
+                    }
+                    "$status [ID: ${task.id}] ${task.title}$dueDateStr$priorityStr"
+                }
+                
+                val header = if (dateStr != null) {
+                    "Tasks for $dateStr:\n"
+                } else {
+                    "Your TODO list (${tasks.size} tasks):\n"
+                }
+                
+                header + taskList
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting TODO tasks: ${e.message}", e)
+            "Error getting TODO tasks: ${e.message}"
+        }
+    }
+    
+    /**
+     * Add a TODO task
+     */
+    private suspend fun addTodoTask(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val title = params["title"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing title parameter"
+        
+        Log.i(TAG, "Adding TODO task: $title")
+        
+        try {
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            val todoManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.TodoListManager(context, reminderManager)
+            
+            val dueDateStr = params["due_date"]?.jsonPrimitive?.content
+            val dueDate = dueDateStr?.let { java.time.LocalDateTime.parse(it) }
+            
+            val priorityStr = params["priority"]?.jsonPrimitive?.content ?: "NORMAL"
+            val priority = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.Priority.valueOf(priorityStr)
+            
+            val task = todoManager.addTask(title, dueDate, priority)
+            
+            val dueDateInfo = if (dueDate != null) {
+                " with due date ${dueDate.toLocalDate()} at ${dueDate.toLocalTime()}"
+            } else {
+                ""
+            }
+            
+            val reminderInfo = if (dueDate != null) {
+                " A reminder has been created for this task."
+            } else {
+                ""
+            }
+            
+            "Task added to your TODO list: \"$title\"$dueDateInfo (Priority: $priority, ID: ${task.id}).$reminderInfo"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding TODO task: ${e.message}", e)
+            "Error adding TODO task: ${e.message}"
+        }
+    }
+    
+    /**
+     * Mark a TODO task as complete
+     */
+    private suspend fun completeTodoTask(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val taskId = params["task_id"]?.jsonPrimitive?.content?.toLongOrNull() 
+            ?: return@withContext "Error: Missing or invalid task_id parameter"
+        
+        Log.i(TAG, "Completing TODO task: $taskId")
+        
+        try {
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            val todoManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.TodoListManager(context, reminderManager)
+            
+            // Get the task first
+            val tasks = todoManager.getTasks()
+            val task = tasks.find { it.id == taskId }
+                ?: return@withContext "Error: Task not found (ID: $taskId). Use get_todo_tasks to see available tasks."
+            
+            // Mark as complete
+            val updatedTask = task.copy(isCompleted = true)
+            todoManager.updateTask(updatedTask)
+            
+            "Task completed: \"${task.title}\" (ID: $taskId)"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error completing TODO task: ${e.message}", e)
+            "Error completing TODO task: ${e.message}"
+        }
+    }
+    
+    /**
+     * Delete a TODO task
+     */
+    private suspend fun deleteTodoTask(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val taskId = params["task_id"]?.jsonPrimitive?.content?.toLongOrNull() 
+            ?: return@withContext "Error: Missing or invalid task_id parameter"
+        
+        Log.i(TAG, "Deleting TODO task: $taskId")
+        
+        try {
+            val reminderManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.alarms.ReminderManager(context)
+            val todoManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.TodoListManager(context, reminderManager)
+            
+            // Get the task first to show its title
+            val tasks = todoManager.getTasks()
+            val task = tasks.find { it.id == taskId }
+            
+            todoManager.deleteTask(taskId)
+            
+            if (task != null) {
+                "Task deleted: \"${task.title}\" (ID: $taskId)"
+            } else {
+                "Task deleted (ID: $taskId)"
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting TODO task: ${e.message}", e)
+            "Error deleting TODO task: ${e.message}"
+        }
+    }
+    
+    /**
+     * Navigate to a destination using Google Maps
+     * Requirements: 5.1 (driving), 5.2 (walking), 5.3 (bicycling)
+     */
+    private suspend fun navigateTo(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val destination = params["destination"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing destination parameter"
+        val modeStr = params["mode"]?.jsonPrimitive?.content ?: "driving"
+        
+        Log.i(TAG, "Starting navigation to: $destination (mode: $modeStr)")
+        
+        try {
+            val mapsIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.MapsIntegration(context)
+            
+            // Map mode string to NavigationMode enum
+            val mode = when (modeStr.lowercase()) {
+                "driving" -> ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.NavigationMode.DRIVING
+                "walking" -> ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.NavigationMode.WALKING
+                "bicycling" -> ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.NavigationMode.BICYCLING
+                "two_wheeler" -> ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.NavigationMode.TWO_WHEELER
+                else -> ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.NavigationMode.DRIVING
+            }
+            
+            mapsIntegration.startNavigation(destination, mode)
+            
+            "Opening Google Maps navigation to \"$destination\" (${mode.name.lowercase()} mode)"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting navigation: ${e.message}", e)
+            "Error starting navigation: ${e.message}. Make sure Google Maps is installed."
+        }
+    }
+    
+    /**
+     * Search for a place on Google Maps
+     * Requirements: 5.4
+     */
+    private suspend fun searchOnMap(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val query = params["query"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing query parameter"
+        
+        Log.i(TAG, "Searching on map: $query")
+        
+        try {
+            val mapsIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.MapsIntegration(context)
+            
+            mapsIntegration.searchPlace(query)
+            
+            "Opening Google Maps search for \"$query\""
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching on map: ${e.message}", e)
+            "Error searching on map: ${e.message}. Make sure Google Maps is installed."
+        }
+    }
+    
+    /**
+     * Show a specific location on Google Maps
+     * Requirements: 5.5
+     */
+    private suspend fun showOnMap(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val latitude = params["latitude"]?.jsonPrimitive?.content?.toDoubleOrNull() 
+            ?: return@withContext "Error: Missing or invalid latitude parameter"
+        val longitude = params["longitude"]?.jsonPrimitive?.content?.toDoubleOrNull() 
+            ?: return@withContext "Error: Missing or invalid longitude parameter"
+        val label = params["label"]?.jsonPrimitive?.content
+        
+        Log.i(TAG, "Showing location on map: ($latitude, $longitude)${label?.let { " - $it" } ?: ""}")
+        
+        try {
+            val mapsIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.MapsIntegration(context)
+            
+            mapsIntegration.showLocation(latitude, longitude, label)
+            
+            val locationStr = if (label != null) {
+                "\"$label\" ($latitude, $longitude)"
+            } else {
+                "($latitude, $longitude)"
+            }
+            
+            "Opening Google Maps at location $locationStr"
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing location on map: ${e.message}", e)
+            "Error showing location on map: ${e.message}. Make sure Google Maps is installed."
+        }
+    }
+    
+    /**
+     * Find public transit route
+     * Requirements: 6.1, 6.2
+     */
+    private suspend fun findTransitRoute(params: JsonObject): String = withContext(Dispatchers.IO) {
+        val destination = params["destination"]?.jsonPrimitive?.content 
+            ?: return@withContext "Error: Missing destination parameter"
+        
+        Log.i(TAG, "Finding transit route to: $destination")
+        
+        // Check if API key is configured
+        val directionsApiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.googleDirectionsApiKey.value
+        if (directionsApiKey.isNullOrBlank()) {
+            return@withContext "Transit routing is not configured. Please add your Google Directions API key in Settings > API Keys. Get your API key at https://console.cloud.google.com (you can use the same key as Google Places API)"
+        }
+        
+        try {
+            val transitIntegration = ai.pipecat.gemini_multimodal_websocket_demo.integrations.maps.TransitIntegration(
+                context,
+                directionsApiKey
+            )
+            
+            // Check network connectivity
+            if (!transitIntegration.isNetworkAvailable()) {
+                return@withContext "No internet connection. Please check your network settings and try again."
+            }
+            
+            // Determine origin
+            var origin = params["origin"]?.jsonPrimitive?.content
+            
+            // If origin is not provided or is "current"/"my location", use GPS
+            if (origin == null || origin.equals("current", ignoreCase = true) || 
+                origin.equals("my location", ignoreCase = true)) {
+                
+                // Check location permission
+                if (!transitIntegration.hasLocationPermission()) {
+                    return@withContext "Location permission is required to use your current location. Please provide a starting address or grant location permission."
+                }
+                
+                // Get current location
+                val currentLocation = transitIntegration.getCurrentLocation()
+                if (currentLocation == null) {
+                    return@withContext "Unable to get your current location. Please provide a starting address."
+                }
+                
+                origin = "${currentLocation.lat},${currentLocation.lng}"
+                Log.i(TAG, "Using current location as origin: $origin")
+            }
+            
+            // Parse time parameters
+            var departureTime: Long? = null
+            var arrivalTime: Long? = null
+            
+            val departureTimeStr = params["departure_time"]?.jsonPrimitive?.content
+            if (departureTimeStr != null && !departureTimeStr.equals("now", ignoreCase = true)) {
+                try {
+                    val dateTime = java.time.LocalDateTime.parse(departureTimeStr)
+                    departureTime = dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse departure_time: $departureTimeStr", e)
+                }
+            }
+            
+            val arrivalTimeStr = params["arrival_time"]?.jsonPrimitive?.content
+            if (arrivalTimeStr != null) {
+                try {
+                    val dateTime = java.time.LocalDateTime.parse(arrivalTimeStr)
+                    arrivalTime = dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse arrival_time: $arrivalTimeStr", e)
+                }
+            }
+            
+            val alternatives = params["alternatives"]?.jsonPrimitive?.content?.toBoolean() ?: false
+            
+            // Find route
+            val result = transitIntegration.findTransitRoute(
+                origin = origin,
+                destination = destination,
+                departureTime = departureTime,
+                arrivalTime = arrivalTime,
+                alternatives = alternatives
+            )
+            
+            // Check for errors
+            if (result.error != null) {
+                return@withContext "Error finding transit route: ${result.error}"
+            }
+            
+            if (result.routes.isEmpty()) {
+                return@withContext "No transit routes found from $origin to $destination. Try a different time or check if public transit is available for this route."
+            }
+            
+            // Format response for voice
+            val route = result.routes.first() // Use first route
+            val response = StringBuilder()
+            
+            response.append("I found a transit route to $destination. ")
+            
+            // Departure info
+            val departureTimeFormatted = route.departureTime.format(
+                java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            )
+            response.append("Depart from ${route.departureStop} at $departureTimeFormatted. ")
+            
+            // Transit lines
+            if (route.lines.isNotEmpty()) {
+                response.append("Take ")
+                route.lines.forEachIndexed { index, line ->
+                    if (index > 0) {
+                        response.append(", then ")
+                    }
+                    response.append("${line.type.lowercase()} ${line.name}")
+                    if (line.departureStop != line.arrivalStop) {
+                        response.append(" from ${line.departureStop} to ${line.arrivalStop}")
+                    }
+                }
+                response.append(". ")
+            }
+            
+            // Duration info
+            val durationMinutes = route.duration.toMinutes()
+            response.append("Total journey time: $durationMinutes minutes")
+            
+            if (route.walkingDuration.toMinutes() > 0) {
+                response.append(" (including ${route.walkingDuration.toMinutes()} minutes walking)")
+            }
+            response.append(". ")
+            
+            // Arrival time
+            val arrivalTimeFormatted = route.arrivalTime.format(
+                java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            )
+            response.append("You'll arrive at $arrivalTimeFormatted.")
+            
+            // If there are more routes
+            if (result.routes.size > 1) {
+                response.append(" I found ${result.routes.size} alternative routes.")
+            }
+            
+            Log.i(TAG, "Transit route found successfully")
+            response.toString()
+            
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Invalid parameters: ${e.message}", e)
+            "Error: ${e.message}"
+        } catch (e: Exception) {
+            Log.e(TAG, "Error finding transit route: ${e.message}", e)
+            "Error finding transit route: ${e.message}"
+        }
+    }
+    
+    /**
+     * Get shopping list
+     * Requirements: 7.1, 7.2, 7.7
+     */
+    private suspend fun getShoppingList(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Getting shopping list")
+        
+        try {
+            val shoppingListManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ShoppingListManager(context)
+            val items = shoppingListManager.getItems()
+            
+            if (items.isEmpty()) {
+                return@withContext "Your shopping list is empty."
+            }
+            
+            // Group items by category
+            val itemsByCategory = items.groupBy { it.category }
+            
+            val response = StringBuilder()
+            response.append("Here's your shopping list:\n\n")
+            
+            // Sort by category order and format
+            itemsByCategory.entries
+                .sortedBy { it.key.order }
+                .forEach { (category, categoryItems) ->
+                    response.append("${category.displayName}:\n")
+                    categoryItems.forEach { item ->
+                        val status = if (item.isPurchased) "✓" else "○"
+                        val quantityStr = item.quantity?.let { " ($it)" } ?: ""
+                        response.append("  $status ${item.name}$quantityStr\n")
+                    }
+                    response.append("\n")
+                }
+            
+            val totalItems = items.size
+            val purchasedItems = items.count { it.isPurchased }
+            val remainingItems = totalItems - purchasedItems
+            
+            response.append("Total: $totalItems items ($remainingItems remaining, $purchasedItems purchased)")
+            
+            Log.i(TAG, "Shopping list retrieved: $totalItems items")
+            response.toString()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting shopping list: ${e.message}", e)
+            "Error getting shopping list: ${e.message}"
+        }
+    }
+    
+    /**
+     * Add items to shopping list
+     * Requirements: 7.1, 7.2, 7.7
+     */
+    private suspend fun addToShoppingList(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Adding items to shopping list")
+        
+        try {
+            val itemsArray = params["items"]?.jsonArray 
+                ?: return@withContext "Error: Missing items parameter"
+            
+            if (itemsArray.isEmpty()) {
+                return@withContext "Error: No items provided"
+            }
+            
+            val shoppingListManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ShoppingListManager(context)
+            val addedItems = mutableListOf<String>()
+            
+            itemsArray.forEach { itemElement ->
+                val itemStr = itemElement.jsonPrimitive.content.trim()
+                if (itemStr.isNotEmpty()) {
+                    // Try to parse quantity from string like "milk 2" or "3 apples"
+                    val parts = itemStr.split(" ")
+                    val quantity: Int?
+                    val name: String
+                    
+                    // Check if first part is a number
+                    if (parts.size > 1 && parts[0].toIntOrNull() != null) {
+                        quantity = parts[0].toInt()
+                        name = parts.drop(1).joinToString(" ")
+                    }
+                    // Check if last part is a number
+                    else if (parts.size > 1 && parts.last().toIntOrNull() != null) {
+                        quantity = parts.last().toInt()
+                        name = parts.dropLast(1).joinToString(" ")
+                    }
+                    else {
+                        quantity = null
+                        name = itemStr
+                    }
+                    
+                    val item = shoppingListManager.addItem(name, quantity)
+                    val quantityStr = quantity?.let { " ($it)" } ?: ""
+                    addedItems.add("${item.name}$quantityStr (${item.category.displayName})")
+                }
+            }
+            
+            if (addedItems.isEmpty()) {
+                return@withContext "No valid items were added to the shopping list."
+            }
+            
+            val response = if (addedItems.size == 1) {
+                "Added ${addedItems[0]} to your shopping list."
+            } else {
+                "Added ${addedItems.size} items to your shopping list:\n" + 
+                addedItems.joinToString("\n") { "• $it" }
+            }
+            
+            Log.i(TAG, "Added ${addedItems.size} items to shopping list")
+            response
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding items to shopping list: ${e.message}", e)
+            "Error adding items to shopping list: ${e.message}"
+        }
+    }
+    
+    /**
+     * Remove item from shopping list
+     * Requirements: 7.4, 7.6
+     */
+    private suspend fun removeFromShoppingList(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Removing item from shopping list")
+        
+        try {
+            val shoppingListManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ShoppingListManager(context)
+            
+            // Check if item_id is provided
+            val itemId = params["item_id"]?.jsonPrimitive?.content?.toLongOrNull()
+            if (itemId != null) {
+                shoppingListManager.deleteItem(itemId)
+                return@withContext "Item removed from shopping list."
+            }
+            
+            // Otherwise use item_name
+            val itemName = params["item_name"]?.jsonPrimitive?.content 
+                ?: return@withContext "Error: Missing item_name parameter"
+            
+            val matches = shoppingListManager.deleteItemByName(itemName)
+            
+            if (matches.isEmpty()) {
+                return@withContext "Removed '$itemName' from shopping list."
+            } else {
+                // Multiple matches found
+                val response = StringBuilder()
+                response.append("Found multiple items named '$itemName'. Please specify which one to remove:\n\n")
+                matches.forEach { item ->
+                    val quantityStr = item.quantity?.let { " ($it)" } ?: ""
+                    response.append("• ID ${item.id}: ${item.name}$quantityStr - ${item.category.displayName}\n")
+                }
+                response.append("\nUse remove_from_shopping_list with item_id parameter to remove a specific item.")
+                response.toString()
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing item from shopping list: ${e.message}", e)
+            "Error removing item from shopping list: ${e.message}"
+        }
+    }
+    
+    /**
+     * Mark item as purchased
+     * Requirements: 7.4
+     */
+    private suspend fun markItemPurchased(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Marking item as purchased")
+        
+        try {
+            val shoppingListManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ShoppingListManager(context)
+            
+            // Check if item_id is provided
+            val itemId = params["item_id"]?.jsonPrimitive?.content?.toLongOrNull()
+            if (itemId != null) {
+                shoppingListManager.markItemPurchasedById(itemId)
+                return@withContext "Item marked as purchased."
+            }
+            
+            // Otherwise use item_name
+            val itemName = params["item_name"]?.jsonPrimitive?.content 
+                ?: return@withContext "Error: Missing item_name parameter"
+            
+            val matches = shoppingListManager.markItemPurchased(itemName)
+            
+            if (matches.isEmpty()) {
+                return@withContext "Marked '$itemName' as purchased."
+            } else {
+                // Multiple matches found
+                val response = StringBuilder()
+                response.append("Found multiple items named '$itemName'. Please specify which one to mark:\n\n")
+                matches.forEach { item ->
+                    val quantityStr = item.quantity?.let { " ($it)" } ?: ""
+                    response.append("• ID ${item.id}: ${item.name}$quantityStr - ${item.category.displayName}\n")
+                }
+                response.append("\nUse mark_item_purchased with item_id parameter to mark a specific item.")
+                response.toString()
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error marking item as purchased: ${e.message}", e)
+            "Error marking item as purchased: ${e.message}"
+        }
+    }
+    
+    /**
+     * Clear purchased items from shopping list
+     * Requirements: 7.5
+     */
+    private suspend fun clearPurchasedItems(params: JsonObject): String = withContext(Dispatchers.IO) {
+        Log.i(TAG, "Clearing purchased items from shopping list")
+        
+        try {
+            val shoppingListManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ShoppingListManager(context)
+            shoppingListManager.clearPurchased()
+            
+            Log.i(TAG, "Cleared purchased items from shopping list")
+            "Cleared all purchased items from your shopping list."
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing purchased items: ${e.message}", e)
+            "Error clearing purchased items: ${e.message}"
         }
     }
 }
