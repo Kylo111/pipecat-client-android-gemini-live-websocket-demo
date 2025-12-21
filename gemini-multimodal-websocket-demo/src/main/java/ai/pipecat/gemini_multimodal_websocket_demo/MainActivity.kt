@@ -18,7 +18,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.ConversationListScreen
 import ai.pipecat.gemini_multimodal_websocket_demo.usecases.ImportAssistantUseCase
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationType
-import ai.pipecat.gemini_multimodal_websocket_demo.ui.TranscriptSyncIndicator
+
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.RTVIClientTheme
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
@@ -121,14 +121,13 @@ class MainActivity : ComponentActivity() {
 
         // Initialize LibreChat integration services
         val authManager = AuthManager(this)
-        val offlineSummaryQueue = OfflineSummaryQueue(this)
-        val libreChatService = LibreChatService(authManager, offlineSummaryQueue)
+        val libreChatService = LibreChatService(authManager)
         
         // Create sessionManager first with lifecycleScope for transcript sync
         val sessionManager = SessionManager(this, libreChatService, lifecycleScope)
         
         // Create voiceClientManager
-        voiceClientManager = VoiceClientManager(this, sessionManager)
+        voiceClientManager = VoiceClientManager(this, libreChatService, sessionManager)
         
         // Set voiceClientManager reference in sessionManager (circular dependency resolution)
         sessionManager.voiceClientManager = voiceClientManager
@@ -225,17 +224,6 @@ class MainActivity : ComponentActivity() {
             val isNetworkConnected by networkMonitor.isConnected.collectAsState()
             val networkReconnectedTimestamp by networkMonitor.onNetworkReconnected.collectAsState()
             
-            // Process offline queue when network reconnects
-            LaunchedEffect(networkReconnectedTimestamp) {
-                if (networkReconnectedTimestamp > 0) {
-                    lifecycleScope.launch {
-                        val processed = sessionManager.processOfflineQueue()
-                        if (processed > 0) {
-                            Log.d(TAG, "Processed $processed offline items after network reconnect")
-                        }
-                    }
-                }
-            }
             
             // Camera launcher
             val cameraLauncher = rememberLauncherForActivityResult(
@@ -515,14 +503,6 @@ class MainActivity : ComponentActivity() {
                         
 
                         
-                        // Transcript sync indicator - blocks new conversations until sync completes
-                        val syncStatus by sessionManager.syncStatus.collectAsState()
-                        TranscriptSyncIndicator(
-                            syncStatus = syncStatus,
-                            onCancelSync = {
-                                sessionManager.cancelTranscriptSync()
-                            }
-                        )
                         
                         // Back press handler
                         BackPressHandler(

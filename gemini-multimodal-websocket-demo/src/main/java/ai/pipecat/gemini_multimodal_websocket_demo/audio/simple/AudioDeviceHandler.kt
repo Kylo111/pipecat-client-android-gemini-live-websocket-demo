@@ -266,13 +266,18 @@ class AudioDeviceHandler(private val context: Context) {
     fun enableSpeakerphoneIfNoHeadset() {
         try {
             // Check if any headset is ACTUALLY connected (not just available)
-            // isBluetoothScoAvailableOffCall only means BT is available in system, not connected
-            // We need to check if A2DP is actually ON
-            val isBluetoothConnected = audioManager.isBluetoothA2dpOn
-            val isWiredHeadsetConnected = audioManager.isWiredHeadsetOn
+            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            val isBluetoothConnected = devices.any { 
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
+                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO 
+            }
+            val isWiredHeadsetConnected = devices.any { 
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || 
+                it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES 
+            }
             
             Log.i(TAG, "🎧 Checking headset status:")
-            Log.i(TAG, "  - Bluetooth A2DP ON: $isBluetoothConnected")
+            Log.i(TAG, "  - Bluetooth ON: $isBluetoothConnected")
             Log.i(TAG, "  - Wired headset ON: $isWiredHeadsetConnected")
             
             // If no headset is connected, enable speakerphone (but don't set manuallyDisabled flag)
@@ -280,6 +285,8 @@ class AudioDeviceHandler(private val context: Context) {
                 Log.i(TAG, "🔊 Auto-enabling speakerphone (no headset detected)")
                 isSpeakerphoneManuallyEnabled = true
                 isSpeakerphoneManuallyDisabled = false  // Reset disabled flag for new conversation
+                
+                // For modern APIs, we prefer setCommunicationDevice, but isSpeakerphoneOn still works for simple toggle
                 audioManager.isSpeakerphoneOn = true
                 onAudioRoutingChanged?.invoke()
             } else {

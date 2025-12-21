@@ -55,10 +55,10 @@ class SystemPromptsDefaultsPropertyTest : FunSpec({
         }
     }
     
-    test("defaultSystemPrompt is non-null and non-empty") {
+    test("DEFAULT_SYSTEM_PROMPT is non-null and non-empty") {
         checkAll(100, Arb.int()) { _ ->
-            // For any access to defaultSystemPrompt
-            val prompt = SystemPrompts.defaultSystemPrompt
+            // For any access to DEFAULT_SYSTEM_PROMPT
+            val prompt = SystemPrompts.DEFAULT_SYSTEM_PROMPT
             
             // Then it should be non-null and non-empty
             prompt shouldNotBe null
@@ -75,8 +75,8 @@ class SystemPromptsDefaultsPropertyTest : FunSpec({
         val libreChatSummary2 = SystemPrompts.libreChatSummaryPrompt
         val memoryUpdate1 = SystemPrompts.memoryUpdateInstruction
         val memoryUpdate2 = SystemPrompts.memoryUpdateInstruction
-        val defaultPrompt1 = SystemPrompts.defaultSystemPrompt
-        val defaultPrompt2 = SystemPrompts.defaultSystemPrompt
+        val defaultPrompt1 = SystemPrompts.DEFAULT_SYSTEM_PROMPT
+        val defaultPrompt2 = SystemPrompts.DEFAULT_SYSTEM_PROMPT
         
         // Then the values should be consistent
         toolsInstruction1 shouldBe toolsInstruction2
@@ -126,7 +126,7 @@ class SystemPromptsDefaultsPropertyTest : FunSpec({
             SystemPrompts.toolsInstruction,
             SystemPrompts.libreChatSummaryPrompt,
             SystemPrompts.memoryUpdateInstruction,
-            SystemPrompts.defaultSystemPrompt
+            SystemPrompts.DEFAULT_SYSTEM_PROMPT
         )
         
         // Then each should have a reasonable length (at least 10 characters)

@@ -9,6 +9,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.ApiKeysImporter
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.ApiKeysExporter
+import ai.pipecat.gemini_multimodal_websocket_demo.AzureSpeechService
+import ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.AudioEngine
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -84,14 +86,15 @@ fun ApiKeysAndAccountsTab(
     onTelegramBotTokenChange: (String) -> Unit,
     telegramChatId: String,
     onTelegramChatIdChange: (String) -> Unit,
+    // Azure Speech
+    azureApiKey: String,
+    onAzureApiKeyChange: (String) -> Unit,
+    azureRegion: String,
+    onAzureRegionChange: (String) -> Unit,
+    azureTtsVoice: String,
+    onAzureTtsVoiceChange: (String) -> Unit,
     // Kumpel-chat
     authManager: AuthManager,
-    useSummaryMode: Boolean,
-    onSummaryModeChange: (Boolean) -> Unit,
-    summaryModel: String,
-    onSummaryModelChange: (String) -> Unit,
-    summaryPrompt: String,
-    onSummaryPromptChange: (String) -> Unit,
     onLogoutKumpelChat: () -> Unit
 ) {
     val context = LocalContext.current
@@ -139,6 +142,9 @@ fun ApiKeysAndAccountsTab(
                 config.picovoiceAccessKey?.let { key -> onPicovoiceAccessKeyChange(key) }
                 config.telegramBotToken?.let { token -> onTelegramBotTokenChange(token) }
                 config.telegramChatId?.let { id -> onTelegramChatIdChange(id) }
+                config.azureApiKey?.let { key -> onAzureApiKeyChange(key) }
+                config.azureRegion?.let { reg -> onAzureRegionChange(reg) }
+                config.azureTtsVoice?.let { voice -> onAzureTtsVoiceChange(voice) }
                 
                 importResult = "✅ Zaimportowano klucze API pomyślnie!"
             } else {
@@ -161,7 +167,10 @@ fun ApiKeysAndAccountsTab(
                 googleDirectionsApiKey = googleDirectionsApiKey.takeIf { it.isNotBlank() },
                 picovoiceAccessKey = picovoiceAccessKey.takeIf { it.isNotBlank() },
                 telegramBotToken = telegramBotToken.takeIf { it.isNotBlank() },
-                telegramChatId = telegramChatId.takeIf { it.isNotBlank() }
+                telegramChatId = telegramChatId.takeIf { it.isNotBlank() },
+                azureApiKey = azureApiKey.takeIf { it.isNotBlank() },
+                azureRegion = azureRegion.takeIf { it.isNotBlank() },
+                azureTtsVoice = azureTtsVoice.takeIf { it.isNotBlank() }
             )
             
             val result = ApiKeysExporter.exportToUri(context, uri, config)
@@ -337,6 +346,64 @@ fun ApiKeysAndAccountsTab(
                 )
             }
             
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Azure Speech Section
+            Column {
+                Text(
+                    text = "Azure Speech (wymagane dla LibreChat Audio)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                SettingsTextField(
+                    label = "Azure API Key",
+                    value = azureApiKey,
+                    onValueChange = onAzureApiKeyChange,
+                    isPassword = true
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                SettingsTextField(
+                    label = "Azure Region (np. eastus)",
+                    value = azureRegion,
+                    onValueChange = onAzureRegionChange
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                SettingsTextField(
+                    label = "Azure TTS Voice (np. en-US-AvaMultilingualNeural)",
+                    value = azureTtsVoice,
+                    onValueChange = onAzureTtsVoiceChange
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = "Klucz i region znajdziesz w Azure Portal (Speech Service). Głos musi obsługiwać wiele języków dla najlepszego efektu.",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.Gray,
+                    style = TextStyles.base,
+                    lineHeight = 14.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Diagnostic Tool
+                AzureDiagnosticTool(
+                    apiKey = azureApiKey,
+                    region = azureRegion,
+                    voice = azureTtsVoice
+                )
+            }
+            
             Spacer(modifier = Modifier.height(24.dp))
             
             // Import from JSON button
@@ -504,53 +571,6 @@ fun ApiKeysAndAccountsTab(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Summary Model field (for offline mode)
-                Column {
-                    Text(
-                        text = "Model do podsumowań",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.W600,
-                        color = Color.Black,
-                        style = TextStyles.base
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    TextField(
-                        value = summaryModel,
-                        onValueChange = onSummaryModelChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedTextColor = Color.Black,
-                            unfocusedTextColor = Color.Black,
-                            focusedIndicatorColor = Colors.buttonNormal,
-                            unfocusedIndicatorColor = Color.LightGray
-                        ),
-                        textStyle = TextStyles.base.copy(fontSize = 14.sp),
-                        placeholder = {
-                            Text(
-                                SystemPrompts.DEFAULT_SUMMARY_MODEL,
-                                style = TextStyles.base,
-                                fontSize = 14.sp
-                            )
-                        },
-                        singleLine = true
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = "Domyślnie: ${SystemPrompts.DEFAULT_SUMMARY_MODEL}. Używany do generowania podsumowań konwersacji offline.",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.W400,
-                        color = Color.Gray,
-                        style = TextStyles.base,
-                        lineHeight = 14.sp
-                    )
-                }
-                
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Offline mode info
@@ -580,7 +600,7 @@ fun ApiKeysAndAccountsTab(
                     )
                 }
             } else {
-                // Summary mode settings for logged users
+                // Logged in state info
                 Text(
                     text = "✅ Zalogowano do Kumpel-chat",
                     fontSize = 12.sp,
@@ -591,129 +611,14 @@ fun ApiKeysAndAccountsTab(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Summary mode toggle
-                SettingsToggle(
-                    label = "Tryb podsumowania",
-                    checked = useSummaryMode,
-                    onCheckedChange = onSummaryModeChange
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
                 Text(
-                    text = if (useSummaryMode) {
-                        "Transkrypcja będzie przetwarzana przez Gemini 3 Flash Preview i wysyłane będzie podsumowanie"
-                    } else {
-                        "Pełna transkrypcja będzie wysyłana bezpośrednio do LibreChat"
-                    },
+                    text = "Transkrypcja rozmowy jest wysyłana bezpośrednio do LibreChat.",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
                     style = TextStyles.base,
                     lineHeight = 16.sp
                 )
-                
-                // Show summary settings only when summary mode is enabled
-                if (useSummaryMode) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Summary Model field
-                    Column {
-                        Text(
-                            text = "Model do podsumowań",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = Color.Black,
-                            style = TextStyles.base
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        TextField(
-                            value = summaryModel,
-                            onValueChange = onSummaryModelChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White,
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedIndicatorColor = Colors.buttonNormal,
-                                unfocusedIndicatorColor = Color.LightGray
-                            ),
-                            textStyle = TextStyles.base.copy(fontSize = 14.sp),
-                            placeholder = {
-                                Text(
-                                    SystemPrompts.DEFAULT_SUMMARY_MODEL,
-                                    style = TextStyles.base,
-                                    fontSize = 14.sp
-                                )
-                            },
-                            singleLine = true
-                        )
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Text(
-                            text = "Domyślnie: ${SystemPrompts.DEFAULT_SUMMARY_MODEL}. Możesz użyć: models/gemini-1.5-flash, models/gemini-1.5-pro, models/gemini-exp-1206, itp.",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.W400,
-                            color = Color.Gray,
-                            style = TextStyles.base,
-                            lineHeight = 14.sp
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Summary Prompt field
-                    Column {
-                        Text(
-                            text = "Prompt do generowania podsumowania",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.W600,
-                            color = Color.Black,
-                            style = TextStyles.base
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        TextField(
-                            value = summaryPrompt,
-                            onValueChange = onSummaryPromptChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White,
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedIndicatorColor = Colors.buttonNormal,
-                                unfocusedIndicatorColor = Color.LightGray
-                            ),
-                            textStyle = TextStyles.base.copy(fontSize = 12.sp),
-                            placeholder = {
-                                Text(
-                                    "Wpisz instrukcje jak ma wyglądać podsumowanie...",
-                                    style = TextStyles.base,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        )
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Text(
-                            text = "Uwaga: Ten prompt jest używany tylko dla konwersacji LibreChat. Konwersacje Gemini Live używają zaawansowanego systemu pamięci z kartami użytkownika i meta-podsumowaniami.",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.W400,
-                            color = Color.Gray,
-                            style = TextStyles.base,
-                            lineHeight = 14.sp
-                        )
-                    }
-                }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
@@ -949,5 +854,169 @@ private fun SettingsToggle(
                 uncheckedTrackColor = Colors.lightGrey
             )
         )
+    }
+}
+
+/**
+ * Diagnostic tool for testing Azure STT and TTS independently.
+ */
+@Composable
+private fun AzureDiagnosticTool(
+    apiKey: String,
+    region: String,
+    voice: String
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    var isSttRunning by remember { mutableStateOf(false) }
+    var transcript by remember { mutableStateOf("") }
+    var isSynthesizing by remember { mutableStateOf(false) }
+    
+    // Services (lazy init)
+    val testServices = remember {
+        mutableStateOf<Pair<AudioEngine, AzureSpeechService>?>(null)
+    }
+    
+    fun getServices(): Pair<AudioEngine, AzureSpeechService>? {
+        if (testServices.value == null) {
+            if (apiKey.isBlank() || region.isBlank()) return null
+            try {
+                // Temporarily update preferences for test
+                Preferences.azureApiKey.value = apiKey
+                Preferences.azureRegion.value = region
+                Preferences.azureTtsVoice.value = voice
+                
+                val engine = AudioEngine(context, scope = scope)
+                val azure = AzureSpeechService(context, scope)
+                
+                azure.onTranscriptionReceived = { text ->
+                    transcript = text
+                }
+                azure.onIntermediateResult = { text ->
+                    transcript = text
+                }
+                azure.onAudioDataReceived = { audio ->
+                    engine.queueAudio(audio)
+                }
+                
+                engine.onAudioRecorded = { data ->
+                    azure.feedAudio(data)
+                }
+                
+                testServices.value = Pair(engine, azure)
+            } catch (e: Exception) {
+                Log.e("AzureDiagnostic", "Failed to init test services", e)
+                return null
+            }
+        }
+        return testServices.value
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF9F9F9), RoundedCornerShape(8.dp))
+            .border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        Text(
+            text = "Narzędzia diagnostyczne Azure",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.W700,
+            style = TextStyles.base,
+            color = Color.Black
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // STT Test
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isSttRunning) Color(0xFFE57373) else Color(0xFFE0E0E0))
+                    .clickable {
+                        val services = getServices() ?: return@clickable
+                        if (isSttRunning) {
+                            services.first.stopRecording()
+                            services.second.stopSTT()
+                            isSttRunning = false
+                        } else {
+                            transcript = "Słucham..."
+                            services.first.startRecording()
+                            services.second.startSTT()
+                            isSttRunning = true
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isSttRunning) "Stop STT" else "Testuj STT (Mów)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = if (isSttRunning) Color.White else Color.Black,
+                    style = TextStyles.base
+                )
+            }
+            
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isSynthesizing) Color(0xFFBDBDBD) else Color(0xFFE0E0E0))
+                    .clickable(enabled = !isSynthesizing) {
+                        val services = getServices() ?: return@clickable
+                        scope.launch {
+                            isSynthesizing = true
+                            services.first.startPlayback()
+                            services.second.synthesize("To jest test syntezy mowy Azure. Jeśli to słyszysz, konfiguracja jest poprawna.")
+                            kotlinx.coroutines.delay(3000)
+                            isSynthesizing = false
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSynthesizing) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Colors.buttonNormal, strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        text = "Testuj TTS (Głos)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                        color = Color.Black,
+                        style = TextStyles.base
+                    )
+                }
+            }
+        }
+        
+        if (transcript.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Wynik: $transcript",
+                fontSize = 11.sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                color = Color.DarkGray,
+                style = TextStyles.base
+            )
+        }
+    }
+    
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            testServices.value?.let { (engine, azure) ->
+                engine.stopRecording()
+                engine.stopPlayback()
+                azure.release()
+            }
+        }
     }
 }

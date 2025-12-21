@@ -1,0 +1,61 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :gemini-multimodal-websocket-demo:preBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:preDebugBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gemini-multimodal-websocket-demo:generateDebugBuildConfig UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:checkDebugAarMetadata UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:generateDebugResValues UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mapDebugSourceSetPaths UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:generateDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:packageDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:parseDebugLocalResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:extractDeepLinksDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugMainManifest UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugManifest UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugManifestForPackage UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:processDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:javaPreCompileDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugShaders UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:compileDebugShaders NO-SOURCE
+> Task :gemini-multimodal-websocket-demo:generateDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:compressDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:checkDebugDuplicateClasses UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:desugarDebugFileDependencies UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugStartupProfile UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeExtDexDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeLibDexDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugJniLibFolders UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugNativeLibs UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:stripDebugDebugSymbols UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:validateSigningDebug UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:writeDebugAppMetadata UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:kspDebugKotlin
+
+> Task :gemini-multimodal-websocket-demo:compileDebugKotlin FAILED
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/AzureSpeechService.kt:130:43 Unresolved reference 'startSpeakTextAsync'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/AzureSpeechService.kt:132:50 None of the following candidates is applicable:
+static fun fromResult(p0: SpeechSynthesisResult!): AudioDataStream!
+static fun fromResult(p0: KeywordRecognitionResult!): AudioDataStream!
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/AzureSpeechService.kt:136:44 Unresolved reference 'readData'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':gemini-multimodal-websocket-demo:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 13s
+31 actionable tasks: 2 executed, 29 up-to-date

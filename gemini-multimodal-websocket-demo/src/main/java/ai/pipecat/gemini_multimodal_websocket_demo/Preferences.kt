@@ -36,6 +36,9 @@ object Preferences {
     private const val PREF_REASONING_AGENT_MODEL = "reasoning_agent_model"
     private const val PREF_WHISPERER_MODE_ENABLED = "whisperer_mode_enabled"
     private const val PREF_OFFLINE_BANNER_DISMISSED = "offline_banner_dismissed"
+    private const val PREF_AZURE_API_KEY = "azure_api_key"
+    private const val PREF_AZURE_REGION = "azure_region"
+    private const val PREF_AZURE_TTS_VOICE = "azure_tts_voice"
     private const val PREF_VERSION = "preferences_version"
     private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
 
@@ -51,7 +54,8 @@ object Preferences {
             apiKey, systemPrompt, selectedVoice, modelName,
             geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, googleDirectionsApiKey, telegramBotToken, telegramChatId, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, controlAgentEnabled,
-            reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled, offlineBannerDismissed
+            reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled, offlineBannerDismissed,
+            azureApiKey, azureRegion, azureTtsVoice
         ).forEach { it.init() }
     }
 
@@ -199,7 +203,7 @@ object Preferences {
 
     // Existing preferences
     val apiKey = StringPref(PREF_API_KEY)
-    val systemPrompt = StringPref(PREF_SYSTEM_PROMPT, SystemPrompts.defaultSystemPrompt)
+    val systemPrompt = StringPref(PREF_SYSTEM_PROMPT, SystemPrompts.DEFAULT_SYSTEM_PROMPT)
     val selectedVoice = StringPref(PREF_SELECTED_VOICE, "Puck")
     val modelName = StringPref(PREF_MODEL_NAME, SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL)
 
@@ -218,7 +222,7 @@ object Preferences {
     val keepScreenAwake = BooleanPref(PREF_KEEP_SCREEN_AWAKE, true)
     val selectedSkin = StringPref(PREF_SELECTED_SKIN, "DEFAULT")
     val userPin = StringPref(PREF_USER_PIN, "2222")
-    val defaultServerUrl = StringPref(PREF_DEFAULT_SERVER_URL, "www.kumpel-chat.fun")
+    val defaultServerUrl = StringPref(PREF_DEFAULT_SERVER_URL, "https://www.kumpel-chat.fun")
     val isDarkTheme = BooleanPref(PREF_IS_DARK_THEME, false)
     val appTheme = StringPref(PREF_APP_THEME, "CLASSIC")
     val toolsInstruction = StringPref(PREF_TOOLS_INSTRUCTION, SystemPrompts.toolsInstruction)
@@ -244,4 +248,9 @@ object Preferences {
     
     // UI preferences
     val offlineBannerDismissed = BooleanPref(PREF_OFFLINE_BANNER_DISMISSED, false) // Has user dismissed offline mode banner
+    
+    // Azure Speech preferences
+    val azureApiKey = StringPref(PREF_AZURE_API_KEY, "")
+    val azureRegion = StringPref(PREF_AZURE_REGION, "westeurope")
+    val azureTtsVoice = StringPref(PREF_AZURE_TTS_VOICE, "pl-PL-MarekNeural")
 }

@@ -14,7 +14,11 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.JavaNetCookieJar
 import java.io.IOException
+import java.net.CookieManager
+import java.net.CookiePolicy
+import java.util.concurrent.TimeUnit
 
 /**
  * Manages authentication with LibreChat API including secure token storage,
@@ -23,8 +27,24 @@ import java.io.IOException
 class AuthManager(private val context: Context) {
 
     private val encryptedPrefs: SharedPreferences
-    private val httpClient = OkHttpClient()
+    
+    private val cookieManager = CookieManager().apply {
+        setCookiePolicy(CookiePolicy.ACCEPT_ALL)
+    }
+
+    private val httpClient = OkHttpClient.Builder()
+        .cookieJar(JavaNetCookieJar(cookieManager))
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .build()
+
     private val json = Json { ignoreUnknownKeys = true }
+
+    /**
+     * Returns the shared OkHttpClient instance with cookie support.
+     */
+    fun getHttpClient(): OkHttpClient = httpClient
 
     companion object {
         private const val TAG = "AuthManager"
@@ -198,13 +218,36 @@ class AuthManager(private val context: Context) {
     }
 
     /**
+     * Normalizes the server URL by ensuring it has a scheme (defaulting to https://)
+     * and removing trailing slashes.
+     */
+    fun normalizeUrl(url: String): String {
+        var normalized = url.trim()
+        if (normalized.isBlank()) return normalized
+        
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            normalized = "https://$normalized"
+        }
+        
+        return normalized.trimEnd('/')
+    }
+
+    /**
+     * Gets the stored server URL normalized.
+     */
+    fun getNormalizedServerUrl(): String? {
+        return getServerUrl()?.let { normalizeUrl(it) }
+    }
+
+    /**
      * Authenticates user with LibreChat API
      * @param credentials User credentials including server URL, email, and password
      * @return Result containing AuthToken on success or exception on failure
      */
     suspend fun login(credentials: AuthCredentials): Result<AuthToken> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Starting login to ${credentials.serverUrl}")
+            val serverUrl = normalizeUrl(credentials.serverUrl)
+            Log.d(TAG, "Starting login to $serverUrl")
             val loginRequest = ai.pipecat.gemini_multimodal_websocket_demo.models.network.LoginRequest(
                 email = credentials.email,
                 password = credentials.password
@@ -213,7 +256,7 @@ class AuthManager(private val context: Context) {
             val requestBody = json.encodeToString(loginRequest)
                 .toRequestBody("application/json".toMediaType())
 
-            val url = "${credentials.serverUrl}/api/auth/login"
+            val url = "$serverUrl/api/auth/login"
             Log.d(TAG, "Login URL: $url")
             
             val request = Request.Builder()
@@ -272,7 +315,7 @@ class AuthManager(private val context: Context) {
                 expiresAt = expiresAt
             )
 
-            storeToken(authToken, credentials.serverUrl)
+            storeToken(authToken, serverUrl)
             storeCredentials(credentials.email, credentials.password)
             Log.d(TAG, "Login successful, token and credentials stored, expires at: $expiresAt")
 
@@ -302,9 +345,10 @@ class AuthManager(private val context: Context) {
             val refreshToken = currentToken.refreshToken
                 ?: return@withContext Result.failure(IOException("No refresh token available"))
 
-            val serverUrl = getServerUrl()
+            val storedServerUrl = getServerUrl()
                 ?: return@withContext Result.failure(IOException("No server URL stored"))
-
+            val serverUrl = normalizeUrl(storedServerUrl)
+            
             @Serializable
             data class RefreshRequest(val refreshToken: String)
 

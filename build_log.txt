@@ -1,6 +1,9 @@
-﻿> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
 > Task :gemini-multimodal-websocket-demo:preBuild UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:preDebugBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :gemini-multimodal-websocket-demo:generateDebugBuildConfig UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:checkDebugAarMetadata UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:generateDebugResValues UP-TO-DATE
@@ -15,6 +18,7 @@
 > Task :gemini-multimodal-websocket-demo:processDebugManifest UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugManifestForPackage UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:kspDebugKotlin UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:javaPreCompileDebug UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:mergeDebugShaders UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:compileDebugShaders NO-SOURCE
@@ -32,19 +36,42 @@
 > Task :gemini-multimodal-websocket-demo:validateSigningDebug UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:writeDebugAppMetadata UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:kspDebugKotlin
-> Task :gemini-multimodal-websocket-demo:compileDebugKotlin
-> Task :gemini-multimodal-websocket-demo:compileDebugJavaWithJavac UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:processDebugJavaRes UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugJavaResource UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:dexBuilderDebug
-> Task :gemini-multimodal-websocket-demo:mergeProjectDexDebug
-> Task :gemini-multimodal-websocket-demo:packageDebug
-> Task :gemini-multimodal-websocket-demo:createDebugApkListingFileRedirect UP-TO-DATE
 
-> Task :gemini-multimodal-websocket-demo:installDebug
-Installing APK 'gemini-multimodal-websocket-demo-debug.apk' on '2409FPCC4G - 15' for :gemini-multimodal-websocket-demo:debug
-Installed on 1 device.
+> Task :gemini-multimodal-websocket-demo:compileDebugKotlin FAILED
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/AuthManager.kt:17:16 Unresolved reference 'JavaNetCookieJar'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/AuthManager.kt:36:20 Unresolved reference 'JavaNetCookieJar'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/LibreChatService.kt:155:8 Unresolved reference 'Flow'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/LibreChatService.kt:155:28 Unresolved reference 'flow'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/LibreChatService.kt:190:24 Suspend function 'suspend fun <T> withContext(context: CoroutineContext, block: suspend CoroutineScope.() -> T): T
+    [R|Contract description]
+     <
+        CallsInPlace(block, EXACTLY_ONCE)
+    >' should be called only from a coroutine or another suspend function.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/LibreChatService.kt:206:20 Suspend function 'suspend fun <T> withContext(context: CoroutineContext, block: suspend CoroutineScope.() -> T): T
+    [R|Contract description]
+     <
+        CallsInPlace(block, EXACTLY_ONCE)
+    >' should be called only from a coroutine or another suspend function.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/LibreChatService.kt:219:29 Unresolved reference 'emit'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/LibreChatService.kt:226:29 Unresolved reference 'emit'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceClientManager.kt:738:19 Unresolved reference 'collect'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceClientManager.kt:738:29 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceClientManager.kt:1042:35 Unresolved reference 'collect'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceClientManager.kt:1042:45 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceClientManager.kt:1043:37 Suspension functions can only be called within coroutine body.
 
-BUILD SUCCESSFUL in 6s
-39 actionable tasks: 6 executed, 33 up-to-date
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':gemini-multimodal-websocket-demo:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 10s
+31 actionable tasks: 1 executed, 30 up-to-date

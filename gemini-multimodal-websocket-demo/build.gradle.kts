@@ -88,6 +88,7 @@ android {
 
 dependencies {
     implementation(libs.okhttp)
+    implementation(libs.okhttp.urlconnection)
     implementation(libs.retrofit)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -127,6 +128,9 @@ dependencies {
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // Azure Speech SDK
+    implementation(libs.azure.speech)
     
     // Testing dependencies
     testImplementation("junit:junit:4.13.2")

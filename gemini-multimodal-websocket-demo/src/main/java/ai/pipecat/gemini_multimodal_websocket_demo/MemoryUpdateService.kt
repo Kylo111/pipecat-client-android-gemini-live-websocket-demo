@@ -119,7 +119,7 @@ class MemoryUpdateService(
             // Get conversation system prompt (persona) if not provided
             val effectiveSystemPrompt = conversationSystemPrompt 
                 ?: getConversationSystemPrompt(conversationId)
-                ?: systemPrompts.defaultSystemPrompt
+                ?: SystemPrompts.DEFAULT_SYSTEM_PROMPT
             
             Log.d(TAG, "Using conversation persona: ${effectiveSystemPrompt.take(100)}...")
             

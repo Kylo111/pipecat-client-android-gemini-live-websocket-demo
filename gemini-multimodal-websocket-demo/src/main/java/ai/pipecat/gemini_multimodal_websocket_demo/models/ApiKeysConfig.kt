@@ -28,5 +28,8 @@ data class ApiKeysConfig(
     val googleDirectionsApiKey: String? = null,
     val picovoiceAccessKey: String? = null,
     val telegramBotToken: String? = null,
-    val telegramChatId: String? = null
+    val telegramChatId: String? = null,
+    val azureApiKey: String? = null,
+    val azureRegion: String? = null,
+    val azureTtsVoice: String? = null
 )

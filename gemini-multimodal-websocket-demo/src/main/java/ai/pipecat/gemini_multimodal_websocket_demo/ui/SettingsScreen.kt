@@ -1,6 +1,5 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
-import ai.pipecat.gemini_multimodal_websocket_demo.GeminiSummaryService
 import ai.pipecat.gemini_multimodal_websocket_demo.PicovoiceManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
@@ -67,7 +66,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val geminiSummaryService = remember { GeminiSummaryService(context) }
     
     // Tab selection state
     var selectedTab by remember { mutableStateOf(SettingsTab.API_KEYS_AND_ACCOUNTS) }
@@ -81,14 +79,13 @@ fun SettingsScreen(
     var activityThreshold by remember { mutableStateOf(Preferences.activityDetectionThreshold.value) }
     var selectedSkin by remember { mutableStateOf(Preferences.selectedSkin.value ?: "DEFAULT") }
     var showChangePINDialog by remember { mutableStateOf(false) }
-    var useSummaryMode by remember { mutableStateOf(Preferences.useSummaryMode.value) }
-    var summaryModel by remember { 
-        val saved = Preferences.summaryModel.value
-        mutableStateOf(if (saved.isNullOrBlank()) SystemPrompts.DEFAULT_SUMMARY_MODEL else saved)
-    }
-    var summaryPrompt by remember { mutableStateOf(Preferences.summaryPrompt.value ?: "") }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
     var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
+    
+    // Azure Speech settings
+    var azureApiKey by remember { mutableStateOf(Preferences.azureApiKey.value ?: "") }
+    var azureRegion by remember { mutableStateOf(Preferences.azureRegion.value ?: "") }
+    var azureTtsVoice by remember { mutableStateOf(Preferences.azureTtsVoice.value ?: "en-US-AvaMultilingualNeural") }
     
     // API Keys for Reasoning Agent
     var openRouterApiKey by remember { mutableStateOf(Preferences.openRouterApiKey.value ?: "") }
@@ -146,9 +143,6 @@ fun SettingsScreen(
         Preferences.botResponseTimeoutMinutes.value = botResponseTimeout
         Preferences.activityDetectionThreshold.value = activityThreshold
         Preferences.selectedSkin.value = selectedSkin
-        Preferences.useSummaryMode.value = useSummaryMode
-        Preferences.summaryModel.value = summaryModel
-        Preferences.summaryPrompt.value = summaryPrompt
         Preferences.parentalLockEnabled.value = parentalLockEnabled
         Preferences.fullDuplexMode.value = fullDuplexMode
         
@@ -165,6 +159,11 @@ fun SettingsScreen(
         PicovoiceManager.setAccessKey(picovoiceAccessKey)
         PicovoiceManager.setSensitivity(picovoiceSensitivity)
         PicovoiceManager.setActivationSoundEnabled(picovoiceActivationSound)
+        
+        // Save Azure settings
+        Preferences.azureApiKey.value = azureApiKey
+        Preferences.azureRegion.value = azureRegion
+        Preferences.azureTtsVoice.value = azureTtsVoice
     }
     
     // Validate and save settings function with callback
@@ -182,23 +181,6 @@ fun SettingsScreen(
                     return@launch
                 }
                 
-                // 2. Validate Summary Model if summary mode is enabled
-                if (useSummaryMode) {
-                    if (summaryModel.isBlank()) {
-                        validationError = "Brak nazwy modelu podsumowującego. Wpisz nazwę modelu (np. ${SystemPrompts.DEFAULT_SUMMARY_MODEL})."
-                        showValidationErrorDialog = true
-                        isValidatingKeys = false
-                        return@launch
-                    }
-                    
-                    val summaryResult = geminiSummaryService.validateModel(summaryModel, geminiApiKey)
-                    if (summaryResult.isFailure) {
-                        validationError = "Błąd walidacji modelu podsumowującego: ${summaryResult.exceptionOrNull()?.message}"
-                        showValidationErrorDialog = true
-                        isValidatingKeys = false
-                        return@launch
-                    }
-                }
                 
                 // 3. Validate OpenRouter API key if using OpenRouter models
                 val reasoningModel = Preferences.reasoningAgentModel.value ?: SystemPrompts.DEFAULT_REASONING_MODEL
@@ -338,14 +320,15 @@ fun SettingsScreen(
                             onTelegramBotTokenChange = { telegramBotToken = it },
                             telegramChatId = telegramChatId,
                             onTelegramChatIdChange = { telegramChatId = it },
+                            // Azure Speech
+                            azureApiKey = azureApiKey,
+                            onAzureApiKeyChange = { azureApiKey = it },
+                            azureRegion = azureRegion,
+                            onAzureRegionChange = { azureRegion = it },
+                            azureTtsVoice = azureTtsVoice,
+                            onAzureTtsVoiceChange = { azureTtsVoice = it },
                             // Kumpel-chat
                             authManager = authManager,
-                            useSummaryMode = useSummaryMode,
-                            onSummaryModeChange = { useSummaryMode = it },
-                            summaryModel = summaryModel,
-                            onSummaryModelChange = { summaryModel = it },
-                            summaryPrompt = summaryPrompt,
-                            onSummaryPromptChange = { summaryPrompt = it },
                             onLogoutKumpelChat = {
                                 coroutineScope.launch {
                                     authManager.logout()

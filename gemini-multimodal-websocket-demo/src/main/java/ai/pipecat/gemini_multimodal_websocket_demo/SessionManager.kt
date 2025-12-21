@@ -1,6 +1,5 @@
 package ai.pipecat.gemini_multimodal_websocket_demo
 
-import ai.pipecat.gemini_multimodal_websocket_demo.models.network.SummaryRequest
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -29,17 +28,10 @@ class SessionManager(
     private val scope: CoroutineScope
 ) {
     
-    // Summary generator for session analysis (fallback)
-    private val summaryGenerator = SummaryGenerator(context)
-    
-    // Gemini summary service for AI-powered summaries
-    private val geminiSummaryService = GeminiSummaryService(context)
     
     // VoiceClientManager reference (set after construction to avoid circular dependency)
     var voiceClientManager: VoiceClientManager? = null
     
-    // Transcript sync manager for reliable transcript synchronization
-    private val transcriptSyncManager = TranscriptSyncManager()
     
     // Clipboard event for summary copying
     private val _clipboardEvent = MutableSharedFlow<String>()
@@ -88,21 +80,6 @@ class SessionManager(
         private const val MIN_TRANSCRIPT_LENGTH = 50 // At least 50 characters of content
     }
     
-    /**
-     * Sealed class representing the status of transcript synchronization
-     */
-    sealed class SyncStatus {
-        object Idle : SyncStatus()
-        data class Syncing(val attempt: Int) : SyncStatus()
-        object Success : SyncStatus()
-        data class Error(val message: String, val willRetry: Boolean) : SyncStatus()
-    }
-    
-    /**
-     * Get the current sync status as observable StateFlow
-     */
-    val syncStatus: StateFlow<SyncStatus>
-        get() = transcriptSyncManager.syncStatus
     
     /**
      * Represents the current learning session context
@@ -373,28 +350,6 @@ class SessionManager(
         return dbConv?.copySummaryToClipboard ?: false
     }
 
-    /**
-     * Handle summary generation completion
-     * Checks if summary should be copied to clipboard and emits event if needed
-     * 
-     * @param summary The generated summary text
-     * @param conversationId The conversation ID
-     */
-    private suspend fun handleSummaryGenerated(summary: String, conversationId: String) {
-        // Check if summary is non-empty
-        if (summary.isBlank()) {
-            Log.d(TAG, "Summary is empty, skipping clipboard copy")
-            return
-        }
-        
-        // Check if clipboard copy is enabled for this conversation
-        if (shouldCopyToClipboard(conversationId)) {
-            Log.d(TAG, "Emitting clipboard event for summary (${summary.length} chars)")
-            _clipboardEvent.emit(summary)
-        } else {
-            Log.d(TAG, "Clipboard copy not enabled for conversation $conversationId")
-        }
-    }
 
     /**
      * Start a new learning session for the given conversation
@@ -456,54 +411,13 @@ class SessionManager(
                 }
             }
             
-            // Fetch learning context from LibreChat
-            val contextResult = libreChatService.getLearningContext(conversationId)
-            
-            if (contextResult.isFailure) {
-                val error = contextResult.exceptionOrNull()
-                Log.e(TAG, "Failed to fetch learning context: ${error?.message}")
-                
-                // Fallback to default context on error
-                Log.w(TAG, "Using default fallback context")
-                val defaultContext = createDefaultContext(conversationId)
-                currentSession = defaultContext
-                
-                // Reset transcript items StateFlow for new session
-                _transcriptItems.value = emptyList()
-                
-                return@withContext Result.success(defaultContext)
-            }
-            
-            val learningContext = contextResult.getOrThrow()
-            
+
             // Initialize session context with received data
             val sessionId = UUID.randomUUID().toString()
             val startTime = System.currentTimeMillis()
             
-            // Build complete system prompt with tools instruction, whisperer mode, and pending insight
-            val toolsInstruction = Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
-            val whispererMode = SystemPrompts.whispererModeInstruction
-            
-            val systemPrompt = buildString {
-                // 1. Base system prompt from LibreChat
-                appendLine(learningContext.readyToUseContext.systemPrompt)
-                appendLine()
-                
-                // 2. Tools instruction (how to use tools)
-                appendLine("=== TOOLS AND CAPABILITIES ===")
-                appendLine(toolsInstruction)
-                appendLine()
-                
-                // 3. Whisperer Mode instruction (automatic reasoning agent triggering)
-                appendLine("=== WHISPERER MODE ===")
-                appendLine(whispererMode)
-                appendLine()
-                
-                // 4. Pending insight (if available)
-                if (pendingInsightContext != null) {
-                    appendLine(pendingInsightContext)
-                }
-            }
+            // Use system prompt from preferences or default
+            val systemPrompt = Preferences.systemPrompt.value ?: SystemPrompts.DEFAULT_SYSTEM_PROMPT
             
             val sessionContext = SessionContext(
                 sessionId = sessionId,
@@ -527,23 +441,13 @@ class SessionManager(
                 Log.d(TAG, "Created database session: $currentDbSessionId")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create database session", e)
-                // Continue anyway - database is optional
             }
             
             Log.d(TAG, "Session started successfully: $sessionId")
             Result.success(sessionContext)
-            
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting session", e)
-            
-            // Fallback to default context
-            val defaultContext = createDefaultContext(conversationId)
-            currentSession = defaultContext
-            
-            // Reset transcript items StateFlow for new session
-            _transcriptItems.value = emptyList()
-            
-            Result.success(defaultContext)
+            Log.e(TAG, "Failed to start session", e)
+            Result.failure(e)
         }
     }
     
@@ -864,149 +768,113 @@ class SessionManager(
                                         Log.d(TAG, "🔀 Routing based on source: $source")
                                         
                                         when (source) {
-                                            "gemini_live", "offline" -> {
-                                                // Use MemoryUpdateService for Gemini Live conversations
-                                                Log.d(TAG, "🧠 [DIAGNOSTIC] Using MemoryUpdateService for memory evolution")
-                                                
-                                                // CRITICAL: Get transcripts BEFORE any DB changes (race condition prevention)
-                                                // This ensures Reasoning Agent gets correct previous/current transcripts
-                                                val currentSessionTranscript = sess.transcript
-                                                val recentSessions = sessionRepository.getRecentSessions(convId, 2)
-                                                val previousSessionTranscript = if (recentSessions.size > 1) {
-                                                    recentSessions[1].transcript
-                                                } else {
-                                                    null
-                                                }
-                                                
-                                                Log.d(TAG, "📋 [DIAGNOSTIC] Captured transcripts for potential report:")
-                                                Log.d(TAG, "  - Current session: ${currentSessionTranscript.length} chars")
-                                                Log.d(TAG, "  - Previous session: ${previousSessionTranscript?.length ?: 0} chars")
-                                                
-                                                // Get conversation system prompt (persona) for context
-                                                val conversationSystemPrompt = getConversationSystemPrompt(convId)
-                                                Log.d(TAG, "📋 [DIAGNOSTIC] Conversation persona: ${conversationSystemPrompt?.take(100) ?: "default"}...")
-                                                
-                                                // Lock conversation during memory update
-                                                conversationLockManager.lockConversation(convId)
-                                                
-                                                try {
-                                                    val memoryResult = memoryUpdateService.updateMemoryAfterSession(
-                                                        conversationId = convId,
-                                                        newTranscript = currentSessionTranscript,
-                                                        conversationSystemPrompt = conversationSystemPrompt
-                                                    )
-                                                    
-                                                    memoryResult.onSuccess { result ->
-                                                        Log.d(TAG, "✅ [DIAGNOSTIC] Memory updated successfully")
-                                                        Log.d(TAG, "  - Session summary: ${result.sessionSummary.take(100)}...")
-                                                        Log.d(TAG, "  - Global card updated: ${result.updatedGlobalCard != null}")
-                                                        Log.d(TAG, "  - Local card updated: ${result.updatedLocalCard != null}")
-                                                        Log.d(TAG, "  - Meta-summary updated: ${result.updatedMetaSummary != null}")
-                                                        Log.d(TAG, "  - Needs report: ${result.needsReport}")
-                                                        
-                                                        // CRITICAL: Check if report generation is needed
-                                                        // This must happen BEFORE DB changes to ensure correct transcript ordering
-                                                        if (result.needsReport && result.reportTopics.isNotEmpty()) {
-                                                            Log.d(TAG, "📊 [DIAGNOSTIC] Report generation requested")
-                                                            Log.d(TAG, "  - Topics: ${result.reportTopics.joinToString(", ")}")
-                                                            Log.d(TAG, "  - Priority: ${result.reportPriority}")
-                                                            
-                                                            // Get ReasoningAgentManager from application
-                                                            val reasoningAgentManager = (context.applicationContext as? RTVIApplication)?.reasoningAgentManager
-                                                            
-                                                            if (reasoningAgentManager != null) {
-                                                                // Schedule report generation with BOTH transcripts
-                                                                // These were captured BEFORE any DB changes
-                                                                scope.launch {
-                                                                    try {
-                                                                        val taskId = reasoningAgentManager.scheduleReportGeneration(
-                                                                            topics = result.reportTopics,
-                                                                            conversationId = convId,
-                                                                            previousSessionTranscript = previousSessionTranscript,
-                                                                            currentSessionTranscript = currentSessionTranscript
-                                                                        )
-                                                                        Log.d(TAG, "✅ [DIAGNOSTIC] Report generation scheduled: $taskId")
-                                                                    } catch (e: Exception) {
-                                                                        Log.e(TAG, "❌ [DIAGNOSTIC] Failed to schedule report generation", e)
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                Log.w(TAG, "⚠️ [DIAGNOSTIC] ReasoningAgentManager not available, skipping report")
-                                                            }
-                                                        }
-                                                        
-                                                        // CRITICAL: Persist the memory updates to storage
-                                                        // This happens AFTER report scheduling to maintain correct DB state
-                                                        val persistResult = memoryUpdateService.persistMemoryUpdate(
-                                                            conversationId = convId,
-                                                            memoryUpdateResult = result
-                                                        )
-                                                        
-                                                        persistResult.onSuccess {
-                                                            Log.d(TAG, "✅ [DIAGNOSTIC] Memory persisted to storage")
-                                                        }.onFailure { persistError ->
-                                                            Log.e(TAG, "❌ [DIAGNOSTIC] Failed to persist memory", persistError)
-                                                        }
-                                                    }.onFailure { error ->
-                                                        Log.e(TAG, "❌ [DIAGNOSTIC] Failed to update memory", error)
-                                                    }
-                                                } finally {
-                                                    // Always unlock conversation after memory update
-                                                    conversationLockManager.unlockConversation(convId)
-                                                }
-                                            }
-                                            
-                                            "librechat" -> {
-                                                // Use legacy summary generator for LibreChat conversations
-                                                Log.d(TAG, "📄 Using legacy summary generator for LibreChat")
-                                                
-                                                val apiKey = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.geminiApiKey.value
-                                                val summaryPrompt = getEffectiveSummaryPrompt(convId)
-                                                val summaryModel = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: SystemPrompts.DEFAULT_SUMMARY_MODEL
-                                                
-                                                if (apiKey.isNullOrBlank()) {
-                                                    Log.w(TAG, "⚠️ No Gemini API key, skipping summary generation")
-                                                    return@launch
-                                                }
-                                                
-                                                if (summaryPrompt.isNullOrBlank()) {
-                                                    Log.w(TAG, "⚠️ No summary prompt configured, skipping summary generation")
-                                                    return@launch
-                                                }
-                                                
-                                                val summaryResult = geminiSummaryService.generateSummaryWithRetry(
-                                                    transcript = sess.transcript,
-                                                    summaryPrompt = summaryPrompt,
-                                                    modelName = summaryModel,
-                                                    apiKey = apiKey
-                                                )
-                                                
-                                                summaryResult.onSuccess { summary ->
-                                                    sessionRepository.updateSummary(dbSessionId, summary)
-                                                    Log.d(TAG, "✅ Summary saved: ${summary.take(100)}...")
-                                                    
-                                                    // Handle clipboard copy if enabled
-                                                    handleSummaryGenerated(summary, convId)
-                                                }.onFailure { error ->
-                                                    Log.e(TAG, "❌ Failed to generate summary", error)
-                                                }
-                                            }
-                                            
-                                            else -> {
-                                                Log.w(TAG, "⚠️ Unknown conversation source: $source, skipping memory update")
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "❌ Error during memory update routing", e)
-                                        // Ensure conversation is unlocked on error
-                                        try {
-                                            conversationLockManager.unlockConversation(convId)
-                                        } catch (unlockError: Exception) {
-                                            Log.e(TAG, "Failed to unlock conversation", unlockError)
-                                        }
-                                    }
-                                }
-                            }
+                                             "gemini_live", "offline" -> {
+                                                 // Use MemoryUpdateService for Gemini Live conversations
+                                                 Log.d(TAG, "🧠 [DIAGNOSTIC] Using MemoryUpdateService for memory evolution")
+                                                 
+                                                 // CRITICAL: Get transcripts BEFORE any DB changes (race condition prevention)
+                                                 // This ensures Reasoning Agent gets correct previous/current transcripts
+                                                 val currentSessionTranscript = sess.transcript
+                                                 val recentSessions = sessionRepository.getRecentSessions(convId, 2)
+                                                 val previousSessionTranscript = if (recentSessions.size > 1) {
+                                                     recentSessions[1].transcript
+                                                 } else {
+                                                     null
+                                                 }
+                                                 
+                                                 Log.d(TAG, "📋 [DIAGNOSTIC] Captured transcripts for potential report:")
+                                                 Log.d(TAG, "  - Current session: ${currentSessionTranscript.length} chars")
+                                                 Log.d(TAG, "  - Previous session: ${previousSessionTranscript?.length ?: 0} chars")
+                                                 
+                                                 // Get conversation system prompt (persona) for context
+                                                 val conversationSystemPrompt = getConversationSystemPrompt(convId)
+                                                 Log.d(TAG, "📋 [DIAGNOSTIC] Conversation persona: ${conversationSystemPrompt?.take(100) ?: "default"}...")
+                                                 
+                                                 // Lock conversation during memory update
+                                                 conversationLockManager.lockConversation(convId)
+                                                 
+                                                 try {
+                                                     val memoryResult = memoryUpdateService.updateMemoryAfterSession(
+                                                         conversationId = convId,
+                                                         newTranscript = currentSessionTranscript,
+                                                         conversationSystemPrompt = conversationSystemPrompt
+                                                     )
+                                                     
+                                                     memoryResult.onSuccess { result ->
+                                                         Log.d(TAG, "✅ [DIAGNOSTIC] Memory updated successfully")
+                                                         Log.d(TAG, "  - Session summary: ${result.sessionSummary.take(100)}...")
+                                                         Log.d(TAG, "  - Global card updated: ${result.updatedGlobalCard != null}")
+                                                         Log.d(TAG, "  - Local card updated: ${result.updatedLocalCard != null}")
+                                                         Log.d(TAG, "  - Meta-summary updated: ${result.updatedMetaSummary != null}")
+                                                         Log.d(TAG, "  - Needs report: ${result.needsReport}")
+                                                         
+                                                         // CRITICAL: Check if report generation is needed
+                                                         // This must happen BEFORE DB changes to ensure correct transcript ordering
+                                                         if (result.needsReport && result.reportTopics.isNotEmpty()) {
+                                                             Log.d(TAG, "📊 [DIAGNOSTIC] Report generation requested")
+                                                             Log.d(TAG, "  - Topics: ${result.reportTopics.joinToString(", ")}")
+                                                             Log.d(TAG, "  - Priority: ${result.reportPriority}")
+                                                             
+                                                             // Get ReasoningAgentManager from application
+                                                             val reasoningAgentManager = (context.applicationContext as? RTVIApplication)?.reasoningAgentManager
+                                                             
+                                                             if (reasoningAgentManager != null) {
+                                                                 // Schedule report generation with BOTH transcripts
+                                                                 // These were captured BEFORE any DB changes
+                                                                 scope.launch {
+                                                                     try {
+                                                                         val taskId = reasoningAgentManager.scheduleReportGeneration(
+                                                                             topics = result.reportTopics,
+                                                                             conversationId = convId,
+                                                                             previousSessionTranscript = previousSessionTranscript,
+                                                                             currentSessionTranscript = currentSessionTranscript
+                                                                         )
+                                                                         Log.d(TAG, "✅ [DIAGNOSTIC] Report generation scheduled: $taskId")
+                                                                     } catch (e: Exception) {
+                                                                         Log.e(TAG, "❌ [DIAGNOSTIC] Failed to schedule report generation", e)
+                                                                     }
+                                                                 }
+                                                             } else {
+                                                                 Log.w(TAG, "⚠️ [DIAGNOSTIC] ReasoningAgentManager not available, skipping report")
+                                                             }
+                                                         }
+                                                         
+                                                         // CRITICAL: Persist the memory updates to storage
+                                                         // This happens AFTER report scheduling to maintain correct DB state
+                                                         val persistResult = memoryUpdateService.persistMemoryUpdate(
+                                                             conversationId = convId,
+                                                             memoryUpdateResult = result
+                                                         )
+                                                         
+                                                         persistResult.onSuccess {
+                                                             Log.d(TAG, "✅ [DIAGNOSTIC] Memory persisted to storage")
+                                                         }.onFailure { persistError ->
+                                                             Log.e(TAG, "❌ [DIAGNOSTIC] Failed to persist memory", persistError)
+                                                         }
+                                                     }.onFailure { error ->
+                                                         Log.e(TAG, "❌ [DIAGNOSTIC] Failed to update memory", error)
+                                                     }
+                                                 } finally {
+                                                     // Always unlock conversation after memory update
+                                                     conversationLockManager.unlockConversation(convId)
+                                                 }
+                                             }
+                                             
+                                             else -> {
+                                                 Log.d(TAG, "⏭️ Skipping memory update for source: $source")
+                                             }
+                                         }
+                                     } catch (e: Exception) {
+                                         Log.e(TAG, "❌ Error during memory update routing", e)
+                                         // Ensure conversation is unlocked on error
+                                         try {
+                                             conversationLockManager.unlockConversation(convId)
+                                         } catch (unlockError: Exception) {
+                                             Log.e(TAG, "Failed to unlock conversation", unlockError)
+                                         }
+                                     }
+                                 }
+                             }
                         } else {
                             Log.d(TAG, "⏭️ Session too short for memory update (${durationSecs}s, ${transcriptLength} chars) - skipping")
                         }
@@ -1024,18 +892,11 @@ class SessionManager(
             return@withContext Result.success(Unit)
         }
         
+        if (isEndingSession) return@withContext Result.success(Unit)
+        
         try {
             isEndingSession = true
             Log.d(TAG, "Ending session: ${session.sessionId}")
-            
-            val duration = System.currentTimeMillis() - session.startTime
-            val durationSeconds = (duration / 1000).toInt()
-            
-            Log.d(TAG, "📊 Session statistics:")
-            Log.d(TAG, "  Duration: ${duration / 60000} minutes (${durationSeconds}s)")
-            Log.d(TAG, "  Transcripts: ${session.transcripts.size} entries")
-            Log.d(TAG, "  User transcripts: ${session.transcripts.count { it.speaker == Speaker.USER }}")
-            Log.d(TAG, "  Bot transcripts: ${session.transcripts.count { it.speaker == Speaker.BOT }}")
             
             // Stop the voice client connection
             voiceClientManager?.stop()
@@ -1050,412 +911,24 @@ class SessionManager(
                 }
             }
             
-            // Check if session meets minimum thresholds for generating transcript/summary
-            val meetsMinimumThresholds = durationSeconds >= MIN_SESSION_DURATION_SECONDS &&
-                                        session.transcripts.size >= MIN_TRANSCRIPT_ENTRIES
-            
-            if (!meetsMinimumThresholds) {
-                Log.d(TAG, "⏭️ Session too short for transcript/summary:")
-                Log.d(TAG, "  Duration: ${durationSeconds}s (min: ${MIN_SESSION_DURATION_SECONDS}s)")
-                Log.d(TAG, "  Entries: ${session.transcripts.size} (min: ${MIN_TRANSCRIPT_ENTRIES})")
-                Log.d(TAG, "  Skipping transcript/summary generation")
-                
-                // Clear session and return success
-                currentSession = null
-                currentDbSessionId = null
-                lastContextUpdateTime = 0
-                _transcriptItems.value = emptyList()
-                isEndingSession = false
-                return@withContext Result.success(Unit)
-            }
-            
-            // Format transcripts as conversation
-            val transcriptText = formatTranscriptsForLibreChat(session.transcripts, duration)
-            
-            Log.d(TAG, "📝 Formatted transcript:")
-            Log.d(TAG, "  Length: ${transcriptText.length} chars")
-            Log.d(TAG, "  Preview: ${transcriptText.take(300)}...")
-            
-            // Additional check: verify transcript has minimum content length
-            if (transcriptText.length < MIN_TRANSCRIPT_LENGTH) {
-                Log.d(TAG, "⏭️ Transcript too short (${transcriptText.length} chars, min: ${MIN_TRANSCRIPT_LENGTH})")
-                Log.d(TAG, "  Skipping transcript/summary generation")
-                
-                // Clear session and return success
-                currentSession = null
-                currentDbSessionId = null
-                lastContextUpdateTime = 0
-                _transcriptItems.value = emptyList()
-                isEndingSession = false
-                return@withContext Result.success(Unit)
-            }
-            
-            // Check if summary mode is enabled
-            val useSummaryMode = Preferences.useSummaryMode.value
-            val contentToSend: String
-            
-            if (useSummaryMode) {
-                Log.d(TAG, "🤖 Summary mode enabled - generating AI summary")
-                
-                // Get summary prompt and API key
-                val summaryPrompt = getEffectiveSummaryPrompt(session.conversationId)
-                val apiKey = Preferences.geminiApiKey.value ?: ""
-                
-                if (summaryPrompt.isBlank()) {
-                    Log.w(TAG, "⚠️ Summary prompt is empty, falling back to transcript")
-                    contentToSend = transcriptText
-                } else if (apiKey.isBlank()) {
-                    Log.w(TAG, "⚠️ Gemini API key is empty, falling back to transcript")
-                    contentToSend = transcriptText
-                } else {
-                    // Generate summary using Gemini (infinite retry)
-                    val summaryModel = Preferences.summaryModel.value?.takeIf { it.isNotBlank() } ?: SystemPrompts.DEFAULT_SUMMARY_MODEL
-                    
-                    val summaryResult = geminiSummaryService.generateSummaryWithRetry(
-                        transcript = transcriptText,
-                        summaryPrompt = summaryPrompt,
-                        modelName = summaryModel,
-                        apiKey = apiKey
-                    )
-                    
-                    if (summaryResult.isSuccess) {
-                        val summary = summaryResult.getOrThrow()
-                        Log.d(TAG, "✅ Summary generated successfully")
-                        Log.d(TAG, "  Summary length: ${summary.length} chars")
-                        Log.d(TAG, "  Summary preview: ${summary.take(200)}...")
-                        contentToSend = "## PODSUMOWANIE ##\n\n$summary"
-                        
-                        // Handle clipboard copy if enabled (non-blocking)
-                        scope.launch {
-                            handleSummaryGenerated(summary, session.conversationId)
-                        }
-                    } else {
-                        Log.e(TAG, "❌ Failed to generate summary: ${summaryResult.exceptionOrNull()?.message}")
-                        Log.w(TAG, "⚠️ Falling back to transcript")
-                        contentToSend = transcriptText
-                    }
-                }
-            } else {
-                Log.d(TAG, "📄 Transcript mode - sending raw transcript")
-                contentToSend = transcriptText
-            }
-            
-            // Create summary request with content (transcript or summary)
-            val summaryRequest = SummaryRequest(
-                conversationId = session.conversationId,
-                sessionSummary = contentToSend
-            )
-            
-            Log.d(TAG, "📤 Starting content synchronization with infinite retry")
-            
-            // Use TranscriptSyncManager for reliable delivery with infinite retry
-            val syncResult = transcriptSyncManager.syncTranscripts(summaryRequest)
-            
-            if (syncResult.isSuccess) {
-                Log.d(TAG, "✅ Session transcript synchronized successfully")
-                
-                // Save summary to database if we have one
-                if (useSummaryMode && contentToSend.startsWith("## PODSUMOWANIE ##")) {
-                    currentDbSessionId?.let { dbSessionId ->
-                        try {
-                            val summary = contentToSend.removePrefix("## PODSUMOWANIE ##\n\n")
-                            sessionRepository.updateSummary(dbSessionId, summary)
-                            Log.d(TAG, "Saved summary to database")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to save summary to database", e)
-                        }
-                    }
-                }
-                
-                // Update conversation stats
-                try {
-                    conversationRepository.onSessionCompleted(
-                        session.conversationId,
-                        (duration / 1000).toInt()
-                    )
-                    
-                    // Check if meta-summary needed
-                    if (conversationRepository.needsMetaSummary(session.conversationId)) {
-                        Log.d(TAG, "Meta-summary needed for conversation ${session.conversationId}")
-                        // TODO: Generate meta-summary in Phase 5
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to update conversation stats", e)
-                }
-                
-                // Clear session context on successful submission
-                currentSession = null
-                currentDbSessionId = null
-                lastContextUpdateTime = 0
-                _transcriptItems.value = emptyList()
-                transcriptSyncManager.reset()
-                isEndingSession = false
-                Result.success(Unit)
-            } else {
-                // Sync was cancelled or failed
-                Log.w(TAG, "⚠️ Transcript synchronization was cancelled or failed")
-                
-                // Clear session even though sync failed/cancelled
-                currentSession = null
-                lastContextUpdateTime = 0
-                _transcriptItems.value = emptyList()
-                transcriptSyncManager.reset()
-                isEndingSession = false
-                
-                Result.failure(syncResult.exceptionOrNull() ?: Exception("Transcript sync failed"))
-            }
+            // Clear session context
+            currentSession = null
+            currentDbSessionId = null
+            currentConversationId = null
+            lastContextUpdateTime = 0
+            _transcriptItems.value = emptyList()
+            isEndingSession = false
+            Result.success(Unit)
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error ending session", e)
             isEndingSession = false
-            transcriptSyncManager.reset()
             Result.failure(e)
         }
     }
     
-    /**
-     * Cancel ongoing transcript synchronization
-     * Shows warning that transcripts may be lost
-     */
-    fun cancelTranscriptSync() {
-        transcriptSyncManager.cancelSync()
-    }
     
-    /**
-     * Check if transcript synchronization is in progress
-     * Used to block new conversations until sync completes
-     */
-    fun isSyncInProgress(): Boolean {
-        return syncStatus.value is SyncStatus.Syncing
-    }
     
-    /**
-     * Process offline queue - attempt to send all queued transcripts/summaries
-     * Should be called on app start or when network becomes available
-     * 
-     * @return Number of successfully processed items
-     */
-    suspend fun processOfflineQueue(): Int {
-        return transcriptSyncManager.processOfflineQueue()
-    }
-    
-    /**
-     * Format transcripts for LibreChat with speaker roles
-     * Adds header and formats each transcript entry with timestamp and speaker
-     */
-    private fun formatTranscriptsForLibreChat(
-        transcripts: List<TranscriptEntry>,
-        duration: Long
-    ): String {
-        if (transcripts.isEmpty()) {
-            return "## TRANSKRYPCJA ##\n\nBrak transkrypcji - sesja była zbyt krótka lub nie zarejestrowano żadnych wypowiedzi."
-        }
-        
-        val durationMinutes = duration / 60000
-        val durationSeconds = (duration % 60000) / 1000
-        
-        val builder = StringBuilder()
-        builder.append("## TRANSKRYPCJA ##\n\n")
-        builder.append("Czas trwania sesji: ${durationMinutes}m ${durationSeconds}s\n")
-        builder.append("Liczba wypowiedzi: ${transcripts.size}\n\n")
-        builder.append("---\n\n")
-        
-        // Group consecutive messages from the same speaker
-        var lastSpeaker: Speaker? = null
-        var currentMessage = StringBuilder()
-        
-        for (transcript in transcripts) {
-            if (transcript.speaker != lastSpeaker) {
-                // Flush previous message
-                if (lastSpeaker != null && currentMessage.isNotEmpty()) {
-                    val speakerLabel = when (lastSpeaker) {
-                        Speaker.USER -> "**Uczeń:**"
-                        Speaker.BOT -> "**Asystent:**"
-                    }
-                    builder.append("$speakerLabel ${currentMessage.toString().trim()}\n\n")
-                    currentMessage.clear()
-                }
-                lastSpeaker = transcript.speaker
-            }
-            
-            // Append to current message
-            if (currentMessage.isNotEmpty()) {
-                currentMessage.append(" ")
-            }
-            currentMessage.append(transcript.text.trim())
-        }
-        
-        // Flush last message
-        if (lastSpeaker != null && currentMessage.isNotEmpty()) {
-            val speakerLabel = when (lastSpeaker) {
-                Speaker.USER -> "**Uczeń:**"
-                Speaker.BOT -> "**Asystent:**"
-            }
-            builder.append("$speakerLabel ${currentMessage.toString().trim()}\n\n")
-        }
-        
-        builder.append("---\n\n")
-        builder.append("*Koniec transkrypcji*")
-        
-        return builder.toString()
-    }
-    
-    /**
-     * Inner class managing transcript synchronization with infinite retry
-     * Ensures transcripts are reliably sent to LibreChat even with network issues
-     * Uses OfflineSummaryQueue for persistence across app restarts
-     */
-    private inner class TranscriptSyncManager {
-        
-        private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
-        val syncStatus: StateFlow<SyncStatus> = _syncStatus
-        
-        private var syncJob: Job? = null
-        private var isCancelled = false
-        
-        // Offline queue for persistence
-        private val offlineQueue = OfflineSummaryQueue(context)
-        
-        // Constants for retry logic
-        private val TAG = "TranscriptSyncManager"
-        private val BASE_DELAY = 1000L // 1 second
-        private val MAX_DELAY = 30000L // 30 seconds
-        private val BACKOFF_FACTOR = 2.0
-        
-        /**
-         * Synchronize transcripts with infinite retry until success or cancellation
-         * Saves to offline queue for persistence across app restarts
-         * 
-         * @param summaryRequest The summary request containing transcripts
-         * @return Result indicating success or cancellation
-         */
-        suspend fun syncTranscripts(summaryRequest: SummaryRequest): Result<Unit> {
-            isCancelled = false
-            var attempt = 0
-            
-            // Save to offline queue immediately for persistence
-            offlineQueue.enqueue(summaryRequest)
-            Log.d(TAG, "💾 Saved to offline queue for persistence")
-            
-            syncJob = scope.launch {
-                while (!isCancelled) {
-                    attempt++
-                    
-                    Log.d(TAG, "📤 Transcript sync attempt $attempt")
-                    _syncStatus.value = SyncStatus.Syncing(attempt)
-                    
-                    try {
-                        // Attempt to send transcripts
-                        val result = libreChatService.sendSessionSummary(summaryRequest)
-                        
-                        if (result.isSuccess) {
-                            Log.d(TAG, "✅ Transcript sync successful on attempt $attempt")
-                            
-                            // Remove from offline queue on success
-                            offlineQueue.dequeue()
-                            Log.d(TAG, "🗑️ Removed from offline queue")
-                            
-                            _syncStatus.value = SyncStatus.Success
-                            return@launch
-                        } else {
-                            val error = result.exceptionOrNull()
-                            Log.w(TAG, "⚠️ Transcript sync failed on attempt $attempt: ${error?.message}")
-                            
-                            if (!isCancelled) {
-                                _syncStatus.value = SyncStatus.Error(
-                                    message = error?.message ?: "Unknown error",
-                                    willRetry = true
-                                )
-                                
-                                // Calculate exponential backoff delay
-                                val delay = calculateBackoff(attempt)
-                                Log.d(TAG, "⏳ Waiting ${delay}ms before retry...")
-                                delay(delay)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "❌ Exception during transcript sync attempt $attempt", e)
-                        
-                        if (!isCancelled) {
-                            _syncStatus.value = SyncStatus.Error(
-                                message = e.message ?: "Unknown error",
-                                willRetry = true
-                            )
-                            
-                            // Calculate exponential backoff delay
-                            val delay = calculateBackoff(attempt)
-                            Log.d(TAG, "⏳ Waiting ${delay}ms before retry...")
-                            delay(delay)
-                        }
-                    }
-                }
-                
-                // If we exit the loop, it means we were cancelled
-                if (isCancelled) {
-                    Log.w(TAG, "🚫 Transcript sync cancelled by user after $attempt attempts")
-                    Log.d(TAG, "💾 Content remains in offline queue for later retry")
-                    _syncStatus.value = SyncStatus.Error(
-                        message = "Synchronization cancelled - will retry later",
-                        willRetry = false
-                    )
-                }
-            }
-            
-            // Wait for the job to complete
-            syncJob?.join()
-            
-            return if (_syncStatus.value is SyncStatus.Success) {
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Transcript sync failed or was cancelled"))
-            }
-        }
-        
-        /**
-         * Cancel ongoing transcript synchronization
-         * Content remains in offline queue for later retry
-         */
-        fun cancelSync() {
-            Log.w(TAG, "⚠️ Cancelling transcript synchronization")
-            Log.d(TAG, "💾 Content will remain in offline queue for later retry")
-            isCancelled = true
-            syncJob?.cancel()
-            _syncStatus.value = SyncStatus.Error(
-                message = "Cancelled by user - will retry later",
-                willRetry = false
-            )
-        }
-        
-        /**
-         * Calculate exponential backoff delay with cap
-         * 
-         * @param attempt The current attempt number (1-indexed)
-         * @return Delay in milliseconds
-         */
-        private fun calculateBackoff(attempt: Int): Long {
-            val delay = (BASE_DELAY * Math.pow(BACKOFF_FACTOR, (attempt - 1).toDouble())).toLong()
-            return delay.coerceAtMost(MAX_DELAY)
-        }
-        
-        /**
-         * Reset sync status to idle
-         */
-        fun reset() {
-            isCancelled = false
-            syncJob?.cancel()
-            syncJob = null
-            _syncStatus.value = SyncStatus.Idle
-        }
-        
-        /**
-         * Process offline queue - attempt to send all queued items
-         * Called on app start or when network becomes available
-         */
-        suspend fun processOfflineQueue(): Int {
-            Log.d(TAG, "📦 Processing offline queue, size: ${offlineQueue.size()}")
-            return offlineQueue.processQueue(libreChatService)
-        }
-    }
     
     /**
      * Get list of conversation threads from both LibreChat and offline conversations.

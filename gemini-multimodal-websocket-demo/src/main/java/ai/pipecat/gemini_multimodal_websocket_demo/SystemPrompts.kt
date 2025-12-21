@@ -604,7 +604,7 @@ CRITICAL: Be precise and factual. Only include information explicitly stated or 
      * Default system prompt for conversations.
      * Used when no custom system prompt is specified.
      */
-    val defaultSystemPrompt: String = "You are a helpful assistant"
+    const val DEFAULT_SYSTEM_PROMPT: String = "You are a helpful assistant"
     
     /**
      * Default Control Agent system prompt for voice command classification.

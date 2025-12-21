@@ -36,6 +36,9 @@ class AudioTrackOutput(
         val minBufferBytes = (sampleRate * minBufferMs / 1000) * 2 // 2 bytes per sample (PCM16)
         val actualBufferSize = maxOf(bufferSize, minBufferBytes)
         
+        // Reverted to USAGE_VOICE_COMMUNICATION as requested.
+        // Note: In MODE_IN_COMMUNICATION, this often defaults to earpiece unless 
+        // AudioDeviceHandler correctly routes to speaker.
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -54,12 +57,24 @@ class AudioTrackOutput(
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
         
-        Log.d(tag, "AudioTrack created: sampleRate=$sampleRate, bufferSize=$actualBufferSize")
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            Log.e(tag, "AudioTrack failed to initialize! State: ${audioTrack?.state}")
+        } else {
+            Log.d(tag, "AudioTrack created and initialized: sampleRate=$sampleRate, bufferSize=$actualBufferSize")
+        }
     }
-    
+
     override fun write(data: ByteArray, offset: Int, size: Int): Int {
         val track = audioTrack ?: return -1
-        return track.write(data, offset, size)
+        if (track.state != AudioTrack.STATE_INITIALIZED) {
+            Log.e(tag, "Cannot write: AudioTrack is not initialized")
+            return -1
+        }
+        val result = track.write(data, offset, size)
+        if (result < 0) {
+            Log.e(tag, "AudioTrack.write error code: $result")
+        }
+        return result
     }
     
     override fun play() {

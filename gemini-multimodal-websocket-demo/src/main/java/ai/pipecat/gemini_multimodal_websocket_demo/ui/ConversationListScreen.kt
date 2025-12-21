@@ -110,7 +110,24 @@ fun ConversationListScreen(
         isLoading = false
         
         if (result.isSuccess) {
-            librechatThreads = result.getOrNull() ?: emptyList()
+            val fetchedThreads = result.getOrNull() ?: emptyList()
+            librechatThreads = fetchedThreads
+            
+            // Update stored settings with metadata from LibreChat (agent_id, endpoint)
+            fetchedThreads.forEach { thread ->
+                android.util.Log.d("ConversationListScreen", "Syncing thread metadata: ${thread.title} (ID: ${thread.id}, Agent: ${thread.agentId})")
+                ThreadSettingsManager.updateFromLibreChat(thread)
+            }
+            
+            // Also fetch agents to verify API connectivity and log available agents
+            coroutineScope.launch {
+                libreChatService.getAgents().onSuccess { agents ->
+                    android.util.Log.i("ConversationListScreen", "Successfully fetched ${agents.size} agents")
+                    agents.forEach { agent ->
+                        android.util.Log.d("ConversationListScreen", "Agent available: ${agent.name} (ID: ${agent.id})")
+                    }
+                }
+            }
         } else {
             val err = result.exceptionOrNull() as? LibreChatError
                 ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
@@ -125,7 +142,11 @@ fun ConversationListScreen(
                     }
                     isLoading = false
                     if (retryResult.isSuccess) {
-                        librechatThreads = retryResult.getOrNull() ?: emptyList()
+                        val fetchedThreads = retryResult.getOrNull() ?: emptyList()
+                        librechatThreads = fetchedThreads
+                        fetchedThreads.forEach { thread ->
+                            ThreadSettingsManager.updateFromLibreChat(thread)
+                        }
                     } else {
                         error = retryResult.exceptionOrNull() as? LibreChatError
                             ?: LibreChatError.NetworkError("Nieznany błąd")

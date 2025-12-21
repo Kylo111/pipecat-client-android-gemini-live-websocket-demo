@@ -96,7 +96,25 @@ fun ThreadListScreen(
         isLoading = false
         
         if (result.isSuccess) {
-            threads = result.getOrNull() ?: emptyList()
+            val fetchedThreads = result.getOrNull() ?: emptyList()
+            threads = fetchedThreads
+            
+            // Update stored settings with metadata from LibreChat (agent_id, endpoint)
+            fetchedThreads.forEach { thread ->
+                android.util.Log.d("ThreadListScreen", "Syncing thread: ${thread.title} (ID: ${thread.id}, Agent: ${thread.agentId})")
+                ThreadSettingsManager.updateFromLibreChat(thread)
+            }
+            
+            // Also fetch agents as suggested by user to verify API
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val agentsResult = libreChatService.getAgents()
+                agentsResult.onSuccess { agents ->
+                    android.util.Log.i("ThreadListScreen", "Successfully fetched ${agents.size} agents")
+                    agents.forEach { agent ->
+                        android.util.Log.d("ThreadListScreen", "Agent available: ${agent.name} (ID: ${agent.id})")
+                    }
+                }
+            }
         } else {
             val err = result.exceptionOrNull() as? LibreChatError
                 ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")

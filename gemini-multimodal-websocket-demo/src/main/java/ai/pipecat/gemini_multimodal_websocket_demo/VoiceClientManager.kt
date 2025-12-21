@@ -2,7 +2,10 @@ package ai.pipecat.gemini_multimodal_websocket_demo
 
 import ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.*
 import ai.pipecat.gemini_multimodal_websocket_demo.models.AudioState
+import ai.pipecat.gemini_multimodal_websocket_demo.ConnectionState
 import ai.pipecat.gemini_multimodal_websocket_demo.models.SystemState
+import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
+import ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager
 import ai.pipecat.gemini_multimodal_websocket_demo.state.VoiceUiState
 import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions
 import android.content.Context
@@ -13,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +40,7 @@ import kotlinx.serialization.json.JsonElement
  */
 class VoiceClientManager(
     private val context: Context,
+    private val libreChatService: LibreChatService,
     val sessionManager: SessionManager? = null
 ) {
     companion object {
@@ -50,9 +55,20 @@ class VoiceClientManager(
     private var geminiClient: GeminiClient? = null
     private var audioDeviceHandler: AudioDeviceHandler? = null
     private var autoMuteMonitor: AutoMuteMonitor? = null
+    private var azureSpeechService: AzureSpeechService? = null
+    
+    // LibreChat specific state
+    private var libreChatJob: kotlinx.coroutines.Job? = null
+    private var currentLibreChatParentMessageId: String? = null
     
     // Reconnection manager
     private var reconnectionManager: ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager? = null
+    
+    // Interruption    @Volatile
+    private var isBotBusyWithResponse = false
+    
+    @Volatile
+    private var isSilenced = false
     
     // Current session settings (for reconnection)
     private var currentSettings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings? = null
@@ -86,10 +102,14 @@ class VoiceClientManager(
      * @param settings Optional thread settings (voice, temperature, etc.)
      */
     fun start(settings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings? = null) {
-        Log.d(TAG, "start() called with settings: $settings")
+        Log.d(TAG, "start() called with settings: ${settings?.conversationId}")
+        
+        // Ensure any previous session is cleaned up
+        disconnect()
         
         // Save settings for reconnection
         currentSettings = settings
+        _uiState.value = _uiState.value.copy(isPaused = false) // Ensure unpaused on start
         
         // Get API key from preferences
         val apiKey = Preferences.geminiApiKey.value
@@ -129,19 +149,10 @@ class VoiceClientManager(
         
         Log.d(TAG, "🔍 [DIAGNOSTIC] Auto-mute settings: timeout=${autoMuteTimeoutSeconds}s, botTimeout=${botResponseTimeoutMinutes}min, threshold=$activityThreshold")
         
-        // Initialize components
-        audioEngine = AudioEngine(
-            context = context,
-            scope = scope
-        )
-        geminiClient = GeminiClient(apiKey, model, scope)
+        // COMMON components
         audioDeviceHandler = AudioDeviceHandler(context)
-        autoMuteMonitor = AutoMuteMonitor(
-            scope,
-            autoMuteTimeoutSeconds,
-            botResponseTimeoutMinutes,
-            activityThreshold
-        )
+        
+        // Reconnection manager
         
         // Initialize reconnection manager
         reconnectionManager = ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager(
@@ -179,10 +190,6 @@ class VoiceClientManager(
             syncSpeakerphoneState()
         }
         
-        // Wire events
-        wireEvents()
-        wireAutoMuteMonitor()
-        
         // Connect
         scope.launch {
             startInternal(settings)
@@ -213,15 +220,38 @@ class VoiceClientManager(
             val topK = settings?.topK
             val maxOutputTokens = settings?.maxOutputTokens
             
-            connect(
-                voiceName = voiceName,
-                systemPrompt = systemPrompt,
-                temperature = temperature,
-                toolDeclarations = toolDeclarations,
-                topP = topP,
-                topK = topK,
-                maxOutputTokens = maxOutputTokens
-            )
+            if (settings?.source == "librechat") {
+                // Initialize for LibreChat
+                audioEngine = AudioEngine(context, scope = scope)
+                autoMuteMonitor = AutoMuteMonitor(scope, 
+                    Preferences.autoPauseTimeoutSeconds.value ?: 60,
+                    Preferences.botResponseTimeoutMinutes.value ?: 5,
+                    Preferences.activityDetectionThreshold.value ?: 0.02f)
+                
+                connectToLibreChat(settings.conversationId)
+            } else {
+                // Initialize for Gemini Live
+                audioEngine = AudioEngine(context, scope = scope)
+                geminiClient = GeminiClient(Preferences.geminiApiKey.value ?: "", 
+                    Preferences.modelName.value ?: SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL, scope)
+                autoMuteMonitor = AutoMuteMonitor(scope,
+                    Preferences.autoPauseTimeoutSeconds.value ?: 60,
+                    Preferences.botResponseTimeoutMinutes.value ?: 5,
+                    Preferences.activityDetectionThreshold.value ?: 0.02f)
+                
+                wireEvents()
+                wireAutoMuteMonitor()
+                
+                connect(
+                    voiceName = voiceName,
+                    systemPrompt = systemPrompt,
+                    temperature = temperature,
+                    toolDeclarations = toolDeclarations,
+                    topP = topP,
+                    topK = topK,
+                    maxOutputTokens = maxOutputTokens
+                )
+            }
             
             _uiState.value = _uiState.value.copy(
                 connectionState = ConnectionState.CONNECTED,
@@ -607,6 +637,294 @@ class VoiceClientManager(
     }
     
     /**
+     * Connect using Azure STT/TTS and LibreChat Streaming API.
+     */
+    private suspend fun connectToLibreChat(conversationId: String) {
+        Log.i(TAG, "🔌 Connecting to LibreChat via Azure (resuming convo: $conversationId)...")
+        _uiState.value = _uiState.value.copy(connectionState = ConnectionState.CONNECTING)
+        
+        // Refresh settings from manager to ensure we have the latest agentId/metadata
+        if (conversationId != "new") {
+            val updatedSettings = ThreadSettingsManager.getSettings(conversationId)
+            Log.d(TAG, "Refreshed settings for $conversationId: agentId=${updatedSettings.agentId}, model=${updatedSettings.model}")
+            currentSettings = updatedSettings
+        }
+        
+        // Initialize parentMessageId from cached settings first
+        currentLibreChatParentMessageId = currentSettings?.lastMessageId
+        Log.d(TAG, "Initial parentMessageId from cache: $currentLibreChatParentMessageId")
+
+        // Fetch last message ID only if not in cache or if we want to be absolutely sure
+        if (conversationId != "new" && currentLibreChatParentMessageId == null) {
+            try {
+                val messagesResult = libreChatService.getConversationMessages(conversationId)
+                messagesResult.onSuccess { messages ->
+                    if (messages.isNotEmpty()) {
+                        val lastMessage = messages.last()
+                        currentLibreChatParentMessageId = lastMessage.messageId
+                        Log.d(TAG, "Fetched parentMessageId: $currentLibreChatParentMessageId")
+                        
+                        // Update cache
+                        currentSettings?.let { settings ->
+                            val updated = settings.copy(lastMessageId = lastMessage.messageId)
+                            currentSettings = updated
+                            ThreadSettingsManager.saveSettings(updated)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch messages for parentMessageId: ${e.message}")
+            }
+        }
+        
+        try {
+            // Start audio device handler
+            audioDeviceHandler?.start()
+            audioDeviceHandler?.enableSpeakerphoneIfNoHeadset()
+            syncSpeakerphoneState()
+            
+            // Initialize Azure Service
+            azureSpeechService = AzureSpeechService(context, scope).apply {
+                onTranscriptionReceived = { text ->
+                    Log.i(TAG, "🎙️ Azure Transcript: $text")
+                    if (text.isNotBlank()) {
+                        _uiState.value = _uiState.value.copy(lastUserTranscript = text)
+                        
+                        // BARGE-IN / INTERRUPTION LOGIC:
+                        if (isBotBusyWithResponse) {
+                            Log.i(TAG, "🚫 User interrupted busy bot. Text dropped: \"$text\"")
+                            silenceBotSpeechOnly()
+                        } else {
+                            // Normal turn - bot is idle
+                            sessionManager?.captureUserTranscript(text)
+                            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+                            voiceService?.getControlAgentManager()?.onUserTranscript(text)
+                            
+                            scope.launch {
+                                processLibreChatTurn(text, conversationId)
+                            }
+                        }
+                    }
+                }
+                
+                onIntermediateResult = { text ->
+                    Log.v(TAG, "🎙️ Azure Intermediate: $text")
+                    _uiState.value = _uiState.value.copy(lastUserTranscript = text)
+                }
+                
+                onSpeechDetected = {
+                    Log.d(TAG, "🎙️ Speech detected (isBusy=$isBotBusyWithResponse)")
+                    if (isBotBusyWithResponse) {
+                        Log.i(TAG, "🚫 Speech detected during bot turn. Silencing.")
+                        silenceBotSpeechOnly()
+                    }
+                }
+
+                onAudioDataReceived = { audioData ->
+                    if (!isSilenced) {
+                        // When audio data arrives, bot is definitely talking
+                        if (!_uiState.value.isBotTalking) {
+                            _uiState.value = _uiState.value.copy(isBotTalking = true)
+                            autoMuteMonitor?.setBotTalking(true)
+                            updateSystemState()
+                        }
+                        
+                        audioEngine?.queueAudio(audioData)
+                        updateBotAudioLevel(audioData)
+                    }
+                }
+            }
+            
+            // The callback for audioEngine ensures we feed the recorded audio to Azure STT
+            audioEngine?.onAudioRecorded = { audioData ->
+                if (!_uiState.value.isPaused) {
+                    azureSpeechService?.feedAudio(audioData)
+                    val audioLevel = updateUserAudioLevel(audioData)
+                    autoMuteMonitor?.resetAutoMuteTimer(audioLevel)
+                }
+            }
+            
+            audioEngine?.onPlaybackComplete = {
+                Log.d(TAG, "Azure Playback complete")
+                // Only unset isBotTalking if we didn't interrupt it manually for silence
+                if (!_uiState.value.isPaused) {
+                    _uiState.value = _uiState.value.copy(
+                        isBotTalking = false,
+                        botAudioLevel = 0f
+                    )
+                    autoMuteMonitor?.setBotTalking(false)
+                    updateSystemState()
+                }
+            }
+            
+            audioEngine?.startPlayback()
+            audioEngine?.startRecording()
+            azureSpeechService?.startSTT()
+            
+            // Start auto-mute timers
+            autoMuteMonitor?.startAutoMuteTimer()
+            autoMuteMonitor?.startBotResponseTimer()
+            
+            _uiState.value = _uiState.value.copy(
+                connectionState = ConnectionState.CONNECTED,
+                isConnected = true,
+                isMicEnabled = true
+            )
+            
+            Log.i(TAG, "✅ Connected to LibreChat successfully")
+            updateSystemState()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ LibreChat connection failed", e)
+            _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
+            throw e
+        }
+    }
+    
+    private fun silenceBotSpeechOnly() {
+        Log.i(TAG, "silenceBotSpeechOnly: interrupting bot playback/synthesis")
+        isSilenced = true
+        azureSpeechService?.stopSynthesis()
+        audioEngine?.flush()
+        
+        // Reset talking state
+        _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+        autoMuteMonitor?.setBotTalking(false)
+        updateSystemState()
+    }
+
+    private fun interruptLibreChat() {
+        Log.d(TAG, "interruptLibreChat() called")
+        libreChatJob?.cancel()
+        libreChatJob = null
+        
+        isBotBusyWithResponse = false
+        isSilenced = true
+        azureSpeechService?.stopSynthesis()
+        audioEngine?.flush()
+        _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+        autoMuteMonitor?.setBotTalking(false)
+        updateSystemState()
+    }
+    
+    private suspend fun processLibreChatTurn(userText: String, conversationId: String) {
+        Log.d(TAG, "processLibreChatTurn: userText='$userText'")
+        
+        // 1. CLEAR PREVIOUS STATE
+        interruptLibreChat() 
+        isBotBusyWithResponse = true
+        isSilenced = false 
+        
+        libreChatJob = scope.launch(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Requesting LibreChat response for: $userText")
+                // Stream from LibreChat using Agent API
+                var fullResponse = ""
+                libreChatService.streamAgentCompletion(
+                    text = userText,
+                    conversationId = conversationId,
+                    agentId = currentSettings?.agentId,
+                    parentMessageId = currentLibreChatParentMessageId,
+                    model = currentSettings?.model,
+                    provider = currentSettings?.provider
+                ).collect { chunk ->
+                    when (chunk) {
+                        is StreamChunk.Text -> {
+                            fullResponse += chunk.content
+                            
+                            // CLEAN TRANSCRIPT FOR UI
+                            val cleanedForUi = fullResponse
+                                .replace(Regex("""[\uE000-\uF8FF]"""), "")               
+                                .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "")           
+                                .replace(Regex("""turn\d+\w+\d+"""), "")                 
+                                .replace(Regex("""【\d+】"""), "")
+                                .trim()
+
+                            _uiState.value = _uiState.value.copy(lastBotTranscript = cleanedForUi)
+                            
+                            // Bot is "talking" (responding)
+                            if (!_uiState.value.isBotTalking && !isSilenced) {
+                                _uiState.value = _uiState.value.copy(isBotTalking = true)
+                                autoMuteMonitor?.setBotTalking(true)
+                                updateSystemState()
+                            }
+                        }
+                        is StreamChunk.Metadata -> {
+                            Log.d(TAG, "Received metadata: msgId=${chunk.messageId}")
+                            currentLibreChatParentMessageId = chunk.messageId
+                            
+                            // Update cache with the new message ID
+                            currentSettings?.let { settings ->
+                                val updated = settings.copy(lastMessageId = chunk.messageId)
+                                currentSettings = updated
+                                ThreadSettingsManager.saveSettings(updated)
+                            }
+                        }
+                    }
+                }
+                
+                // FINAL STEP: Speak the ENTIRE response at once using simplified synth
+                if (fullResponse.trim().isNotEmpty() && !isSilenced) {
+                    Log.d(TAG, "Full response received. Cleaning and speaking...")
+                    
+                    val baseCleaned = fullResponse
+                        .replace(Regex("""[\uE000-\uF8FF]"""), "")
+                        .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "")
+                        .replace(Regex("""turn\d+\w+\d+"""), "")
+                        .replace(Regex("""【\d+】"""), "")
+                        .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
+                        .replace(Regex("""\*(.*?)\*"""), "$1")
+                        .replace(Regex("""__(.*?)__"""), "$1")
+                        .replace(Regex("""_(.*?)_"""), "$1")
+                        .replace(Regex("""^#+\s+""", RegexOption.MULTILINE), "")
+                        .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
+                        .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
+                    
+                    val cleanedResponse = baseCleaned
+                        .replace(Regex("""[^\p{L}\p{N}\s,.\-!?;:]"""), "") 
+                        .trim()
+
+                    if (cleanedResponse.isNotEmpty()) {
+                        Log.i(TAG, "🎙️ Synthesizing cleaned response: \"${cleanedResponse.take(50)}...\"")
+                        
+                        // We use the simplified synthesize call which triggers onAudioDataReceived callback
+                        azureSpeechService?.synthesize(cleanedResponse)
+                        
+                        // Wait for playback to finish with a safety timeout (e.g. 15 seconds)
+                        // to prevent hanging if synthesis fails to produce audio.
+                        val startTime = System.currentTimeMillis()
+                        val timeoutMs = 15000L 
+                        
+                        delay(1000) // Slightly longer initial delay for network synthesis
+                        
+                        while (audioEngine?.isPlaybackFinished() == false && !isSilenced) {
+                            if (System.currentTimeMillis() - startTime > timeoutMs) {
+                                Log.w(TAG, "Speech wait loop timed out (15s)")
+                                break
+                            }
+                            delay(200)
+                        }
+                    }
+                }
+                
+                Log.d(TAG, "LibreChat response complete.")
+                sessionManager?.captureBotTranscript(fullResponse)
+                
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    Log.e(TAG, "Error in LibreChat turn", e)
+                    errors.add(Error("Błąd LibreChat: ${e.message}"))
+                }
+            } finally {
+                isBotBusyWithResponse = false
+                _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+                autoMuteMonitor?.setBotTalking(false)
+                updateSystemState()
+            }
+        }
+    }
+    
+    /**
      * Stop the voice session.
      */
     fun stop() {
@@ -647,6 +965,15 @@ class VoiceClientManager(
         // Stop audio engine
         audioEngine?.stopRecording()
         audioEngine?.stopPlayback()
+        
+        // Stop Azure
+        azureSpeechService?.stopSTT()
+        azureSpeechService?.release()
+        azureSpeechService = null
+        
+        // Stop LibreChat job
+        libreChatJob?.cancel()
+        libreChatJob = null
         
         // Disconnect from Gemini
         geminiClient?.disconnect()
@@ -754,26 +1081,37 @@ class VoiceClientManager(
     fun sendImage(uri: Uri) {
         Log.d(TAG, "sendImage() called - URI: $uri")
         
+        // Cancel any existing image processing job
+        imageProcessingJob?.cancel()
+        
+        // Process image based on source
+        if (currentSettings?.source == "librechat") {
+            processImageForLibreChat(uri)
+        } else {
+            processImageForGemini(uri)
+        }
+    }
+
+    /**
+     * Process and send image to Gemini.
+     */
+    private fun processImageForGemini(uri: Uri) {
         val client = geminiClient
         if (client == null) {
-            Log.w(TAG, "Cannot send image - not connected")
+            Log.w(TAG, "Cannot send image to Gemini - not connected")
             errors.add(Error("Cannot send image - not connected"))
             return
         }
         
-        // Cancel any existing image processing job
-        imageProcessingJob?.cancel()
-        
-        // Launch image processing job
         imageProcessingJob = scope.launch(Dispatchers.IO) {
             try {
-                Log.i(TAG, "Processing image...")
+                Log.d(TAG, "Processing image for Gemini: $uri")
                 
                 // Process image (resize, compress)
                 val result = imageProcessor.processImage(uri)
                 
                 result.onSuccess { processedImage ->
-                    Log.i(TAG, "Image processed successfully:")
+                    Log.i(TAG, "Image processed successfully for Gemini:")
                     Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
                     Log.i(TAG, "  Dimensions: ${processedImage.dimensions.first}x${processedImage.dimensions.second}")
                     Log.i(TAG, "  MIME type: ${processedImage.mimeType}")
@@ -786,7 +1124,7 @@ class VoiceClientManager(
                             "(${processedImage.processedSize} bytes, ${processedImage.dimensions.first}x${processedImage.dimensions.second})"
                     sessionManager?.recordImageSent(imageDescription)
                     
-                    Log.i(TAG, "Image sent successfully")
+                    Log.i(TAG, "Image sent successfully to Gemini")
                     
                 }.onFailure { error ->
                     Log.e(TAG, "Image processing failed: ${error.message}", error)
@@ -805,7 +1143,127 @@ class VoiceClientManager(
             }
         }
     }
-    
+
+    /**
+     * Process and send image to LibreChat.
+     */
+    private fun processImageForLibreChat(uri: Uri) {
+        imageProcessingJob = scope.launch(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Processing image for LibreChat: $uri")
+                
+                // Process image (resize, compress)
+                val result = imageProcessor.processImage(uri)
+                
+                result.onSuccess { processedImage ->
+                    Log.i(TAG, "Image processed successfully for LibreChat:")
+                    Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
+                    
+                    Log.d(TAG, "Uploading image to LibreChat...")
+                    val uploadResult = libreChatService.uploadFile(
+                        fileBytes = processedImage.data,
+                        fileName = "voice_upload_${System.currentTimeMillis()}.jpg"
+                    )
+                    
+                    uploadResult.onSuccess { fileId ->
+                        Log.d(TAG, "Image uploaded to LibreChat, fileId: $fileId")
+                        
+                        // Trigger a response with the image
+                        val conversationId = currentSettings?.conversationId ?: "new"
+                        
+                        libreChatJob?.cancel()
+                        libreChatJob = scope.launch(Dispatchers.IO) {
+                            try {
+                                Log.d(TAG, "Triggering agent with uploaded image...")
+                                var fullResponse = ""
+                                isBotBusyWithResponse = true
+                                isSilenced = false
+                                
+                                libreChatService.streamAgentCompletion(
+                                    text = "Co widzisz?", // Polish for "What do you see?"
+                                    conversationId = conversationId,
+                                    agentId = currentSettings?.agentId,
+                                    parentMessageId = currentLibreChatParentMessageId,
+                                    model = currentSettings?.model,
+                                    provider = currentSettings?.provider,
+                                    files = listOf(fileId)
+                                ).collect { chunk ->
+                                    when (chunk) {
+                                        is StreamChunk.Text -> {
+                                            fullResponse += chunk.content
+                                            _uiState.value = _uiState.value.copy(lastBotTranscript = fullResponse.trim())
+                                        }
+                                        is StreamChunk.Metadata -> {
+                                            currentLibreChatParentMessageId = chunk.messageId
+                                        }
+                                    }
+                                }
+                                
+                                if (fullResponse.trim().isNotEmpty() && !isSilenced) {
+                                    val baseCleaned = fullResponse
+                                        .replace(Regex("""[\uE000-\uF8FF]"""), "")
+                                        .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "")
+                                        .replace(Regex("""turn\d+\w+\d+"""), "")
+                                        .replace(Regex("""【\d+】"""), "")
+                                        .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
+                                        .replace(Regex("""\*(.*?)\*"""), "$1")
+                                        .replace(Regex("""__(.*?)__"""), "$1")
+                                        .replace(Regex("""_(.*?)_"""), "$1")
+                                        .replace(Regex("""^#+\s+""", RegexOption.MULTILINE), "")
+                                        .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
+                                        .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
+                                    
+                                    val cleanedResponse = baseCleaned
+                                        .replace(Regex("""[^\p{L}\p{N}\s,.\-!?;:]"""), "") 
+                                        .trim()
+
+                                    if (cleanedResponse.isNotEmpty()) {
+                                        Log.i(TAG, "🎙️ Synthesizing image response: \"${cleanedResponse.take(50)}...\"")
+                                        azureSpeechService?.synthesize(cleanedResponse)
+                                        
+                                        val imageStartTime = System.currentTimeMillis()
+                                        val imageTimeoutMs = 15000L
+                                        
+                                        delay(1000)
+                                        while (audioEngine?.isPlaybackFinished() == false && !isSilenced) {
+                                            if (System.currentTimeMillis() - imageStartTime > imageTimeoutMs) {
+                                                Log.w(TAG, "Image response speech wait loop timed out (15s)")
+                                                break
+                                            }
+                                            delay(200)
+                                        }
+                                    }
+                                }
+                                
+                                isBotBusyWithResponse = false
+                                _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+                                autoMuteMonitor?.setBotTalking(false)
+                                updateSystemState()
+                                
+                            } catch (e: Exception) {
+                                if (e !is kotlinx.coroutines.CancellationException) {
+                                    Log.e(TAG, "Error in Agent stream for image", e)
+                                    errors.add(Error("Błąd Agent API (obraz): ${e.message}"))
+                                }
+                            }
+                        }
+                        
+                        sessionManager?.recordImageSent("LibreChat image ($fileId): ${uri.lastPathSegment}")
+                    }.onFailure { e ->
+                        Log.e(TAG, "LibreChat image upload failed", e)
+                        errors.add(Error("Błąd wysyłania obrazu do LibreChat: ${e.message}"))
+                    }
+                }.onFailure { error ->
+                    Log.e(TAG, "Image processing failed for LibreChat: ${error.message}")
+                    errors.add(Error("Błąd przetwarzania obrazu: ${error.message}"))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to process/upload image for LibreChat", e)
+                errors.add(Error("Błąd przetwarzania obrazu: ${e.message}"))
+            }
+        }
+    }
+
     /**
      * Set session timeout callback (not used in simplified version).
      */

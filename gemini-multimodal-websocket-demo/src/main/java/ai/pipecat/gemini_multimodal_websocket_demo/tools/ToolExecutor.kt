@@ -26,6 +26,7 @@ import kotlinx.serialization.json.jsonArray
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -172,17 +173,11 @@ class ToolExecutor(private val context: Context) {
             when (tool.action.method?.uppercase()) {
                 "GET" -> requestBuilder.get()
                 "POST" -> {
-                    val requestBody = okhttp3.RequestBody.create(
-                        "application/json".toMediaType(),
-                        body ?: "{}"
-                    )
+                    val requestBody = (body ?: "{}").toRequestBody("application/json".toMediaType())
                     requestBuilder.post(requestBody)
                 }
                 "PUT" -> {
-                    val requestBody = okhttp3.RequestBody.create(
-                        "application/json".toMediaType(),
-                        body ?: "{}"
-                    )
+                    val requestBody = (body ?: "{}").toRequestBody("application/json".toMediaType())
                     requestBuilder.put(requestBody)
                 }
                 "DELETE" -> requestBuilder.delete()
@@ -329,10 +324,7 @@ class ToolExecutor(private val context: Context) {
             val request = Request.Builder()
                 .url("https://api.perplexity.ai/chat/completions")
                 .post(
-                    okhttp3.RequestBody.create(
-                        "application/json".toMediaType(),
-                        requestBody
-                    )
+                    requestBody.toRequestBody("application/json".toMediaType())
                 )
                 .addHeader("Authorization", "Bearer $perplexityApiKey")
                 .addHeader("Content-Type", "application/json")
@@ -403,10 +395,7 @@ class ToolExecutor(private val context: Context) {
             val request = Request.Builder()
                 .url("https://google.serper.dev/search")
                 .post(
-                    okhttp3.RequestBody.create(
-                        "application/json".toMediaType(),
-                        """{"q":"$query","num":5}"""
-                    )
+                    """{"q":"$query","num":5}""".toRequestBody("application/json".toMediaType())
                 )
                 .addHeader("X-API-KEY", SERPER_API_KEY)
                 .addHeader("Content-Type", "application/json")
@@ -714,7 +703,7 @@ class ToolExecutor(private val context: Context) {
      * Supports basic arithmetic, parentheses, and common functions
      */
     private fun evaluateExpression(expr: String): Double {
-        var expression = expr.replace(" ", "").toLowerCase()
+        var expression = expr.replace(" ", "").lowercase()
         
         // Handle common functions
         expression = expression.replace("sqrt\\(([^)]+)\\)".toRegex()) { matchResult ->

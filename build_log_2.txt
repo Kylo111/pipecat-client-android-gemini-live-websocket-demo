@@ -1,0 +1,120 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :gemini-multimodal-websocket-demo:preBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:preDebugBuild UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gemini-multimodal-websocket-demo:generateDebugBuildConfig
+> Task :gemini-multimodal-websocket-demo:generateDebugResValues
+> Task :gemini-multimodal-websocket-demo:checkDebugAarMetadata
+> Task :gemini-multimodal-websocket-demo:mapDebugSourceSetPaths
+> Task :gemini-multimodal-websocket-demo:generateDebugResources
+> Task :gemini-multimodal-websocket-demo:packageDebugResources
+> Task :gemini-multimodal-websocket-demo:createDebugCompatibleScreenManifests
+> Task :gemini-multimodal-websocket-demo:extractDeepLinksDebug
+> Task :gemini-multimodal-websocket-demo:parseDebugLocalResources
+> Task :gemini-multimodal-websocket-demo:mergeDebugResources
+> Task :gemini-multimodal-websocket-demo:processDebugMainManifest
+> Task :gemini-multimodal-websocket-demo:processDebugManifest
+> Task :gemini-multimodal-websocket-demo:mergeDebugShaders
+> Task :gemini-multimodal-websocket-demo:compileDebugShaders NO-SOURCE
+> Task :gemini-multimodal-websocket-demo:generateDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugAssets
+> Task :gemini-multimodal-websocket-demo:compressDebugAssets
+> Task :gemini-multimodal-websocket-demo:javaPreCompileDebug
+> Task :gemini-multimodal-websocket-demo:desugarDebugFileDependencies
+> Task :gemini-multimodal-websocket-demo:mergeDebugStartupProfile
+> Task :gemini-multimodal-websocket-demo:mergeDebugJniLibFolders
+> Task :gemini-multimodal-websocket-demo:checkDebugDuplicateClasses
+> Task :gemini-multimodal-websocket-demo:mergeDebugNativeLibs
+> Task :gemini-multimodal-websocket-demo:mergeLibDexDebug
+> Task :gemini-multimodal-websocket-demo:validateSigningDebug
+> Task :gemini-multimodal-websocket-demo:writeDebugAppMetadata
+> Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions
+> Task :gemini-multimodal-websocket-demo:processDebugManifestForPackage
+
+> Task :gemini-multimodal-websocket-demo:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libMicrosoft.CognitiveServices.Speech.core.so, libMicrosoft.CognitiveServices.Speech.extension.audio.sys.so, libMicrosoft.CognitiveServices.Speech.extension.codec.so, libMicrosoft.CognitiveServices.Speech.extension.kws.ort.so, libMicrosoft.CognitiveServices.Speech.extension.kws.so, libMicrosoft.CognitiveServices.Speech.extension.silk_codec.so, libMicrosoft.CognitiveServices.Speech.java.bindings.so, libandroidx.graphics.path.so, libpv_porcupine.so.
+
+> Task :gemini-multimodal-websocket-demo:processDebugResources
+> Task :gemini-multimodal-websocket-demo:mergeExtDexDebug
+> Task :gemini-multimodal-websocket-demo:kspDebugKotlin
+> Task :gemini-multimodal-websocket-demo:compileDebugKotlin
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/HelpConversationUpdater.kt:48:17 Condition is always 'false'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/MainActivity.kt:39:8 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/MainActivity.kt:1055:37 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/MainActivity.kt:1095:37 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/PicovoicePreferences.kt:279:25 'fun getAccessKey(): String' is deprecated. Use getEffectiveAccessKey() instead.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/PicovoicePreferences.kt:292:9 'fun setAccessKey(key: String): Unit' is deprecated. Use setCustomAccessKey() instead.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/PorcupineService.kt:597:48 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/PorcupineService.kt:609:48 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/SessionManager.kt:514:28 Condition is always 'true'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/SessionManager.kt:587:28 Condition is always 'true'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/SessionManager.kt:807:96 Condition is always 'true'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/SessionManager.kt:808:95 Condition is always 'true'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/SessionManager.kt:809:97 Condition is always 'true'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceClientManager.kt:1133:21 Check for instance is always 'true'.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceService.kt:93:48 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/VoiceService.kt:265:52 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/agents/ReasoningWorker.kt:713:52 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:103:44 'var isBluetoothA2dpOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:107:57 'var isBluetoothScoOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:116:24 'fun startBluetoothSco(): Unit' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:124:39 'var isBluetoothScoOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:130:33 'var isBluetoothScoOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:147:46 'var isBluetoothScoOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:148:52 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:175:28 'fun stopBluetoothSco(): Unit' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:180:24 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:188:24 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:196:28 'fun startBluetoothSco(): Unit' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:231:41 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:252:84 'var isBluetoothA2dpOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:253:50 'var isWiredHeadsetOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:257:54 'var isBluetoothA2dpOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:262:24 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:391:20 'var isBluetoothScoOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:392:20 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:393:20 'var isWiredHeadsetOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:424:24 'fun stopBluetoothSco(): Unit' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:432:24 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/BluetoothAudioController.kt:433:24 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:154:34 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:161:34 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:221:29 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:233:26 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:271:53 'var isBluetoothA2dpOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:272:56 'var isWiredHeadsetOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/audio/simple/AudioDeviceHandler.kt:283:30 'var isSpeakerphoneOn: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:175:59 'fun create(contentType: MediaType?, content: String): RequestBody' is deprecated. Moved to extension function. Put the 'content' argument first to fix Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:182:59 'fun create(contentType: MediaType?, content: String): RequestBody' is deprecated. Moved to extension function. Put the 'content' argument first to fix Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:332:41 'fun create(contentType: MediaType?, content: String): RequestBody' is deprecated. Moved to extension function. Put the 'content' argument first to fix Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:406:41 'fun create(contentType: MediaType?, content: String): RequestBody' is deprecated. Moved to extension function. Put the 'content' argument first to fix Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:672:38 'fun getFromLocation(p0: Double, p1: Double, p2: Int): (MutableList<Address!>?..List<Address!>?)' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:717:48 'fun String.toLowerCase(): String' is deprecated. Use lowercase() instead.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/SettingsScreen.kt:106:74 'fun getAccessKey(): String' is deprecated. Use getEffectiveAccessKey() instead.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/SettingsScreen.kt:168:26 'fun setAccessKey(key: String): Unit' is deprecated. Use setCustomAccessKey() instead.
+
+> Task :gemini-multimodal-websocket-demo:compileDebugJavaWithJavac
+Java compiler version 21 has deprecated support for compiling with source/target version 8.
+Try one of the following options:
+    1. [Recommended] Use Java toolchain with a lower language version
+    2. Set a higher source/target version
+    3. Use a lower version of the JDK running the build (if you're not using Java toolchain)
+For more details on how to configure these settings, see https://developer.android.com/build/jdks.
+To suppress this warning, set android.javaCompile.suppressSourceTargetDeprecationWarning=true in gradle.properties.
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+
+> Task :gemini-multimodal-websocket-demo:processDebugJavaRes
+> Task :gemini-multimodal-websocket-demo:mergeDebugJavaResource
+> Task :gemini-multimodal-websocket-demo:dexBuilderDebug
+> Task :gemini-multimodal-websocket-demo:mergeProjectDexDebug
+> Task :gemini-multimodal-websocket-demo:packageDebug
+> Task :gemini-multimodal-websocket-demo:createDebugApkListingFileRedirect
+> Task :gemini-multimodal-websocket-demo:assembleDebug
+
+BUILD SUCCESSFUL in 2m 3s
+38 actionable tasks: 38 executed

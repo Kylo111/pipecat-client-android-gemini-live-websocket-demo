@@ -15,7 +15,17 @@ data class ThreadSettings(
     val topK: Int = 40,                   // Zbalansowane (domyślne Gemini)
     val maxOutputTokens: Int = 2048,      // Średnie odpowiedzi
     
-    // Unsupported parameters (kept for backward compatibility, not sent to API)
+    // Conversation source
+    val source: String = "gemini_live", // 'gemini_live' or 'librechat'
+
+    // LibreChat specific metadata
+    val agentId: String? = null,
+    val endpoint: String? = null,
+    val model: String? = null,
+    val provider: String? = null,
+    
+    // Cached state for performance
+    val lastMessageId: String? = null,
     val presencePenalty: Float = 0.0f,    // NOT supported by Gemini Live API
     val frequencyPenalty: Float = 0.0f,   // NOT supported by Gemini Live API
     val stopSequences: List<String> = emptyList() // NOT supported by Gemini Live API

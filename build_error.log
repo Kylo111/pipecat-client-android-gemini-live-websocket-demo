@@ -1,0 +1,21 @@
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/test/java/ai/pipecat/gemini_multimodal_websocket_demo/SystemPromptsDefaultsPropertyTest.kt:61:40 Unresolved reference 'defaultSystemPrompt'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/test/java/ai/pipecat/gemini_multimodal_websocket_demo/SystemPromptsDefaultsPropertyTest.kt:64:20 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/test/java/ai/pipecat/gemini_multimodal_websocket_demo/SystemPromptsDefaultsPropertyTest.kt:78:44 Unresolved reference 'defaultSystemPrompt'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/test/java/ai/pipecat/gemini_multimodal_websocket_demo/SystemPromptsDefaultsPropertyTest.kt:79:44 Unresolved reference 'defaultSystemPrompt'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/test/java/ai/pipecat/gemini_multimodal_websocket_demo/SystemPromptsDefaultsPropertyTest.kt:85:24 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/test/java/ai/pipecat/gemini_multimodal_websocket_demo/SystemPromptsDefaultsPropertyTest.kt:129:27 Unresolved reference 'defaultSystemPrompt'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':gemini-multimodal-websocket-demo:compileDebugUnitTestKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2s

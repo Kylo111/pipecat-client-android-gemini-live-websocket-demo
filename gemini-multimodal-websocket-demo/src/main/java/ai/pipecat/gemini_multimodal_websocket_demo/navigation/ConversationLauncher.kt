@@ -57,11 +57,6 @@ class ConversationLauncher(
     private suspend fun launchLibreChatThread(conversation: ConversationItem.LibreChatThread) {
         Log.d(TAG, "Launching LibreChat thread: ${conversation.conversationId}")
         
-        // Block if transcript sync is in progress
-        if (sessionManager.isSyncInProgress()) {
-            voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
-            return
-        }
         
         // Ensure valid token
         if (!navigationController.ensureValidToken()) {
@@ -76,7 +71,7 @@ class ConversationLauncher(
         result.onSuccess { sessionContext ->
             Log.d(TAG, "Session started successfully for thread: ${conversation.conversationId}")
             Preferences.systemPrompt.value = sessionContext.systemPrompt
-            voiceClientManager.start(threadSettings)
+            voiceClientManager.start(threadSettings.copy(source = "librechat"))
             navigationController.navigateTo(Screen.IN_CALL)
         }.onFailure { error ->
             handleSessionStartError(error, conversation.conversationId, threadSettings)
@@ -106,7 +101,7 @@ class ConversationLauncher(
                 retryResult.onSuccess { sessionContext ->
                     Log.d(TAG, "Session started successfully after retry")
                     Preferences.systemPrompt.value = sessionContext.systemPrompt
-                    voiceClientManager.start(threadSettings)
+                    voiceClientManager.start(threadSettings.copy(source = "librechat"))
                     navigationController.navigateTo(Screen.IN_CALL)
                 }.onFailure { retryError ->
                     Log.e(TAG, "Session start failed after retry: ${retryError.message}")
@@ -162,7 +157,8 @@ class ConversationLauncher(
                 maxOutputTokens = offlineConv.maxOutputTokens,
                 presencePenalty = offlineConv.presencePenalty,
                 frequencyPenalty = offlineConv.frequencyPenalty,
-                stopSequences = offlineConv.stopSequences
+                stopSequences = offlineConv.stopSequences,
+                source = "gemini_live"
             )
             
             // Start voice client with offline settings
@@ -270,12 +266,6 @@ class ConversationLauncher(
                 }
             }
             
-            // Block if transcript sync is in progress
-            if (sessionManager.isSyncInProgress()) {
-                Log.w(TAG, "Transcript sync in progress, blocking wake word launch")
-                voiceClientManager.errors.add(Error("Trwa zapisywanie transkrypcji. Proszę czekać..."))
-                return
-            }
             
             // Load thread-specific settings
             val threadSettings = ThreadSettingsManager.getSettings(threadId)
@@ -284,7 +274,7 @@ class ConversationLauncher(
             val result = sessionManager.startSession(threadId)
             result.onSuccess { sessionContext ->
                 Preferences.systemPrompt.value = sessionContext.systemPrompt
-                voiceClientManager.start(threadSettings)
+                voiceClientManager.start(threadSettings.copy(source = "librechat"))
                 navigationController.navigateTo(Screen.IN_CALL)
                 Log.d(TAG, "Thread launched successfully from Control Agent")
             }.onFailure { error ->

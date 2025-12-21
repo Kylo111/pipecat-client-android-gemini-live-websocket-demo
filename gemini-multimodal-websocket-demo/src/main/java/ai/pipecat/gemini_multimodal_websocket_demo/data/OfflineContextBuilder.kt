@@ -128,7 +128,7 @@ class OfflineContextBuilder(
             // Section 5: Conversation-specific system prompt (persona) (Requirement 5.3)
             // Note: This would come from conversation.metadata or a separate field
             // For now, we'll use the default system prompt
-            val conversationPrompt = systemPrompts.defaultSystemPrompt
+            val conversationPrompt = SystemPrompts.DEFAULT_SYSTEM_PROMPT
             if (conversationPrompt.isNotBlank()) {
                 sections.add("""
                     === CONVERSATION PERSONA ===

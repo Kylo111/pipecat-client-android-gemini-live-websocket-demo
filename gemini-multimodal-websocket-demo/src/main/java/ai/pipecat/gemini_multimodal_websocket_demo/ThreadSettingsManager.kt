@@ -52,4 +52,24 @@ object ThreadSettingsManager {
             stopSequences = emptyList() // Nieobsługiwane (zachowane dla kompatybilności)
         )
     }
+
+    /**
+     * Updates stored settings with metadata from LibreChat if not already set.
+     */
+    fun updateFromLibreChat(thread: LibreChatService.ConversationThread) {
+        val current = getSettings(thread.id)
+        android.util.Log.d("ThreadSettingsManager", "Updating thread ${thread.id}: incoming agentId='${thread.agentId}', current agentId='${current.agentId}'")
+        if (current.agentId != thread.agentId || 
+            current.endpoint != thread.endpoint ||
+            current.model != thread.model ||
+            current.provider != thread.provider) {
+            android.util.Log.i("ThreadSettingsManager", "Saving updated metadata for ${thread.id}: agentId=${thread.agentId}")
+            saveSettings(current.copy(
+                agentId = thread.agentId,
+                endpoint = thread.endpoint ?: current.endpoint,
+                model = thread.model ?: current.model,
+                provider = thread.provider ?: current.provider
+            ))
+        }
+    }
 }

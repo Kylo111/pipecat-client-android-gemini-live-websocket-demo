@@ -85,7 +85,7 @@ class NavigationController(
                 authManager.isTokenValid() -> {
                     Log.d(TAG, "Token valid - navigating to thread list")
                     _currentScreen.value = Screen.THREAD_LIST
-                    processOfflineQueue()
+
                 }
                 authManager.hasStoredCredentials() -> {
                     Log.d(TAG, "Token invalid but has credentials - attempting auto-login")
@@ -112,7 +112,7 @@ class NavigationController(
             Log.d(TAG, "Auto-login successful")
             _currentScreen.value = Screen.THREAD_LIST
             _autoLoginError.value = null
-            processOfflineQueue()
+
         }.onFailure { error ->
             Log.e(TAG, "Auto-login failed: ${error.message}")
             // Requirements 7.1, 7.2: On auto-login failure, show thread list with offline conversations
@@ -128,7 +128,7 @@ class NavigationController(
     fun onLoginSuccess() {
         _currentScreen.value = Screen.THREAD_LIST
         _autoLoginError.value = null
-        processOfflineQueue()
+
     }
     
     /**
@@ -211,17 +211,6 @@ class NavigationController(
         voiceClientManager.playBeep()
     }
     
-    /**
-     * Process offline queue in background
-     */
-    private fun processOfflineQueue() {
-        scope.launch {
-            val processed = sessionManager.processOfflineQueue()
-            if (processed > 0) {
-                Log.d(TAG, "Processed $processed offline items")
-            }
-        }
-    }
     
     /**
      * Ensure token is valid, attempting auto-login if needed.
