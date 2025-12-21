@@ -447,7 +447,7 @@ class SessionManager(
                         // Regardless of whether it's user or bot, the last message is the parent for the next turn
                         val lastMessage = history.last()
                         voiceClientManager?.updateLibreChatParentMessageId(lastMessage.messageId)
-                        Log.d(TAG, "📜 [HISTORY] Set parentMessageId to: ${lastMessage.messageId}")
+                        Log.i(TAG, "📜 [HISTORY] Selected last message as parent for next turn: ${lastMessage.messageId} (index: ${history.size - 1})")
 
                         val allHistoryEntries = history.mapIndexed { index, msg ->
                             // Improved text extraction from structured content

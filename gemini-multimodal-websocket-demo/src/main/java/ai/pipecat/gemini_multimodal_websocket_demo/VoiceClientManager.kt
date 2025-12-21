@@ -653,9 +653,13 @@ class VoiceClientManager(
             currentSettings = updatedSettings
         }
         
-        // Initialize parentMessageId from cached settings first
-        currentLibreChatParentMessageId = currentSettings?.lastMessageId
-        Log.d(TAG, "Initial parentMessageId from cache: $currentLibreChatParentMessageId")
+        // Initialize parentMessageId from cached settings ONLY if not already set by history fetch
+        if (currentLibreChatParentMessageId.isNullOrBlank()) {
+            currentLibreChatParentMessageId = currentSettings?.lastMessageId
+            Log.d(TAG, "Initialized parentMessageId from cache: $currentLibreChatParentMessageId")
+        } else {
+            Log.d(TAG, "Preserving parentMessageId from history: $currentLibreChatParentMessageId")
+        }
 
         // Note: Full history fetch and parentMessageId update are now handled by SessionManager.startSession()
         // which is called before VoiceClientManager.start() in ConversationLauncher.
@@ -811,7 +815,8 @@ class VoiceClientManager(
                     agentId = currentSettings?.agentId,
                     parentMessageId = currentLibreChatParentMessageId,
                     model = currentSettings?.model,
-                    provider = currentSettings?.provider
+                    provider = currentSettings?.provider,
+                    endpoint = currentSettings?.endpoint
                 ).collect { chunk ->
                     when (chunk) {
                         is StreamChunk.Text -> {
@@ -963,6 +968,10 @@ class VoiceClientManager(
         // Stop audio device handler AFTER audio
         audioDeviceHandler?.stop()
         
+        // Reset LibreChat state
+        currentLibreChatParentMessageId = null
+        isBotBusyWithResponse = false
+        isSilenced = false
         _uiState.value = _uiState.value.copy(
             connectionState = ConnectionState.DISCONNECTED,
             isConnected = false,

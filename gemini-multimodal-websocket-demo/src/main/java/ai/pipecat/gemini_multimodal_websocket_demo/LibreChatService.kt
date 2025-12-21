@@ -260,6 +260,7 @@ class LibreChatService(
         parentMessageId: String? = null,
         model: String? = null,
         provider: String? = null,
+        endpoint: String? = "agents",
         files: List<String> = emptyList()
     ): Flow<StreamChunk> = flow {
         val serverUrl = authManager.getNormalizedServerUrl()
@@ -269,12 +270,19 @@ class LibreChatService(
         val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         val mId = UUID.randomUUID().toString()
         
+        val currentEndpoint = endpoint ?: "agents"
+        val isAgent = currentEndpoint == "agents"
+        
         val payloadBody = kotlinx.serialization.json.buildJsonObject {
             put("text", kotlinx.serialization.json.JsonPrimitive(text))
             
-            val finalAgentId = agentId ?: ""
-            put("agent_id", kotlinx.serialization.json.JsonPrimitive(finalAgentId))
-            put("endpoint", kotlinx.serialization.json.JsonPrimitive("agents"))
+            if (isAgent) {
+                val finalAgentId = agentId ?: ""
+                put("agent_id", kotlinx.serialization.json.JsonPrimitive(finalAgentId))
+                put("endpoint", kotlinx.serialization.json.JsonPrimitive("agents"))
+            } else {
+                put("endpoint", kotlinx.serialization.json.JsonPrimitive(currentEndpoint))
+            }
             
             put("clientTimestamp", kotlinx.serialization.json.JsonPrimitive(now))
             put("key", kotlinx.serialization.json.JsonPrimitive(now))
@@ -302,13 +310,15 @@ class LibreChatService(
             put("isRegenerate", kotlinx.serialization.json.JsonPrimitive(false))
             put("isTemporary", kotlinx.serialization.json.JsonPrimitive(false))
             
-            put("ephemeralAgent", kotlinx.serialization.json.buildJsonObject {
-                put("artifacts", kotlinx.serialization.json.JsonPrimitive(false))
-                put("execute_code", kotlinx.serialization.json.JsonPrimitive(false))
-                put("file_search", kotlinx.serialization.json.JsonPrimitive(false))
-                put("mcp", kotlinx.serialization.json.JsonArray(emptyList()))
-                put("web_search", kotlinx.serialization.json.JsonPrimitive(false))
-            })
+            if (isAgent) {
+                put("ephemeralAgent", kotlinx.serialization.json.buildJsonObject {
+                    put("artifacts", kotlinx.serialization.json.JsonPrimitive(false))
+                    put("execute_code", kotlinx.serialization.json.JsonPrimitive(false))
+                    put("file_search", kotlinx.serialization.json.JsonPrimitive(false))
+                    put("mcp", kotlinx.serialization.json.JsonArray(emptyList()))
+                    put("web_search", kotlinx.serialization.json.JsonPrimitive(false))
+                })
+            }
 
             if (files.isNotEmpty()) {
                 put("files", kotlinx.serialization.json.JsonArray(files.map { kotlinx.serialization.json.JsonPrimitive(it) }))
@@ -316,13 +326,14 @@ class LibreChatService(
         }
         
         val payload = payloadBody.toString()
-        Log.d(TAG, "Starting agent stream to $serverUrl/api/agents/chat/agents")
+        val targetPath = if (isAgent) "api/agents/chat/agents" else "api/ask/$currentEndpoint"
+        Log.d(TAG, "Starting $currentEndpoint stream to $serverUrl/$targetPath")
         Log.v(TAG, "Full Payload: $payload")
 
         val requestBody = payload.toRequestBody(JSON_MEDIA_TYPE)
         
         val request = Request.Builder()
-            .url("$serverUrl/api/agents/chat/agents")
+            .url("$serverUrl/$targetPath")
             .post(requestBody)
             .header("Accept", "*/*")
             .header("X-Direct-Browser", "true") 
