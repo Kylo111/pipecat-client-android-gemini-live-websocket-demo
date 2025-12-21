@@ -45,11 +45,8 @@ class ReconnectionManager(
      * If reconnecting takes longer than 5 seconds, automatically restart (like pause/resume)
      */
     suspend fun startReconnection() {
-        // CRITICAL FIX: Check if session is paused before starting reconnection
-        if (isPausedCheck?.invoke() == true) {
-            Log.w(TAG, "⚠️ Reconnection cancelled - session is paused (isPaused=true)")
-            return
-        }
+        // We allow reconnection even if paused, to keep the session alive.
+        // The microphone mute state is handled by AudioEngine.
         
         // Cancel any existing reconnection job
         reconnectJob?.cancel()
@@ -73,12 +70,7 @@ class ReconnectionManager(
             Log.i(TAG, "🔍 DEBUG: Auto-restart job launched successfully")
             
             while (isActive && attemptCount < maxAttempts) {
-                // CRITICAL FIX: Check if session was paused during reconnection
-                if (isPausedCheck?.invoke() == true) {
-                    Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during reconnection")
-                    autoRestartJob.cancel()
-                    return@launch
-                }
+                // Removed isPausedCheck - we want to reconnect even if muted
                 
                 // Check global timeout
                 val elapsed = System.currentTimeMillis() - startTime
@@ -101,11 +93,6 @@ class ReconnectionManager(
                 delay(delay)
                 
                 // Check again after delay
-                if (isPausedCheck?.invoke() == true) {
-                    Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during delay")
-                    autoRestartJob.cancel()
-                    return@launch
-                }
                 
                 // Attempt to reconnect
                 attemptReconnect()
@@ -185,11 +172,7 @@ class ReconnectionManager(
             return
         }
         
-        // CRITICAL FIX: Check if session was paused before automatic restart
-        if (isPausedCheck?.invoke() == true) {
-            Log.w(TAG, "⚠️ Automatic restart cancelled - session is paused")
-            return
-        }
+        // Removed isPausedCheck - we want to restart even if muted to keep session alive
         
         Log.e(TAG, "🚨🚨🚨 AUTOMATIC RESTART TRIGGERED! 🚨🚨🚨")
         Log.i(TAG, "🔄 AUTOMATIC RESTART - Doing what pause/resume does:")
@@ -206,15 +189,6 @@ class ReconnectionManager(
         
         // Wait for clean closure
         delay(500)
-        
-        // Check again after delay
-        if (isPausedCheck?.invoke() == true) {
-            Log.w(TAG, "⚠️ Automatic restart cancelled - session was paused during cleanup")
-            return
-        }
-        
-        // Note: reconnectionAttempt is now managed in VoiceUiState
-        // Reset is handled by reconnectionManager.reset()
         
         // Start fresh connection
         Log.i(TAG, "🆕 Starting fresh connection after automatic restart")
@@ -261,12 +235,6 @@ class ReconnectionManager(
      */
     private suspend fun attemptReconnect() {
         try {
-            // CRITICAL FIX: Check if session was paused before attempting reconnect
-            if (isPausedCheck?.invoke() == true) {
-                Log.w(TAG, "⚠️ Reconnection cancelled - session is paused")
-                return
-            }
-            
             Log.i(TAG, "🔄 Attempting reconnection (attempt $attemptCount of $maxAttempts)...")
             Log.i(TAG, "   Current state: ${getConnectionState?.invoke() ?: "UNKNOWN"}")
             
@@ -277,12 +245,6 @@ class ReconnectionManager(
             // This is what makes pause/resume work - clean slate
             Log.d(TAG, "   Waiting 500ms for clean WebSocket closure...")
             delay(500)
-            
-            // Check again after delay
-            if (isPausedCheck?.invoke() == true) {
-                Log.w(TAG, "⚠️ Reconnection cancelled - session was paused during cleanup")
-                return
-            }
             
             // Call start() to initiate NEW connection
             // start() will handle the WebSocket connection setup

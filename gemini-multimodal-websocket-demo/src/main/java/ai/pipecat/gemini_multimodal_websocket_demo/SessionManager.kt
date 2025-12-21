@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.coroutines.resume
+import kotlinx.serialization.json.*
 
 /**
  * Manages learning session context including transcripts, images, and context updates.
@@ -428,19 +429,102 @@ class SessionManager(
                 imageEvents = mutableListOf(),
                 contextUpdates = mutableListOf()
             )
-            
-            currentSession = sessionContext
-            lastContextUpdateTime = 0 // Reset throttle
-            
-            // Reset transcript items StateFlow for new session
+
+            // Reset transcript items StateFlow for new session (will be populated from history)
             _transcriptItems.value = emptyList()
             
-            // Create session in Room database
+            // FETCH HISTORY FROM LIBRECHAT
+            if (conversationId != "new" && conversationId != "system_help_conversation") {
+                Log.i(TAG, "📜 [HISTORY] Fetching history for: $conversationId")
+                try {
+                    val messagesResult = libreChatService.getConversationMessages(conversationId)
+                    val history = messagesResult.getOrDefault(emptyList())
+                    
+                    if (history.isNotEmpty()) {
+                        Log.i(TAG, "📜 [HISTORY] Loaded ${history.size} raw message items from LibreChat")
+                        
+                        // Update parentMessageId for VoiceClientManager from the last message in history
+                        // Regardless of whether it's user or bot, the last message is the parent for the next turn
+                        val lastMessage = history.last()
+                        voiceClientManager?.updateLibreChatParentMessageId(lastMessage.messageId)
+                        Log.d(TAG, "📜 [HISTORY] Set parentMessageId to: ${lastMessage.messageId}")
+
+                        val allHistoryEntries = history.mapIndexed { index, msg ->
+                            // Improved text extraction from structured content
+                            var messageText = msg.text ?: ""
+                            if (messageText.isBlank() && msg.content != null) {
+                                try {
+                                    val contentElement = msg.content
+                                    if (contentElement is JsonArray) {
+                                        messageText = contentElement.mapNotNull { 
+                                            it.jsonObject["text"]?.jsonPrimitive?.contentOrNull
+                                        }.joinToString("\n")
+                                    } else if (contentElement is kotlinx.serialization.json.JsonPrimitive) {
+                                        messageText = contentElement.content
+                                    } else {
+                                        messageText = contentElement.toString()
+                                    }
+                                } catch (e: Exception) {
+                                    messageText = msg.content.toString()
+                                }
+                            }
+                            
+                            // More robust speaker detection: check isCreatedByUser, role, and sender
+                            val isUser = msg.isCreatedByUser || 
+                                       msg.role?.lowercase() == "user" || 
+                                       msg.sender?.lowercase() == "user"
+                            
+                            Log.d(TAG, "📜 [HISTORY] Item[$index]: speaker=${if (isUser) "USER" else "BOT"}, role=${msg.role}, sender=${msg.sender}, text=\"${messageText.take(50).replace("\n", " ")}...\"")
+                            
+                            TranscriptEntry(
+                                // Set timestamps well in the past (5m back + 5s spacing)
+                                timestamp = startTime - 300000 - ((history.size - index) * 5000), 
+                                speaker = if (isUser) Speaker.USER else Speaker.BOT,
+                                text = messageText
+                            )
+                        }
+                        
+                        val historyEntries = allHistoryEntries.filter { 
+                            val keep = it.text.isNotBlank() 
+                            if (!keep) {
+                                Log.d(TAG, "📜 [HISTORY] Filtering out blank entry from ${it.speaker}")
+                            }
+                            keep
+                        }
+                        
+                        Log.i(TAG, "📜 [HISTORY] Displaying ${historyEntries.size} formatted entries (out of ${allHistoryEntries.size})")
+                        _transcriptItems.value = historyEntries
+                        
+                        // Also add to in-memory session context
+                        sessionContext.transcripts.addAll(historyEntries)
+                    } else {
+                        Log.i(TAG, "📜 [HISTORY] No previous messages found or fetch returned empty")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "📜 [HISTORY] Error fetching history", e)
+                }
+            } else {
+                Log.d(TAG, "New conversation or help - skipping history fetch")
+            }
+            
+            currentSession = sessionContext
+            Log.d(TAG, "SessionContext initialized for $conversationId")
+            lastContextUpdateTime = 0 // Reset throttle
+            
+            // Ensure conversation exists in DB before creating session
             try {
+                if (conversationRepository.getConversation(conversationId) == null) {
+                    Log.i(TAG, "Conversation $conversationId not in DB, creating placeholder.")
+                    conversationRepository.createConversationWithId(
+                        id = conversationId,
+                        title = "Resumed Chat",
+                        source = "librechat_sync"
+                    )
+                }
                 currentDbSessionId = sessionRepository.createSession(conversationId)
                 Log.d(TAG, "Created database session: $currentDbSessionId")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to create database session", e)
+                Log.w(TAG, "Failed to create database session: ${e.message}. Continuing without DB persistence.")
             }
             
             Log.d(TAG, "Session started successfully: $sessionId")

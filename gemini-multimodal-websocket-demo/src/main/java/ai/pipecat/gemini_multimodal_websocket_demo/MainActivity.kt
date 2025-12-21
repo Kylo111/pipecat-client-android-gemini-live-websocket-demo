@@ -199,6 +199,16 @@ class MainActivity : ComponentActivity() {
             
             // Set up session timeout callback
             LaunchedEffect(Unit) {
+                // Diagnostic: Monitor transcript items
+                launch {
+                    sessionManager.transcriptItems.collect { items ->
+                        Log.d("MainActivity", "📊 [DIAGNOSTIC] Transcript updated: ${items.size} items")
+                        if (items.isNotEmpty()) {
+                            Log.d("MainActivity", "📊 [DIAGNOSTIC] Latest item: ${items.last().text.take(50)}...")
+                        }
+                    }
+                }
+
                 voiceClientManager.setSessionTimeoutCallback {
                     // Session timed out - end session and stop VoiceService
                     lifecycleScope.launch {

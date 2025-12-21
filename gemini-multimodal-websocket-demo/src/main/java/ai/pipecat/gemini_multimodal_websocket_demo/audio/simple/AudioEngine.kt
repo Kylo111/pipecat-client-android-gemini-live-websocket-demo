@@ -126,25 +126,16 @@ class AudioEngine(
      * Reads from channel and writes to AudioTrack (blocking is OK here).
      */
     private suspend fun audioWriteLoop() = withContext(Dispatchers.IO) {
+        Log.d(tag, "Audio write loop started")
+        
         try {
-            val musicVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val voiceVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
-            Log.d(tag, "Current volumes: Media=$musicVolume, VoiceCall=$voiceVolume")
-            
             for (chunk in audioChannel) {
                 if (!isActive || !_isPlaying) break
-                
-                // Track when we receive data
-                if (totalWrittenSamples == 0L) {
-                    Log.i(tag, "First audio chunk received from channel: ${chunk.size} bytes")
-                }
                 
                 val written = audioOutput.write(chunk, 0, chunk.size)
                 if (written > 0) {
                     // Track samples written (2 bytes per sample for PCM16)
                     totalWrittenSamples += written / 2
-                } else if (written < 0) {
-                    Log.e(tag, "AudioOutput.write error: $written")
                 }
             }
         } catch (e: Exception) {
@@ -185,14 +176,10 @@ class AudioEngine(
     fun isPlaybackFinished(): Boolean {
         if (!_isPlaying) return true
         
-        // If we haven't written any samples yet, we're not "finished" 
-        // (we're either waiting for first chunks or synthesis just started)
-        if (totalWrittenSamples == 0L) return false
-        
         val playbackPosition = audioOutput.getPlaybackHeadPosition().toLong()
         val finished = playbackPosition >= totalWrittenSamples
         
-        if (finished) {
+        if (finished && totalWrittenSamples > 0) {
             Log.d(tag, "Playback finished: position=$playbackPosition, written=$totalWrittenSamples")
         }
         

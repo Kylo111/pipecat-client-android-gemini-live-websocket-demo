@@ -112,3 +112,5 @@ adb -s EM95IBKZEYIFSO69 uninstall ai.pipecat.gemini_multimodal_websocket_demo
 3. Verify app handles memory pressure gracefully
 4. Check logs for onTrimMemory events
 5. Verify forceStop() is called only in critical situations
+### Strict Scope Control
+**KRYTYCZNA ZASADA**: NIE WOLNO zmieniać ani modyfikować niczego, co wykracza poza działanie konwersacji LibreChat, STT (Speech-to-Text) oraz TTS (Text-to-Speech). Wszystkie inne moduły i funkcjonalności (np. Logic narzędzi, Alarmy, Kalendarz, RAG itp.) muszą pozostać nienaruszone, chyba że użytkownik wyraźnie poleci inaczej.

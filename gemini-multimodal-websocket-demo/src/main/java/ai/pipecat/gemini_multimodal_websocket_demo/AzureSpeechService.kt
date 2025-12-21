@@ -31,7 +31,8 @@ class AzureSpeechService(
     var onSpeechDetected: (() -> Unit)? = null 
     var onAudioDataReceived: ((ByteArray) -> Unit)? = null 
 
-    private val executor: ExecutorService = Executors.newCachedThreadPool()
+    @Volatile
+    private var executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     init {
         initializeSpeechConfig()
@@ -191,8 +192,13 @@ class AzureSpeechService(
      */
     fun stopSynthesis() {
         Log.i(tag, "Stopping ongoing synthesis tasks (request level)")
-        // In full-buffer mode, synthesis is usually fast. Most of the "playing" 
-        // happens in AudioEngine, which is flushed separately.
+        val oldExecutor = executor
+        executor = Executors.newSingleThreadExecutor()
+        try {
+            oldExecutor.shutdownNow()
+        } catch (e: Exception) {
+            Log.e(tag, "Error shutting down old executor", e)
+        }
     }
 
     fun release() {

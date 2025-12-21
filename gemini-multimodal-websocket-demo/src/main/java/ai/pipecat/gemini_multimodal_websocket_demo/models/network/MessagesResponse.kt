@@ -12,7 +12,9 @@ data class MessageItem(
     val messageId: String,
     val conversationId: String,
     val parentMessageId: String? = null,
-    val text: String,
+    val text: String? = null,
+    val content: kotlinx.serialization.json.JsonElement? = null,
     val sender: String? = null,
-    val isCreatedByUser: Boolean = false
+    val isCreatedByUser: Boolean = false,
+    val role: String? = null
 )

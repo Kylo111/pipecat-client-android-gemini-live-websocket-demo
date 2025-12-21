@@ -149,8 +149,25 @@ class VoiceClientManager(
         
         Log.d(TAG, "🔍 [DIAGNOSTIC] Auto-mute settings: timeout=${autoMuteTimeoutSeconds}s, botTimeout=${botResponseTimeoutMinutes}min, threshold=$activityThreshold")
         
-        // COMMON components
+        // Initialize components (BACK TO STABLE commit e40244e style)
+        audioEngine = AudioEngine(
+            context = context,
+            scope = scope
+        )
+        
+        // Initialize GeminiClient ONLY if not in LibreChat mode (will be handled by connectToLibreChat)
+        if (settings?.source != "librechat") {
+            geminiClient = GeminiClient(apiKey, model, scope)
+        }
+        
         audioDeviceHandler = AudioDeviceHandler(context)
+        
+        autoMuteMonitor = AutoMuteMonitor(
+            scope,
+            autoMuteTimeoutSeconds,
+            botResponseTimeoutMinutes,
+            activityThreshold
+        )
         
         // Reconnection manager
         
@@ -221,24 +238,9 @@ class VoiceClientManager(
             val maxOutputTokens = settings?.maxOutputTokens
             
             if (settings?.source == "librechat") {
-                // Initialize for LibreChat
-                audioEngine = AudioEngine(context, scope = scope)
-                autoMuteMonitor = AutoMuteMonitor(scope, 
-                    Preferences.autoPauseTimeoutSeconds.value ?: 60,
-                    Preferences.botResponseTimeoutMinutes.value ?: 5,
-                    Preferences.activityDetectionThreshold.value ?: 0.02f)
-                
                 connectToLibreChat(settings.conversationId)
             } else {
-                // Initialize for Gemini Live
-                audioEngine = AudioEngine(context, scope = scope)
-                geminiClient = GeminiClient(Preferences.geminiApiKey.value ?: "", 
-                    Preferences.modelName.value ?: SystemPrompts.DEFAULT_GEMINI_LIVE_MODEL, scope)
-                autoMuteMonitor = AutoMuteMonitor(scope,
-                    Preferences.autoPauseTimeoutSeconds.value ?: 60,
-                    Preferences.botResponseTimeoutMinutes.value ?: 5,
-                    Preferences.activityDetectionThreshold.value ?: 0.02f)
-                
+                // Gemini Live - components already initialized in start()
                 wireEvents()
                 wireAutoMuteMonitor()
                 
@@ -380,8 +382,9 @@ class VoiceClientManager(
                 isBotTalking = false
             )
             
-            // Start automatic reconnection if not paused
-            if (!_uiState.value.isPaused && currentSettings != null) {
+            // Start automatic reconnection if currentSettings is not null
+            // We reconnect even if paused, to keep the session alive.
+            if (currentSettings != null) {
                 Log.i(TAG, "🔄 Starting automatic reconnection...")
                 scope.launch {
                     reconnectionManager?.startReconnection()
@@ -394,8 +397,8 @@ class VoiceClientManager(
             _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
             errors.add(Error(error.message ?: "Unknown error"))
             
-            // Start automatic reconnection on error if not paused
-            if (!_uiState.value.isPaused && currentSettings != null) {
+            // Start automatic reconnection on error if currentSettings is not null
+            if (currentSettings != null) {
                 Log.i(TAG, "🔄 Starting automatic reconnection after error...")
                 scope.launch {
                     reconnectionManager?.startReconnection()
@@ -654,28 +657,8 @@ class VoiceClientManager(
         currentLibreChatParentMessageId = currentSettings?.lastMessageId
         Log.d(TAG, "Initial parentMessageId from cache: $currentLibreChatParentMessageId")
 
-        // Fetch last message ID only if not in cache or if we want to be absolutely sure
-        if (conversationId != "new" && currentLibreChatParentMessageId == null) {
-            try {
-                val messagesResult = libreChatService.getConversationMessages(conversationId)
-                messagesResult.onSuccess { messages ->
-                    if (messages.isNotEmpty()) {
-                        val lastMessage = messages.last()
-                        currentLibreChatParentMessageId = lastMessage.messageId
-                        Log.d(TAG, "Fetched parentMessageId: $currentLibreChatParentMessageId")
-                        
-                        // Update cache
-                        currentSettings?.let { settings ->
-                            val updated = settings.copy(lastMessageId = lastMessage.messageId)
-                            currentSettings = updated
-                            ThreadSettingsManager.saveSettings(updated)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to fetch messages for parentMessageId: ${e.message}")
-            }
-        }
+        // Note: Full history fetch and parentMessageId update are now handled by SessionManager.startSession()
+        // which is called before VoiceClientManager.start() in ConversationLauncher.
         
         try {
             // Start audio device handler
@@ -808,7 +791,7 @@ class VoiceClientManager(
     }
     
     private suspend fun processLibreChatTurn(userText: String, conversationId: String) {
-        Log.d(TAG, "processLibreChatTurn: userText='$userText'")
+        Log.i(TAG, "🚀 [TURN] Starting LibreChat turn: \"$userText\"")
         
         // 1. CLEAR PREVIOUS STATE
         interruptLibreChat() 
@@ -820,6 +803,8 @@ class VoiceClientManager(
                 Log.d(TAG, "Requesting LibreChat response for: $userText")
                 // Stream from LibreChat using Agent API
                 var fullResponse = ""
+                var speechBuffer = ""
+                
                 libreChatService.streamAgentCompletion(
                     text = userText,
                     conversationId = conversationId,
@@ -831,6 +816,7 @@ class VoiceClientManager(
                     when (chunk) {
                         is StreamChunk.Text -> {
                             fullResponse += chunk.content
+                            speechBuffer += chunk.content
                             
                             // CLEAN TRANSCRIPT FOR UI
                             val cleanedForUi = fullResponse
@@ -848,9 +834,26 @@ class VoiceClientManager(
                                 autoMuteMonitor?.setBotTalking(true)
                                 updateSystemState()
                             }
+                            
+                            // STREAMING SYNTHESIS: Speak sentences as they arrive
+                            if (!isSilenced && (speechBuffer.contains(".") || speechBuffer.contains("?") || speechBuffer.contains("!") || speechBuffer.contains("\n"))) {
+                                // Split by sentence endings but keep them in the result
+                                val sentences = speechBuffer.split(Regex("(?<=[.!?\n])"))
+                                if (sentences.size > 1) {
+                                    // The last part is likely incomplete, take everything before it
+                                    val toSpeak = sentences.dropLast(1).joinToString("")
+                                    speechBuffer = sentences.last()
+                                    
+                                    val cleanedToSpeak = cleanTextForSpeech(toSpeak)
+                                    if (cleanedToSpeak.isNotEmpty()) {
+                                        Log.i(TAG, "🎙️ Streaming Synth: \"${cleanedToSpeak.take(40)}...\"")
+                                        azureSpeechService?.synthesize(cleanedToSpeak)
+                                    }
+                                }
+                            }
                         }
                         is StreamChunk.Metadata -> {
-                            Log.d(TAG, "Received metadata: msgId=${chunk.messageId}")
+                            Log.i(TAG, "📥 [TURN] Received metadata: msgId=${chunk.messageId}")
                             currentLibreChatParentMessageId = chunk.messageId
                             
                             // Update cache with the new message ID
@@ -863,48 +866,27 @@ class VoiceClientManager(
                     }
                 }
                 
-                // FINAL STEP: Speak the ENTIRE response at once using simplified synth
-                if (fullResponse.trim().isNotEmpty() && !isSilenced) {
-                    Log.d(TAG, "Full response received. Cleaning and speaking...")
-                    
-                    val baseCleaned = fullResponse
-                        .replace(Regex("""[\uE000-\uF8FF]"""), "")
-                        .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "")
-                        .replace(Regex("""turn\d+\w+\d+"""), "")
-                        .replace(Regex("""【\d+】"""), "")
-                        .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
-                        .replace(Regex("""\*(.*?)\*"""), "$1")
-                        .replace(Regex("""__(.*?)__"""), "$1")
-                        .replace(Regex("""_(.*?)_"""), "$1")
-                        .replace(Regex("""^#+\s+""", RegexOption.MULTILINE), "")
-                        .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
-                        .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
-                    
-                    val cleanedResponse = baseCleaned
-                        .replace(Regex("""[^\p{L}\p{N}\s,.\-!?;:]"""), "") 
-                        .trim()
-
-                    if (cleanedResponse.isNotEmpty()) {
-                        Log.i(TAG, "🎙️ Synthesizing cleaned response: \"${cleanedResponse.take(50)}...\"")
-                        
-                        // We use the simplified synthesize call which triggers onAudioDataReceived callback
-                        azureSpeechService?.synthesize(cleanedResponse)
-                        
-                        // Wait for playback to finish with a safety timeout (e.g. 15 seconds)
-                        // to prevent hanging if synthesis fails to produce audio.
-                        val startTime = System.currentTimeMillis()
-                        val timeoutMs = 15000L 
-                        
-                        delay(1000) // Slightly longer initial delay for network synthesis
-                        
-                        while (audioEngine?.isPlaybackFinished() == false && !isSilenced) {
-                            if (System.currentTimeMillis() - startTime > timeoutMs) {
-                                Log.w(TAG, "Speech wait loop timed out (15s)")
-                                break
-                            }
-                            delay(200)
-                        }
+                // FINAL STEP: Speak whatever is left in the buffer
+                if (speechBuffer.trim().isNotEmpty() && !isSilenced) {
+                    val cleanedFinal = cleanTextForSpeech(speechBuffer)
+                    if (cleanedFinal.isNotEmpty()) {
+                        Log.i(TAG, "🎙️ Final Streaming Synth: \"${cleanedFinal.take(40)}...\"")
+                        azureSpeechService?.synthesize(cleanedFinal)
                     }
+                }
+                
+                // Wait for playback to finish with a safety timeout (e.g. 15 seconds)
+                val startTime = System.currentTimeMillis()
+                val timeoutMs = 15000L 
+                
+                delay(1000) 
+                
+                while (audioEngine?.isPlaybackFinished() == false && !isSilenced) {
+                    if (System.currentTimeMillis() - startTime > timeoutMs) {
+                        Log.w(TAG, "Speech wait loop timed out (15s)")
+                        break
+                    }
+                    delay(200)
                 }
                 
                 Log.d(TAG, "LibreChat response complete.")
@@ -1368,6 +1350,15 @@ class VoiceClientManager(
     }
     
     /**
+     * Update parentMessageId for LibreChat sessions.
+     * Usually called from SessionManager after history fetch.
+     */
+    fun updateLibreChatParentMessageId(messageId: String) {
+        currentLibreChatParentMessageId = messageId
+        Log.d(TAG, "Parent message ID updated to: $messageId")
+    }
+    
+    /**
      * Release all resources.
      */
     fun release() {
@@ -1376,5 +1367,22 @@ class VoiceClientManager(
         autoMuteMonitor?.release()
         audioEngine?.release()
         Log.i(TAG, "Released")
+    }
+
+    private fun cleanTextForSpeech(text: String): String {
+        return text
+            .replace(Regex("""[\uE000-\uF8FF]"""), "")
+            .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "")
+            .replace(Regex("""turn\d+\w+\d+"""), "")
+            .replace(Regex("""【\d+】"""), "")
+            .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
+            .replace(Regex("""\*(.*?)\*"""), "$1")
+            .replace(Regex("""__(.*?)__"""), "$1")
+            .replace(Regex("""_(.*?)_"""), "$1")
+            .replace(Regex("""^#+\s+""", RegexOption.MULTILINE), "")
+            .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
+            .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
+            .replace(Regex("""[^\p{L}\p{N}\s,.\-!?;:]"""), "")
+            .trim()
     }
 }
