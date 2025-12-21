@@ -70,9 +70,6 @@ class AudioEngine(
     // Recording
     private var audioRecord: AudioRecord? = null
     private var recordJob: Job? = null
-    private var echoCanceler: AcousticEchoCanceler? = null
-    private var noiseSuppressor: NoiseSuppressor? = null
-    private var automaticGainControl: AutomaticGainControl? = null
     
     // Audio manager for microphone selection
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -262,7 +259,7 @@ class AudioEngine(
             AudioFormat.ENCODING_PCM_16BIT
         )
         
-        // Use VOICE_COMMUNICATION for system AEC
+        // Use VOICE_COMMUNICATION for system AEC/Noise Suppression
         audioRecord = AudioRecord(
             MediaRecorder.AudioSource.VOICE_COMMUNICATION,
             inputSampleRate,
@@ -271,124 +268,9 @@ class AudioEngine(
             bufferSize
         )
         
-        // Try to select front microphone for speakerphone mode
-        selectFrontMicrophone()
-        
-        val sessionId = audioRecord?.audioSessionId ?: return
-        
-        // Enable hardware AEC if available
-        if (AcousticEchoCanceler.isAvailable()) {
-            try {
-                echoCanceler = AcousticEchoCanceler.create(sessionId)
-                echoCanceler?.enabled = true
-                Log.i(tag, "✅ Hardware AEC enabled")
-            } catch (e: Exception) {
-                Log.w(tag, "⚠️ Failed to enable AEC: ${e.message}")
-            }
-        } else {
-            Log.d(tag, "Hardware AEC not available, using system AEC from VOICE_COMMUNICATION")
-        }
-        
-        // Enable NoiseSuppressor if available - reduces background noise
-        if (NoiseSuppressor.isAvailable()) {
-            try {
-                noiseSuppressor = NoiseSuppressor.create(sessionId)
-                noiseSuppressor?.enabled = true
-                Log.i(tag, "✅ NoiseSuppressor enabled - background noise will be reduced")
-            } catch (e: Exception) {
-                Log.w(tag, "⚠️ Failed to enable NoiseSuppressor: ${e.message}")
-            }
-        } else {
-            Log.d(tag, "NoiseSuppressor not available on this device")
-        }
-        
-        // Enable AutomaticGainControl if available - normalizes volume
-        if (AutomaticGainControl.isAvailable()) {
-            try {
-                automaticGainControl = AutomaticGainControl.create(sessionId)
-                automaticGainControl?.enabled = true
-                Log.i(tag, "✅ AutomaticGainControl enabled - volume will be normalized")
-            } catch (e: Exception) {
-                Log.w(tag, "⚠️ Failed to enable AGC: ${e.message}")
-            }
-        } else {
-            Log.d(tag, "AutomaticGainControl not available on this device")
-        }
-        
-        // Log summary of audio effects
-        Log.i(tag, "🎤 Audio effects summary:")
-        Log.i(tag, "   - AEC: ${echoCanceler?.enabled ?: false}")
-        Log.i(tag, "   - NoiseSuppressor: ${noiseSuppressor?.enabled ?: false}")
-        Log.i(tag, "   - AGC: ${automaticGainControl?.enabled ?: false}")
+        Log.i(tag, "🎤 AudioRecord created with VOICE_COMMUNICATION")
     }
     
-    /**
-     * Select front (bottom) microphone for speakerphone mode.
-     * 
-     * In speakerphone mode, the front microphone is closer to the user's mouth
-     * and provides better voice capture than the back microphone.
-     * 
-     * Uses setPreferredDevice() on API 23+ to explicitly select the microphone.
-     */
-    private fun selectFrontMicrophone() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            Log.d(tag, "setPreferredDevice not available on API < 23")
-            return
-        }
-        
-        val record = audioRecord ?: return
-        
-        try {
-            // Get all available microphones
-            val microphones = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
-            
-            Log.i(tag, "🎤 Available microphones:")
-            microphones.forEach { device ->
-                val typeName = getMicrophoneTypeName(device.type)
-                Log.i(tag, "   - ${device.productName} (type: $typeName, id: ${device.id})")
-            }
-            
-            // Find front/bottom microphone - prefer BUILTIN_MIC over BACK_MIC
-            // BUILTIN_MIC is typically the front/bottom microphone used for calls
-            val frontMic = microphones.firstOrNull { 
-                it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC 
-            }
-            
-            if (frontMic != null) {
-                val success = record.setPreferredDevice(frontMic)
-                if (success) {
-                    Log.i(tag, "✅ Front microphone selected: ${frontMic.productName}")
-                } else {
-                    Log.w(tag, "⚠️ Failed to set front microphone as preferred device")
-                }
-            } else {
-                Log.d(tag, "Front microphone not found, using default")
-            }
-            
-            // Log which microphone is actually being used
-            val routedDevice = record.routedDevice
-            if (routedDevice != null) {
-                Log.i(tag, "🎤 Actually using microphone: ${routedDevice.productName} (${getMicrophoneTypeName(routedDevice.type)})")
-            }
-            
-        } catch (e: Exception) {
-            Log.w(tag, "⚠️ Error selecting microphone: ${e.message}")
-        }
-    }
-    
-    /**
-     * Get human-readable microphone type name.
-     */
-    private fun getMicrophoneTypeName(type: Int): String {
-        return when (type) {
-            AudioDeviceInfo.TYPE_BUILTIN_MIC -> "BUILTIN_MIC (front/bottom)"
-            AudioDeviceInfo.TYPE_WIRED_HEADSET -> "WIRED_HEADSET"
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "BLUETOOTH_SCO"
-            AudioDeviceInfo.TYPE_USB_DEVICE -> "USB_DEVICE"
-            AudioDeviceInfo.TYPE_USB_HEADSET -> "USB_HEADSET"
-            else -> "UNKNOWN ($type)"
-        }
-    }
     
     /**
      * Recording loop - runs on IO dispatcher.
@@ -444,38 +326,6 @@ class AudioEngine(
      * Cleanup recording resources including all audio effects.
      */
     private fun cleanupRecording() {
-        // Release AEC
-        echoCanceler?.let {
-            try {
-                it.enabled = false
-                it.release()
-            } catch (e: Exception) {
-                Log.w(tag, "Error releasing AEC: ${e.message}")
-            }
-        }
-        echoCanceler = null
-        
-        // Release NoiseSuppressor
-        noiseSuppressor?.let {
-            try {
-                it.enabled = false
-                it.release()
-            } catch (e: Exception) {
-                Log.w(tag, "Error releasing NoiseSuppressor: ${e.message}")
-            }
-        }
-        noiseSuppressor = null
-        
-        // Release AutomaticGainControl
-        automaticGainControl?.let {
-            try {
-                it.enabled = false
-                it.release()
-            } catch (e: Exception) {
-                Log.w(tag, "Error releasing AGC: ${e.message}")
-            }
-        }
-        automaticGainControl = null
         
         // Release AudioRecord
         audioRecord?.let {
