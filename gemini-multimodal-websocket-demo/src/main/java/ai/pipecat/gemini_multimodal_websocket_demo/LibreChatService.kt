@@ -89,7 +89,7 @@ class LibreChatService(
     data class Agent(
         val id: String,
         val agent_id: String? = null,
-        val name: String,
+        val name: String? = "Unnamed Agent",
         val description: String? = null,
         val provider: String? = null,
         val model: String? = null
@@ -205,11 +205,11 @@ class LibreChatService(
      * This follows the 'second frontend' approach using SSE.
      */
     suspend fun getConversationMessages(conversationId: String): Result<List<ai.pipecat.gemini_multimodal_websocket_demo.models.network.MessageItem>> = 
-        RetryPolicy.withRetry {
+        RetryPolicy.withRetry(maxAttempts = 2) { // Only 1 retry to avoid long UI hangs
             val serverUrl = authManager.getNormalizedServerUrl()
                 ?: throw LibreChatError.AuthenticationError("No server URL stored")
             
-            Log.d(TAG, "Fetching messages for: $conversationId")
+            Log.i(TAG, "📜 [HISTORY] Fetching messages V4 (robust-parsing) for: $conversationId")
             
             val request = Request.Builder()
                 .url("$serverUrl/api/messages/$conversationId")
@@ -224,20 +224,33 @@ class LibreChatService(
                 throw Exception("Failed to fetch messages: ${response.code}")
             }
             
-            val body = response.body?.string() ?: "{\"messages\":[]}"
+            val body = response.body?.string() ?: ""
+            Log.d(TAG, "📥 [RAW HISTORY] Body length: ${body.length}")
             
-            // Handle both object with messages field and raw list
-            try {
-                val messagesResponse = json.decodeFromString<MessagesResponse>(body)
-                messagesResponse.messages
-            } catch (e: Exception) {
-                try {
-                    json.decodeFromString<List<ai.pipecat.gemini_multimodal_websocket_demo.models.network.MessageItem>>(body)
-                } catch (e2: Exception) {
-                    Log.e(TAG, "Failed to parse messages: $body", e2)
+            if (body.trim().isEmpty()) {
+                Log.w(TAG, "Empty body received for history")
+                return@withRetry emptyList()
+            }
+
+            val result = try {
+                val trimmed = body.trim()
+                if (trimmed.startsWith("[")) {
+                    json.decodeFromString<List<ai.pipecat.gemini_multimodal_websocket_demo.models.network.MessageItem>>(trimmed)
+                } else if (trimmed.startsWith("{")) {
+                    val wrapper = json.decodeFromString<MessagesResponse>(trimmed)
+                    wrapper.messages
+                } else {
+                    Log.e(TAG, "📜 [HISTORY SCAN] Unexpected body format: ${trimmed.take(100)}")
                     emptyList()
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "📜 [HISTORY SCAN] Final Parsing failed: ${e.message}")
+                Log.e(TAG, "📜 [HISTORY SCAN] Body head: ${body.take(1000)}")
+                emptyList<ai.pipecat.gemini_multimodal_websocket_demo.models.network.MessageItem>()
             }
+            
+            Log.d(TAG, "Successfully parsed ${result.size} history items")
+            result
         }
     
     fun streamAgentCompletion(
@@ -252,8 +265,7 @@ class LibreChatService(
         val serverUrl = authManager.getNormalizedServerUrl()
             ?: throw LibreChatError.AuthenticationError("No server URL stored")
 
-        // Construct request payload for /agents using safe JSON builder
-        // New structure based on browser DevTools
+        // Construct request payload based on working version
         val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         val mId = UUID.randomUUID().toString()
         
@@ -261,7 +273,6 @@ class LibreChatService(
             put("text", kotlinx.serialization.json.JsonPrimitive(text))
             
             val finalAgentId = agentId ?: ""
-            Log.d(TAG, "Using agent_id for request: '$finalAgentId'")
             put("agent_id", kotlinx.serialization.json.JsonPrimitive(finalAgentId))
             put("endpoint", kotlinx.serialization.json.JsonPrimitive("agents"))
             
@@ -290,7 +301,6 @@ class LibreChatService(
             put("isContinued", kotlinx.serialization.json.JsonPrimitive(false))
             put("isRegenerate", kotlinx.serialization.json.JsonPrimitive(false))
             put("isTemporary", kotlinx.serialization.json.JsonPrimitive(false))
-            put("error", kotlinx.serialization.json.JsonPrimitive(false))
             
             put("ephemeralAgent", kotlinx.serialization.json.buildJsonObject {
                 put("artifacts", kotlinx.serialization.json.JsonPrimitive(false))
@@ -306,7 +316,8 @@ class LibreChatService(
         }
         
         val payload = payloadBody.toString()
-        Log.d(TAG, "Agent payload: $payload")
+        Log.d(TAG, "Starting agent stream to $serverUrl/api/agents/chat/agents")
+        Log.v(TAG, "Full Payload: $payload")
 
         val requestBody = payload.toRequestBody(JSON_MEDIA_TYPE)
         
@@ -314,11 +325,9 @@ class LibreChatService(
             .url("$serverUrl/api/agents/chat/agents")
             .post(requestBody)
             .header("Accept", "*/*")
-            .header("X-Direct-Browser", "true") // Hint for server identifying browser-like client
+            .header("X-Direct-Browser", "true") 
             .build()
             
-        Log.d(TAG, "Starting agent stream to $serverUrl/api/agents/chat/agents")
-        
         val response = withContext(Dispatchers.IO) {
             httpClient.newCall(request).execute()
         }
