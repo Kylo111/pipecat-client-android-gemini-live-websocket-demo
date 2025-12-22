@@ -68,7 +68,8 @@ object ThreadSettingsManager {
                 agentId = thread.agentId,
                 endpoint = thread.endpoint ?: current.endpoint,
                 model = thread.model ?: current.model,
-                provider = thread.provider ?: current.provider
+                provider = thread.provider ?: current.provider,
+                source = "librechat"
             ))
         }
     }

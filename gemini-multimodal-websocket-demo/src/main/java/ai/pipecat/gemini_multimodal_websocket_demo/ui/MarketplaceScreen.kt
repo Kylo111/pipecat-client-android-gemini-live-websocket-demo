@@ -84,7 +84,7 @@ fun MarketplaceScreen(
                 }
                 
                 Text(
-                    text = "Marketplace",
+                    text = "Sklep asystentów",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.W700,
                     color = Colors.textPrimary,
@@ -106,7 +106,7 @@ fun MarketplaceScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No templates available.\nCheck back later for new assistants.",
+                            text = "Brak dostępnych szablonów.\nWróć później po nowych asystentów.",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,
@@ -140,7 +140,7 @@ fun MarketplaceScreen(
                                             onImportSuccess()
                                         } else {
                                             showErrorMessage = result.exceptionOrNull()?.message 
-                                                ?: "Failed to import template"
+                                                ?: "Nie udało się zaimportować szablonu"
                                         }
                                     }
                                 }
@@ -171,7 +171,7 @@ fun MarketplaceScreen(
                     shadowElevation = 4.dp
                 ) {
                     Text(
-                        text = "✓ Template imported successfully!",
+                        text = "✓ Szablon zaimportowany pomyślnie!",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
@@ -301,13 +301,13 @@ private fun MarketplaceTemplateCard(
             ) {
                 // Voice ID
                 ConfigDetailChip(
-                    label = "Voice",
+                    label = "Głos",
                     value = template.voiceId ?: "Puck"
                 )
                 
                 // Temperature
                 ConfigDetailChip(
-                    label = "Temperature",
+                    label = "Temperatura",
                     value = String.format("%.1f", template.temperature)
                 )
             }
@@ -335,7 +335,7 @@ private fun MarketplaceTemplateCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Importing...",
+                        text = "Importowanie...",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
@@ -343,7 +343,7 @@ private fun MarketplaceTemplateCard(
                     )
                 } else {
                     Text(
-                        text = "Import",
+                        text = "Importuj",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,

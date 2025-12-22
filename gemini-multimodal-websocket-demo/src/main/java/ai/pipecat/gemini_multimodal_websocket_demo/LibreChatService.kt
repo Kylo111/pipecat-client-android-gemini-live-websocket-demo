@@ -31,6 +31,17 @@ sealed class StreamChunk {
     data class Metadata(val messageId: String, val conversationId: String) : StreamChunk()
 }
 
+@Serializable
+data class LibreChatFile(
+    @SerialName("file_id") val fileId: String,
+    val filepath: String? = null,
+    val type: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val filename: String? = null,
+    val size: Long? = null
+)
+
 class LibreChatService(
     private val authManager: AuthManager
 ) {
@@ -261,13 +272,13 @@ class LibreChatService(
         model: String? = null,
         provider: String? = null,
         endpoint: String? = "agents",
-        files: List<String> = emptyList()
+        files: List<LibreChatFile> = emptyList(),
+        useOCR: Boolean = false
     ): Flow<StreamChunk> = flow {
         val serverUrl = authManager.getNormalizedServerUrl()
             ?: throw LibreChatError.AuthenticationError("No server URL stored")
 
         // Construct request payload based on working version
-        val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         val mId = UUID.randomUUID().toString()
         
         val currentEndpoint = endpoint ?: "agents"
@@ -284,13 +295,20 @@ class LibreChatService(
                 put("endpoint", kotlinx.serialization.json.JsonPrimitive(currentEndpoint))
             }
             
-            put("clientTimestamp", kotlinx.serialization.json.JsonPrimitive(now))
-            put("key", kotlinx.serialization.json.JsonPrimitive(now))
-            put("messageId", kotlinx.serialization.json.JsonPrimitive(mId))
-            
-            // Use zeros-UUID as fallback for parentMessageId if not provided
-            val pId = parentMessageId ?: "00000000-0000-0000-0000-000000000000"
-            put("parentMessageId", kotlinx.serialization.json.JsonPrimitive(pId))
+            val ts = System.currentTimeMillis().toString()
+            put("clientTimestamp", kotlinx.serialization.json.JsonPrimitive(ts))
+            put("key", kotlinx.serialization.json.JsonPrimitive(UUID.randomUUID().toString()))
+            // parentMessageId: omit if blank/default to avoid 500 on some server versions
+            if (!parentMessageId.isNullOrBlank() && parentMessageId != "00000000-0000-0000-0000-000000000000") {
+                put("parentMessageId", kotlinx.serialization.json.JsonPrimitive(parentMessageId))
+            } else {
+                // For new conversations, some servers expect null, others expect omitted.
+                // We'll use the "zeros" UUID only if specifically handled by the server, 
+                // but omitting it is safer for "new" conversations.
+                if (conversationId != "new") {
+                    put("parentMessageId", kotlinx.serialization.json.JsonPrimitive("00000000-0000-0000-0000-000000000000"))
+                }
+            }
             
             if (conversationId != "new") {
                 put("conversationId", kotlinx.serialization.json.JsonPrimitive(conversationId))
@@ -310,7 +328,7 @@ class LibreChatService(
             put("isRegenerate", kotlinx.serialization.json.JsonPrimitive(false))
             put("isTemporary", kotlinx.serialization.json.JsonPrimitive(false))
             
-            if (isAgent) {
+            if (isAgent && agentId.isNullOrBlank()) {
                 put("ephemeralAgent", kotlinx.serialization.json.buildJsonObject {
                     put("artifacts", kotlinx.serialization.json.JsonPrimitive(false))
                     put("execute_code", kotlinx.serialization.json.JsonPrimitive(false))
@@ -321,12 +339,32 @@ class LibreChatService(
             }
 
             if (files.isNotEmpty()) {
-                put("files", kotlinx.serialization.json.JsonArray(files.map { kotlinx.serialization.json.JsonPrimitive(it) }))
-            }
+            put("files", kotlinx.serialization.json.JsonArray(files.map { file ->
+                kotlinx.serialization.json.buildJsonObject {
+                    put("file_id", kotlinx.serialization.json.JsonPrimitive(file.fileId))
+                    
+                    if (useOCR) {
+                        put("filepath", kotlinx.serialization.json.JsonPrimitive("mistral_ocr"))
+                        put("type", kotlinx.serialization.json.JsonPrimitive("text/plain"))
+                    } else {
+                        // Standard Vision mode
+                        // IMPORTANT: filepath and type MUST NOT be empty strings if the server is to recognize the provider
+                        val fPath = file.filepath
+                        val fType = file.type ?: "image/jpeg"
+                        
+                        if (fPath != null) put("filepath", kotlinx.serialization.json.JsonPrimitive(fPath))
+                        put("type", kotlinx.serialization.json.JsonPrimitive(fType))
+                        
+                        file.filename?.let { put("filename", kotlinx.serialization.json.JsonPrimitive(it)) }
+                        file.size?.let { put("size", kotlinx.serialization.json.JsonPrimitive(it)) }
+                    }
+                }
+            }))
+        }
         }
         
         val payload = payloadBody.toString()
-        val targetPath = if (isAgent) "api/agents/chat/agents" else "api/ask/$currentEndpoint"
+        val targetPath = if (isAgent) "api/agents/chat" else "api/ask/$currentEndpoint"
         Log.d(TAG, "Starting $currentEndpoint stream to $serverUrl/$targetPath")
         Log.v(TAG, "Full Payload: $payload")
 
@@ -445,13 +483,13 @@ class LibreChatService(
         fileBytes: ByteArray,
         fileName: String,
         mimeType: String = "image/jpeg"
-    ): Result<String> = withContext(Dispatchers.IO) {
+    ): Result<LibreChatFile> = withContext(Dispatchers.IO) {
         try {
             val serverUrl = authManager.getNormalizedServerUrl()
                 ?: return@withContext Result.failure(LibreChatError.AuthenticationError("No server URL stored"))
 
             val metadata = kotlinx.serialization.json.buildJsonObject {
-                put("file_id", kotlinx.serialization.json.JsonPrimitive(UUID.randomUUID().toString()))
+                // Return an empty metadata object, as some LibreChat versions require it
             }.toString()
 
             val requestBody = MultipartBody.Builder()
@@ -461,7 +499,7 @@ class LibreChatService(
                     fileName,
                     fileBytes.toRequestBody(mimeType.toMediaType())
                 )
-                .addFormDataPart("metadata", metadata) // Mandatory for many LibreChat file handlers
+                .addFormDataPart("metadata", metadata)
                 .build()
 
             val request = Request.Builder()
@@ -474,17 +512,16 @@ class LibreChatService(
 
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: "Unknown error"
+                Log.e(TAG, "File upload failed with 500: $errorBody")
                 return@withContext Result.failure(Exception("File upload failed: ${response.code} - $errorBody"))
             }
 
             val body = response.body?.string() ?: throw Exception("Empty response body")
             Log.d(TAG, "Upload response: $body")
-            val jsonObject = json.parseToJsonElement(body).jsonObject
-            val fileId = jsonObject["file_id"]?.jsonPrimitive?.content 
-                ?: jsonObject["id"]?.jsonPrimitive?.content
-                ?: throw Exception("No file_id returned from upload. Response: $body")
-
-            Result.success(fileId)
+            val jsonElement = json.parseToJsonElement(body)
+            val fileObject = json.decodeFromJsonElement(LibreChatFile.serializer(), jsonElement)
+            
+            Result.success(fileObject)
         } catch (e: Exception) {
             Log.e(TAG, "File upload exception", e)
             Result.failure(e)

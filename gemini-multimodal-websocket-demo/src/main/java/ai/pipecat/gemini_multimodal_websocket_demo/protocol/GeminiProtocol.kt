@@ -341,7 +341,28 @@ class GeminiProtocol {
                 },
                 // Function calling tools
                 tools = if (toolDeclarations.isNotEmpty()) {
-                    listOf(Tool(function_declarations = toolDeclarations))
+                    val result = mutableListOf<Tool>()
+                    
+                    // Filter out google_search from function declarations
+                    val functionDecls = toolDeclarations.filter { 
+                        val obj = it as? JsonObject
+                        obj == null || !obj.containsKey("google_search")
+                    }
+                    
+                    val hasGoogleSearch = toolDeclarations.any { 
+                        val obj = it as? JsonObject
+                        obj != null && obj.containsKey("google_search")
+                    }
+                    
+                    if (functionDecls.isNotEmpty()) {
+                        result.add(Tool(function_declarations = functionDecls))
+                    }
+                    
+                    if (hasGoogleSearch) {
+                        result.add(Tool(google_search = buildJsonObject {}))
+                    }
+                    
+                    if (result.isEmpty()) null else result
                 } else {
                     null
                 }
@@ -450,7 +471,8 @@ data class Setup(
 
 @kotlinx.serialization.Serializable
 data class Tool(
-    val function_declarations: List<JsonElement>
+    val function_declarations: List<JsonElement>? = null,
+    val google_search: JsonObject? = null
 )
 
 @kotlinx.serialization.Serializable

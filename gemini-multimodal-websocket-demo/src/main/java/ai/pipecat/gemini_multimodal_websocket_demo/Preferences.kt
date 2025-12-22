@@ -39,6 +39,7 @@ object Preferences {
     private const val PREF_AZURE_API_KEY = "azure_api_key"
     private const val PREF_AZURE_REGION = "azure_region"
     private const val PREF_AZURE_TTS_VOICE = "azure_tts_voice"
+    private const val PREF_LIBRECHAT_OCR_MODE = "librechat_ocr_mode"
     private const val PREF_VERSION = "preferences_version"
     private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
 
@@ -55,7 +56,7 @@ object Preferences {
             geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, googleDirectionsApiKey, telegramBotToken, telegramChatId, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, controlAgentEnabled,
             reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled, offlineBannerDismissed,
-            azureApiKey, azureRegion, azureTtsVoice
+            azureApiKey, azureRegion, azureTtsVoice, libreChatOcrMode
         ).forEach { it.init() }
     }
 
@@ -253,4 +254,5 @@ object Preferences {
     val azureApiKey = StringPref(PREF_AZURE_API_KEY, "")
     val azureRegion = StringPref(PREF_AZURE_REGION, "westeurope")
     val azureTtsVoice = StringPref(PREF_AZURE_TTS_VOICE, "pl-PL-MarekNeural")
+    val libreChatOcrMode = BooleanPref(PREF_LIBRECHAT_OCR_MODE, false)
 }

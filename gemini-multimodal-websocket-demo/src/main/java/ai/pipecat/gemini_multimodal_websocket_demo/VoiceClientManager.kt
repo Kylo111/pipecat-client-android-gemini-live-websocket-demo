@@ -111,10 +111,11 @@ class VoiceClientManager(
         currentSettings = settings
         _uiState.value = _uiState.value.copy(isPaused = false) // Ensure unpaused on start
         
-        // Get API key from preferences
+        // Get API key from preferences (required for Gemini, optional for LibreChat)
         val apiKey = Preferences.geminiApiKey.value
-        if (apiKey.isNullOrBlank()) {
-            errors.add(Error("API key is required"))
+        if (apiKey.isNullOrBlank() && settings?.source != "librechat") {
+            Log.e(TAG, "API key is required for Gemini Live session")
+            errors.add(Error("API key is required for Gemini Live session"))
             return
         }
         
@@ -157,7 +158,7 @@ class VoiceClientManager(
         
         // Initialize GeminiClient ONLY if not in LibreChat mode (will be handled by connectToLibreChat)
         if (settings?.source != "librechat") {
-            geminiClient = GeminiClient(apiKey, model, scope)
+            geminiClient = GeminiClient(apiKey!!, model, scope)
         }
         
         audioDeviceHandler = AudioDeviceHandler(context)
@@ -650,7 +651,7 @@ class VoiceClientManager(
         if (conversationId != "new") {
             val updatedSettings = ThreadSettingsManager.getSettings(conversationId)
             Log.d(TAG, "Refreshed settings for $conversationId: agentId=${updatedSettings.agentId}, model=${updatedSettings.model}")
-            currentSettings = updatedSettings
+            currentSettings = updatedSettings.copy(source = "librechat")
         }
         
         // Initialize parentMessageId from cached settings ONLY if not already set by history fetch
@@ -1070,13 +1071,14 @@ class VoiceClientManager(
      * Processes the image (resize, compress) and sends it through the WebSocket.
      */
     fun sendImage(uri: Uri) {
-        Log.d(TAG, "sendImage() called - URI: $uri")
+        val source = currentSettings?.source ?: "unknown"
+        Log.d(TAG, "sendImage() called - URI: $uri, currentSource: $source")
         
         // Cancel any existing image processing job
         imageProcessingJob?.cancel()
         
         // Process image based on source
-        if (currentSettings?.source == "librechat") {
+        if (source == "librechat") {
             processImageForLibreChat(uri)
         } else {
             processImageForGemini(uri)
@@ -1151,21 +1153,29 @@ class VoiceClientManager(
                     Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
                     
                     Log.d(TAG, "Uploading image to LibreChat...")
+                    val extension = when (processedImage.mimeType) {
+                        "image/png" -> "png"
+                        "image/gif" -> "gif"
+                        "image/webp" -> "webp"
+                        else -> "jpg"
+                    }
                     val uploadResult = libreChatService.uploadFile(
                         fileBytes = processedImage.data,
-                        fileName = "voice_upload_${System.currentTimeMillis()}.jpg"
+                        fileName = "voice_upload_${System.currentTimeMillis()}.$extension",
+                        mimeType = processedImage.mimeType
                     )
                     
-                    uploadResult.onSuccess { fileId ->
-                        Log.d(TAG, "Image uploaded to LibreChat, fileId: $fileId")
+                    uploadResult.onSuccess { libreChatFile ->
+                        Log.d(TAG, "Image uploaded to LibreChat, fileId: ${libreChatFile.fileId}")
                         
                         // Trigger a response with the image
                         val conversationId = currentSettings?.conversationId ?: "new"
+                        val useOCR = Preferences.libreChatOcrMode.value
                         
                         libreChatJob?.cancel()
                         libreChatJob = scope.launch(Dispatchers.IO) {
                             try {
-                                Log.d(TAG, "Triggering agent with uploaded image...")
+                                Log.d(TAG, "Triggering agent with uploaded image (OCR=$useOCR)...")
                                 var fullResponse = ""
                                 isBotBusyWithResponse = true
                                 isSilenced = false
@@ -1177,7 +1187,8 @@ class VoiceClientManager(
                                     parentMessageId = currentLibreChatParentMessageId,
                                     model = currentSettings?.model,
                                     provider = currentSettings?.provider,
-                                    files = listOf(fileId)
+                                    files = listOf(libreChatFile),
+                                    useOCR = useOCR
                                 ).collect { chunk ->
                                     when (chunk) {
                                         is StreamChunk.Text -> {
@@ -1239,7 +1250,7 @@ class VoiceClientManager(
                             }
                         }
                         
-                        sessionManager?.recordImageSent("LibreChat image ($fileId): ${uri.lastPathSegment}")
+                        sessionManager?.recordImageSent("LibreChat image (${libreChatFile.fileId}): ${uri.lastPathSegment}")
                     }.onFailure { e ->
                         Log.e(TAG, "LibreChat image upload failed", e)
                         errors.add(Error("Błąd wysyłania obrazu do LibreChat: ${e.message}"))

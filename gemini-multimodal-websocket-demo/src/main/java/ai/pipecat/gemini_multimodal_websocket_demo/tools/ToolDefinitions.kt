@@ -28,7 +28,8 @@ object ToolDefinitions {
      */
     fun getAllTools(context: android.content.Context): List<JsonObject> {
         val builtInTools = mutableListOf(
-            searchWebTool(),
+            // searchWebTool(), // REMOVED - Using native googleSearchGrounding instead
+            getGoogleSearchGrounding(),
             getWeatherTool(),
             getCurrentTimeTool(),
             getLocationTool(),
@@ -53,7 +54,7 @@ object ToolDefinitions {
         // - copy_to_clipboard: Clipboard operations (use start_reasoning_task instead)
         // - send_telegram: Telegram messaging (use start_reasoning_task instead)
         //
-        // Gemini Live uses search_web (Google Grounding) for quick searches.
+        // Gemini Live uses native Google Search Grounding for quick searches.
         // Complex research, note-taking, and clipboard operations are delegated to Reasoning Agent.
         
         // Add custom tools from user configuration

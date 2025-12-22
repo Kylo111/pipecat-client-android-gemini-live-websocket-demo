@@ -81,6 +81,7 @@ fun SettingsScreen(
     var showChangePINDialog by remember { mutableStateOf(false) }
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
     var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
+    var libreChatOcrMode by remember { mutableStateOf(Preferences.libreChatOcrMode.value) }
     
     // Azure Speech settings
     var azureApiKey by remember { mutableStateOf(Preferences.azureApiKey.value ?: "") }
@@ -145,6 +146,7 @@ fun SettingsScreen(
         Preferences.selectedSkin.value = selectedSkin
         Preferences.parentalLockEnabled.value = parentalLockEnabled
         Preferences.fullDuplexMode.value = fullDuplexMode
+        Preferences.libreChatOcrMode.value = libreChatOcrMode
         
         // Save Reasoning Agent API keys
         Preferences.openRouterApiKey.value = openRouterApiKey
@@ -385,7 +387,9 @@ fun SettingsScreen(
                             whispererMode = Preferences.whispererModeEnabled.value,
                             onWhispererModeChange = { enabled ->
                                 Preferences.whispererModeEnabled.value = enabled
-                            }
+                            },
+                            libreChatOcrMode = libreChatOcrMode,
+                            onLibreChatOcrModeChange = { libreChatOcrMode = it }
                         )
                     }
                     SettingsTab.INTEGRATIONS -> {

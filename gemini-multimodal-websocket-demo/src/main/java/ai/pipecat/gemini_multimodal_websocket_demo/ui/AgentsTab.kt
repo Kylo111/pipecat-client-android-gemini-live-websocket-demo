@@ -53,7 +53,10 @@ fun AgentsTab(
     reasoningModel: String,
     onReasoningModelChange: (String) -> Unit,
     whispererMode: Boolean,
-    onWhispererModeChange: (Boolean) -> Unit
+    onWhispererModeChange: (Boolean) -> Unit,
+    // LibreChat
+    libreChatOcrMode: Boolean,
+    onLibreChatOcrModeChange: (Boolean) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -537,6 +540,80 @@ fun AgentsTab(
                         lineHeight = 14.sp
                     )
                 }
+            }
+        }
+
+        // LibreChat Section
+        SettingsSection(title = "LibreChat") {
+            SettingsToggle(
+                label = "Tryb OCR (Rozpoznawanie tekstu)",
+                checked = libreChatOcrMode,
+                onCheckedChange = onLibreChatOcrModeChange
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = if (libreChatOcrMode) {
+                    "✅ WŁĄCZONY: Zdjęcia będą przetwarzane przez OCR (tekst), a nie bezpośrednio przez model wizyjny."
+                } else {
+                    "❌ WYŁĄCZONY: Zdjęcia są wysyłane bezpośrednio do modelu (tryb Vision)."
+                },
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W400,
+                color = if (libreChatOcrMode) Color(0xFF4CAF50) else Color.Gray,
+                style = TextStyles.base,
+                lineHeight = 16.sp
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "ℹ️ O trybie OCR:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "• Używa serwerowego modułu OCR (np. Mistral OCR) do wyciągnięcia tekstu",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.DarkGray,
+                    style = TextStyles.base,
+                    lineHeight = 14.sp
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = "• Model otrzymuje czysty tekst zamiast pikseli obrazu",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.DarkGray,
+                    style = TextStyles.base,
+                    lineHeight = 14.sp
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = "• Przydatne przy słabym oświetleniu lub bardzo małym druku",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W400,
+                    color = Color.DarkGray,
+                    style = TextStyles.base,
+                    lineHeight = 14.sp
+                )
             }
         }
     }
