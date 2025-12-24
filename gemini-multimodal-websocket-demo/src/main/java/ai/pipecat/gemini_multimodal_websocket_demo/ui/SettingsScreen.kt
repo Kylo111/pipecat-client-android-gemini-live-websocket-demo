@@ -82,6 +82,7 @@ fun SettingsScreen(
     var parentalLockEnabled by remember { mutableStateOf(Preferences.parentalLockEnabled.value) }
     var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
     var libreChatOcrMode by remember { mutableStateOf(Preferences.libreChatOcrMode.value) }
+    var directLineSecret by remember { mutableStateOf(Preferences.directLineSecret.value ?: "") }
     
     // Azure Speech settings
     var azureApiKey by remember { mutableStateOf(Preferences.azureApiKey.value ?: "") }
@@ -166,6 +167,7 @@ fun SettingsScreen(
         Preferences.azureApiKey.value = azureApiKey
         Preferences.azureRegion.value = azureRegion
         Preferences.azureTtsVoice.value = azureTtsVoice
+        Preferences.directLineSecret.value = directLineSecret
     }
     
     // Validate and save settings function with callback
@@ -329,6 +331,9 @@ fun SettingsScreen(
                             onAzureRegionChange = { azureRegion = it },
                             azureTtsVoice = azureTtsVoice,
                             onAzureTtsVoiceChange = { azureTtsVoice = it },
+                            // Azure Health Bot
+                            directLineSecret = directLineSecret,
+                            onDirectLineSecretChange = { directLineSecret = it },
                             // Kumpel-chat
                             authManager = authManager,
                             onLogoutKumpelChat = {

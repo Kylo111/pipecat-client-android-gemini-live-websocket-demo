@@ -16,13 +16,12 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
+import ai.pipecat.gemini_multimodal_websocket_demo.network.AzureHealthBotClient
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
@@ -54,12 +53,17 @@ class ToolExecutor(private val context: Context) {
         private const val OPENWEATHER_API_KEY = "1b85680953dd294e20c59029dc0f40fe" // Get from openweathermap.org
         private const val GOOGLE_PLACES_API_KEY = "AIzaSyBXYJBEy7GnoKkEhgCHVak0FUazdjQjk1Q" // Get from Google Cloud Console
         private const val GOOGLE_DIRECTIONS_API_KEY = "YOUR_GOOGLE_DIRECTIONS_API_KEY" // Get from Google Cloud Console (same as Places API key)
+        private const val AZURE_DIRECTLINE_SECRET = "YOUR_DIRECTLINE_SECRET" // Placeholder - to be updated by user
     }
     
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         .build()
+    
+    // State for Azure Health Bot multi-turn sessions
+    private var lastSymptomCheckerConvId: String? = null
+    private var lastSymptomCheckerWatermark: String? = null
     
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(context)
@@ -112,6 +116,7 @@ class ToolExecutor(private val context: Context) {
                 "remove_from_shopping_list" -> removeFromShoppingList(parameters)
                 "mark_item_purchased" -> markItemPurchased(parameters)
                 "clear_purchased_items" -> clearPurchasedItems(parameters)
+                "symptom_checker" -> symptomChecker(parameters)
                 else -> {
                     // Check if it's a custom tool
                     val customTools = CustomToolsManager.loadCustomTools(context)
@@ -2275,5 +2280,247 @@ class ToolExecutor(private val context: Context) {
             Log.e(TAG, "Error clearing purchased items: ${e.message}", e)
             "Error clearing purchased items: ${e.message}"
         }
+    }
+    
+    private suspend fun symptomChecker(params: JsonObject): String = withContext(Dispatchers.IO) {
+        try {
+            Log.i(TAG, "🔍 [DEBUG] Starting symptomChecker tool with params: $params")
+            
+            // 1. Validate parameters
+            val userTextEn = params["userTextEn"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing required parameter 'userTextEn'. Please ensure you translated the user's input."
+            val conversationId = params["conversationId"]?.jsonPrimitive?.content
+            val watermark = params["watermark"]?.jsonPrimitive?.content
+            
+            // Get credentials
+            val prefSecret = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.directLineSecret.value
+            val constSecret = AZURE_DIRECTLINE_SECRET // Use the constant from companion object
+
+            val directLineSecret = if (!constSecret.equals("YOUR_DIRECTLINE_SECRET") && constSecret.isNotBlank()) {
+                Log.i(TAG, "🔑 Using DirectLine Secret from constants")
+                constSecret
+            } else {
+                Log.i(TAG, "🔑 Using DirectLine Secret from Preferences")
+                prefSecret
+            }
+            
+            if (directLineSecret.isNullOrBlank()) {
+                Log.e(TAG, "❌ KEY ERROR: Direct Line Secret is missing! Prefs: '${if (prefSecret == null) "NULL" else "REDACTED"}', Constant: '${if (constSecret == "YOUR_DIRECTLINE_SECRET") "PLACEHOLDER" else "REDACTED"}'")
+                return@withContext "Error: Azure Health Bot is not configured. Please set the Direct Line Secret in settings."
+            }
+            
+            val hbClient = AzureHealthBotClient(directLineSecret.trim(), httpClient)
+            
+            // Start or continue conversation
+            var activeConvId = conversationId
+            
+            if (activeConvId.isNullOrBlank()) {
+                Log.d(TAG, "Starting new conversation with Azure Health Bot...")
+                val convResult = hbClient.startConversation()
+                if (convResult == null) {
+                     Log.e(TAG, "❌ Failed to start conversation")
+                     return@withContext "Error: Failed to start conversation with Azure Health Bot. Please check your API key."
+                }
+                activeConvId = convResult["conversationId"]?.jsonPrimitive?.content
+                Log.i(TAG, "✅ New conversation started: $activeConvId")
+            }
+            
+            if (activeConvId == null) return@withContext "Error: Could not obtain conversation ID."
+            
+            Log.i(TAG, "Consulting Azure Health Bot (Conv: $activeConvId): $userTextEn")
+            
+            // Send activity logic with auto-recovery
+            var sendResult = hbClient.sendActivity(activeConvId, "gemini_user", userTextEn)
+            
+            // If sending failed (for any reason, e.g. 404, 500, network), try to restart session ONCE.
+            if (sendResult == null) {
+                Log.w(TAG, "⚠️ Failed to send message to conv $activeConvId. Retrying with a FRESH session...")
+                
+                val retryConvResult = hbClient.startConversation()
+                if (retryConvResult != null) {
+                    val newId = retryConvResult["conversationId"]?.jsonPrimitive?.content
+                    if (newId != null) {
+                        activeConvId = newId
+                        Log.i(TAG, "✅ Recovered with new conversation ID: $activeConvId")
+                        // Retry sending with new ID
+                        sendResult = hbClient.sendActivity(activeConvId, "gemini_user", userTextEn)
+                    }
+                }
+            }
+
+            if (sendResult == null) {
+                Log.e(TAG, "❌ Failed to send activity (even after retry). Check logs/secret.")
+                return@withContext "Error: Failed to connect to Azure Health Bot. It seems unreachable at the moment."
+            }
+            
+
+            
+            // Polling
+            var currentWatermark = watermark
+            val botMessages = mutableListOf<String>()
+            var tries = 0
+            var triageStatus = "IN_PROGRESS"
+            val maxTries = 15
+            var silenceCount = 0
+            
+            while (tries < maxTries) {
+                kotlinx.coroutines.delay(2000)
+                val activitySet = hbClient.receiveActivities(activeConvId, currentWatermark) ?: break
+                
+                currentWatermark = activitySet["watermark"]?.jsonPrimitive?.content ?: currentWatermark
+                val activities = activitySet["activities"]?.jsonArray ?: break
+                
+                if (activities.isNotEmpty()) {
+                    silenceCount = 0
+                    activities.forEach { activity ->
+                        val actObj = activity.jsonObject
+                        Log.d(TAG, "🔍 [DEBUG] Activity payload: $actObj")
+                        
+                        val type = actObj["type"]?.jsonPrimitive?.content
+                        val text = actObj["text"]?.jsonPrimitive?.content
+                        val from = actObj["from"]?.jsonObject
+                        val role = from?.get("role")?.jsonPrimitive?.content
+                        
+                         if (type == "message") {
+                             var messageText = text ?: ""
+                             
+                             // 1. Suggested Actions (Simple Buttons)
+                            val suggestedActions = actObj["suggestedActions"]?.jsonObject
+                            val actions = suggestedActions?.get("actions")?.jsonArray
+                            val options = mutableListOf<String>()
+                            
+                            if (actions != null && actions.isNotEmpty()) {
+                                 actions.forEach { action ->
+                                    val actionObj = action.jsonObject
+                                    val title = actionObj["title"]?.jsonPrimitive?.content
+                                    val value = actionObj["value"]?.jsonPrimitive?.content
+                                    (title ?: value)?.let { options.add(it) }
+                                }
+                            }
+                            
+                            // 2. Attachments (Adaptive Cards - Recursive Search)
+                            val attachments = actObj["attachments"]?.jsonArray
+                            if (attachments != null) {
+                                attachments.forEach { attachment ->
+                                    val content = attachment.jsonObject["content"]?.jsonObject
+                                    if (content != null) {
+                                        options.addAll(extractChoicesFromAdaptiveCard(content))
+                                    }
+                                }
+                            }
+
+                            if (options.isNotEmpty()) {
+                                // Filter out generic "Continue" / "Submit" if there are other options
+                                val filteredOptions = if (options.size > 1) {
+                                    options.filterNot { it.equals("Continue", ignoreCase = true) || it.equals("Submit", ignoreCase = true) || it.equals("Wyślij", ignoreCase = true) || it.equals("Dalej", ignoreCase = true) }
+                                } else {
+                                    options
+                                }
+                                
+                                Log.i(TAG, "💡 [DEBUG] Parsed options: found ${filteredOptions.size} items: $filteredOptions")
+                                messageText += ". The available options are: " + filteredOptions.joinToString(", ") + ". Please analyze these options and tell me which ones apply."
+                            }
+
+                            if (messageText.isNotBlank()) {
+                                botMessages.add(messageText)
+                                // Parsing heuristics
+                                val lowerText = messageText.lowercase()
+                                if (lowerText.contains("summary") || lowerText.contains("possible causes") || lowerText.contains("suggested care") || 
+                                    lowerText.contains("podsumowanie") || lowerText.contains("możliwe przyczyny") ||
+                                    lowerText.contains("diagnosis") || lowerText.contains("diagnoza") || 
+                                    lowerText.contains("recommendation") || lowerText.contains("zalecenie") ||
+                                    lowerText.contains("care") || lowerText.contains("pomoc")) {
+                                    triageStatus = "DONE"
+                                }
+                            }
+                         }
+                    }
+                     if (triageStatus == "DONE") break
+                } else {
+                    if (botMessages.isNotEmpty()) {
+                        silenceCount++
+                        if (silenceCount >= 2) break
+                    }
+                }
+                tries++
+            }
+            
+            // Build response
+            // Always provide the full text as summary, even if status isn't explicitly DONE
+            val fullText = botMessages.joinToString("\n")
+            val triageSummary = fullText
+            
+            val possibleCauses = mutableSetOf<String>()
+            var disposition: String? = null
+            
+            if (botMessages.isNotEmpty()) {
+                 val lower = fullText.lowercase()
+                 if (lower.contains("possible causes") || lower.contains("możliwe przyczyny")) {
+                    fullText.lines().forEach { line ->
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("-") || trimmed.startsWith("•") || (trimmed.isNotEmpty() && trimmed[0].isDigit() && trimmed.contains("."))) {
+                            possibleCauses.add(trimmed.removePrefix("-").removePrefix("•").trim())
+                        }
+                    }
+                }
+            }
+
+            val response = buildJsonObject {
+                put("conversationId", JsonPrimitive(activeConvId))
+                put("watermark", JsonPrimitive(currentWatermark ?: ""))
+                put("status", JsonPrimitive(triageStatus))
+                putJsonArray("botMessages") {
+                    botMessages.forEach { add(JsonPrimitive(it)) }
+                }
+                triageSummary?.let { put("triageSummary", JsonPrimitive(it)) }
+                // Use safe calls for optional fields
+                if (possibleCauses.isNotEmpty()) {
+                    putJsonArray("possibleCauses") {
+                        possibleCauses.forEach { add(JsonPrimitive(it)) }
+                    }
+                }
+            }
+            
+            Log.i(TAG, "✅ [DEBUG] SymptomChecker completed. Response JSON: $response")
+            return@withContext response.toString()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "🚨 [CRITICAL ERROR] Exception in symptomChecker tool: ${e.message}", e)
+            return@withContext "Error: Technical issue in symptom checker tool: ${e.message}"
+        }
+    }
+
+    private fun extractChoicesFromAdaptiveCard(element: JsonElement): List<String> {
+        val results = mutableListOf<String>()
+        
+        if (element is JsonObject) {
+            val type = element["type"]?.jsonPrimitive?.content
+            
+            // Case 1: Input.ChoiceSet
+            if (type == "Input.ChoiceSet") {
+                element["choices"]?.jsonArray?.forEach { choice ->
+                    val title = choice.jsonObject["title"]?.jsonPrimitive?.content
+                    val value = choice.jsonObject["value"]?.jsonPrimitive?.content
+                    (title ?: value)?.let { results.add(it) }
+                }
+            }
+            
+            // Case 2: Actions
+            element["actions"]?.jsonArray?.forEach { action ->
+                val title = action.jsonObject["title"]?.jsonPrimitive?.content
+                title?.let { results.add(it) }
+            }
+            
+            // Case 3: Recursive search in all properties that are arrays or objects
+            element.keys.forEach { key ->
+                val child = element[key]
+                if (child is JsonArray) {
+                    child.forEach { item -> results.addAll(extractChoicesFromAdaptiveCard(item)) }
+                } else if (child is JsonObject) {
+                    results.addAll(extractChoicesFromAdaptiveCard(child))
+                }
+            }
+        }
+        
+        return results
     }
 }

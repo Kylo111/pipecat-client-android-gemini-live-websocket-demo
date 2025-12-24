@@ -93,6 +93,9 @@ fun ApiKeysAndAccountsTab(
     onAzureRegionChange: (String) -> Unit,
     azureTtsVoice: String,
     onAzureTtsVoiceChange: (String) -> Unit,
+    // Azure Health Bot
+    directLineSecret: String,
+    onDirectLineSecretChange: (String) -> Unit,
     // Kumpel-chat
     authManager: AuthManager,
     onLogoutKumpelChat: () -> Unit
@@ -145,6 +148,7 @@ fun ApiKeysAndAccountsTab(
                 config.azureApiKey?.let { key -> onAzureApiKeyChange(key) }
                 config.azureRegion?.let { reg -> onAzureRegionChange(reg) }
                 config.azureTtsVoice?.let { voice -> onAzureTtsVoiceChange(voice) }
+                config.directLineSecret?.let { secret -> onDirectLineSecretChange(secret) }
                 
                 importResult = "✅ Zaimportowano klucze API pomyślnie!"
             } else {
@@ -170,7 +174,8 @@ fun ApiKeysAndAccountsTab(
                 telegramChatId = telegramChatId.takeIf { it.isNotBlank() },
                 azureApiKey = azureApiKey.takeIf { it.isNotBlank() },
                 azureRegion = azureRegion.takeIf { it.isNotBlank() },
-                azureTtsVoice = azureTtsVoice.takeIf { it.isNotBlank() }
+                azureTtsVoice = azureTtsVoice.takeIf { it.isNotBlank() },
+                directLineSecret = directLineSecret.takeIf { it.isNotBlank() }
             )
             
             val result = ApiKeysExporter.exportToUri(context, uri, config)
@@ -381,6 +386,15 @@ fun ApiKeysAndAccountsTab(
                     label = "Azure TTS Voice (np. en-US-AvaMultilingualNeural)",
                     value = azureTtsVoice,
                     onValueChange = onAzureTtsVoiceChange
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                SettingsTextField(
+                    label = "Azure Health Bot Secret (Direct Line API)",
+                    value = directLineSecret,
+                    onValueChange = onDirectLineSecretChange,
+                    isPassword = true
                 )
                 
                 Spacer(modifier = Modifier.height(4.dp))

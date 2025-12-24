@@ -40,7 +40,8 @@ object ToolDefinitions {
             // createOfflineConversationTool(), // REMOVED - only for "Help" conversation
             startNavigationTool(),
             // copyToClipboardTool(), // REMOVED - handled by Reasoning Agent via start_reasoning_task
-            startReasoningTaskTool()
+            startReasoningTaskTool(),
+            symptomCheckerTool()
         )
         
         // Add system integration tools based on IntegrationManager enabled state
@@ -454,6 +455,50 @@ object ToolDefinitions {
             }
             put("required", buildJsonArray {
                 add(JsonPrimitive("task_description"))
+            })
+        }
+    }
+    
+    /**
+     * Specialized tool for medical symptom checking via Azure Health Bot.
+     * Use this when the user describes health issues or symptoms.
+     */
+    private fun symptomCheckerTool() = buildJsonObject {
+        put("name", "symptom_checker")
+        put("description", """
+            Consult a medical symptom checker (Azure Health Bot). Use this when the user describes symptoms or health issues. 
+            Gemini MUST translate non-English input to English before calling this tool.
+            
+            CRITICAL WORKFLOW:
+            1. Translate user symptoms to English -> call symptom_checker(userTextEn=...)
+            2. If bot asks questions -> relay them to user -> loop
+            3. WHEN EXAM COMPLETED (tool returns status="DONE" and triage info):
+               - Summarize the diagnosis to the user
+               - IMMEDIATELY trigger a Reasoning Task to generate a detailed medical report:
+                 call start_reasoning_task(
+                   task_description="GENERATE MEDICAL REPORT: Analyze symptoms [LIST SYMPTOMS] and triage result [TRIAGE]. Search for likely conditions and suggested medications using Perplexity. Create a detailed report with potential diagnoses and treatment options.",
+                   priority="HIGH"
+                 )
+               - Tell the user: "Diagnoza zakończona. Przygotowuję teraz szczegółowy raport z analizą i listą leków..."
+        """.trimIndent())
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("userTextEn") {
+                    put("type", "string")
+                    put("description", "The user's symptoms described in English. Gemini MUST translate non-English input to English.")
+                }
+                putJsonObject("conversationId") {
+                    put("type", "string")
+                    put("description", "Existing conversation ID for continuation, if available.")
+                }
+                putJsonObject("watermark") {
+                    put("type", "string")
+                    put("description", "The watermark from previous response to fetch only new activities.")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("userTextEn"))
             })
         }
     }

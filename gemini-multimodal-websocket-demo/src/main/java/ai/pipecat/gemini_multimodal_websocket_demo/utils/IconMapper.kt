@@ -30,7 +30,15 @@ object IconMapper {
         "chef" to R.drawable.image_gallery,   // Gallery for visual/creative content
         "code" to R.drawable.console,         // Console for coding assistants
         "travel" to R.drawable.image,         // Image for visual/travel content
-        "help" to R.drawable.help_circle      // Help circle for support
+        "help" to R.drawable.help_circle,     // Help circle for support
+        "trainer" to R.drawable.help_circle,
+        "dietitian" to R.drawable.image_gallery,
+        "brainstorm" to R.drawable.console,
+        "therapist" to R.drawable.help_circle,
+        "helpdesk" to R.drawable.console,
+        "factcheck" to R.drawable.console,
+        "movie" to R.drawable.image,
+        "news" to R.drawable.console
     )
     
     /**

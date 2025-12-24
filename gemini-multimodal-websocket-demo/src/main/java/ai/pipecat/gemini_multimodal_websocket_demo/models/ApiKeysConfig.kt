@@ -31,5 +31,6 @@ data class ApiKeysConfig(
     val telegramChatId: String? = null,
     val azureApiKey: String? = null,
     val azureRegion: String? = null,
-    val azureTtsVoice: String? = null
+    val azureTtsVoice: String? = null,
+    val directLineSecret: String? = null
 )
