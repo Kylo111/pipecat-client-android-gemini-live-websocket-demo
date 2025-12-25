@@ -15,5 +15,6 @@ data class ConversationTemplate(
     val systemPrompt: String,          // AI personality and instructions
     val voiceId: String? = "Puck",    // Default voice option
     val temperature: Float = 1.0f,     // Creativity setting (0.0-2.0)
-    val iconIdentifier: String? = null // Icon identifier (e.g., "robot", "teacher")
+    val iconIdentifier: String? = null, // Icon identifier (e.g., "robot", "teacher")
+    val allowedTools: List<String>? = null // List of tools allowed for this agent (null = all)
 )

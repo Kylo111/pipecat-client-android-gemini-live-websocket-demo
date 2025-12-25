@@ -17,6 +17,132 @@ import kotlinx.serialization.json.putJsonArray
  */
 object ToolDefinitions {
     
+    // Data class for tool metadata
+    data class ToolInfo(
+        val name: String,
+        val friendlyName: String,
+        val category: String,
+        val description: String
+    )
+
+    // Helper map of all available tool definitions for UI
+    val ALL_TOOLS_INFO = listOf(
+        // System / General
+        ToolInfo("google_search", "Google Search Grounding (Natywne)", "System", "Natywne wyszukiwanie Google (zastępuje search_web)"),
+        ToolInfo("start_reasoning_task", "Reasoning Agent (Myślenie)", "System", "Głęboka analiza, notatki, Telegram, Perplexity"),
+        ToolInfo("create_offline_conversation", "Tworzenie Asystentów", "System", "Tworzenie nowych botów (do rozmowy 'Pomoc')"),
+        ToolInfo("search_perplexity", "Perplexity (Online)", "System", "Wyszukiwanie informacji online z cytowaniami"),
+        
+        // Information / Search
+        ToolInfo("get_weather", "Pogoda", "Informacje", "Sprawdzanie pogody i prognoz"),
+        ToolInfo("get_current_time", "Czas i Data", "Informacje", "Aktualny czas, strefy czasowe"),
+        ToolInfo("get_location", "Lokalizacja", "Informacje", "Pobieranie GPS użytkownika"),
+        ToolInfo("calculate", "Kalkulator", "Informacje", "Obliczenia matematyczne"),
+        ToolInfo("search_nearby", "Miejsca w pobliżu", "Informacje", "Wyszukiwanie restauracji, sklepów itp."),
+        ToolInfo("search_on_map", "Szukaj na mapie", "Informacje", "Wyszukiwanie adresu/miejsca w Google Maps"),
+        
+        // Navigation / Transport
+        ToolInfo("start_navigation", "Nawigacja", "Transport", "Nawigacja Google Maps (start)"),
+        ToolInfo("find_transit_route", "Komunikacja miejska", "Transport", "Wyszukiwanie połączeń autobusowych/kolejowych"),
+        ToolInfo("show_on_map", "Pokaż na mapie", "Transport", "Pokazanie współrzędnych na mapie"),
+        
+        // Utilities / Actions
+        ToolInfo("control_media", "Sterowanie Mediami", "Narzędzia", "Spotify, YouTube Music (play/pause)"),
+        ToolInfo("search_contacts", "Kontakty", "Komunikacja", "Szukanie numerów telefonu"),
+        ToolInfo("send_sms", "Wysyłanie SMS", "Komunikacja", "Wysyłanie wiadomości tekstowych"),
+        ToolInfo("symptom_checker", "Sprawdzanie Objawów", "Zdrowie", "Azure Health Bot (triage medyczny)"),
+        
+        // Calendar / Reminders / Tasks
+        ToolInfo("set_alarm", "Budzik", "Organizator", "Ustawianie budzików w systemie"),
+        ToolInfo("create_reminder", "Przypomnienia", "Organizator", "Tworzenie przypomnień"),
+        ToolInfo("list_reminders", "Lista Przypomnień", "Organizator", "Przeglądanie przypomnień"),
+        ToolInfo("delete_reminder", "Usuń Przypomnienie", "Organizator", "Usuwanie przypomnień"),
+        ToolInfo("get_calendar_events", "Kalendarz", "Organizator", "Odczyt wydarzeń z kalendarza"),
+        ToolInfo("create_calendar_event", "Dodaj do Kalendarza", "Organizator", "Tworzenie wydarzeń"),
+        ToolInfo("delete_calendar_event", "Usuń z Kalendarza", "Organizator", "Usuwanie wydarzeń"),
+        ToolInfo("get_todo_tasks", "Lista Zadań (TODO)", "Organizator", "Przeglądanie listy zadań"),
+        ToolInfo("add_todo_task", "Dodaj Zadanie", "Organizator", "Dodawanie zadań do listy"),
+        ToolInfo("complete_todo_task", "Ukończ Zadanie", "Organizator", "Oznaczanie zadań jako zrobione"),
+        ToolInfo("delete_todo_task", "Usuń Zadanie", "Organizator", "Usuwanie zadań"),
+        
+        // Shopping
+        ToolInfo("get_shopping_list", "Lista Zakupów", "Zakupy", "Przeglądanie listy zakupów"),
+        ToolInfo("add_to_shopping_list", "Dodaj do Zakupów", "Zakupy", "Dodawanie produktów"),
+        ToolInfo("remove_from_shopping_list", "Usuń z Zakupów", "Zakupy", "Usuwanie produktów"),
+        ToolInfo("mark_item_purchased", "Oznacz Kupione", "Zakupy", "Oznaczanie jako kupione"),
+        ToolInfo("clear_purchased_items", "Wyczyść Kupione", "Zakupy", "Usuwanie kupionych produktów")
+    )
+
+    // Data class for tool groups in UI
+    data class ToolGroup(
+        val groupName: String, // Unique ID for the group
+        val friendlyName: String, // Display name
+        val description: String, // Description
+        val tools: List<String> // List of tool names in this group
+    )
+
+    // Defined groups for UI selection
+    val TOOL_GROUPS = listOf(
+        // System
+        ToolGroup("google_search", "Google Search Grounding", "Natywne wyszukiwanie Google", listOf("google_search")),
+        ToolGroup("reasoning", "Reasoning Agent (Myślenie)", "Głęboka analiza, notatki, Telegram, Perplexity", listOf("start_reasoning_task")),
+        ToolGroup("search_perplexity", "Perplexity (Online)", "Wyszukiwanie online z cytowaniami (Sonar API)", listOf("search_perplexity")),
+        
+        // Groups
+        ToolGroup("shopping_list", "Lista Zakupów", "Pełna obsługa listy zakupów: przeglądanie, dodawanie, usuwanie, oznaczanie", 
+            listOf("get_shopping_list", "add_to_shopping_list", "remove_from_shopping_list", "mark_item_purchased", "clear_purchased_items")),
+            
+        ToolGroup("todo_list", "Lista Zadań (TODO)", "Zarządzanie listą zadań: dodawanie, usuwanie, oznaczanie jako zrobione",
+            listOf("get_todo_tasks", "add_todo_task", "complete_todo_task", "delete_todo_task")),
+            
+        ToolGroup("calendar", "Kalendarz", "Obsługa kalendarza: odczyt wydarzeń, tworzenie, usuwanie",
+            listOf("get_calendar_events", "create_calendar_event", "delete_calendar_event")),
+            
+        ToolGroup("reminders", "Przypomnienia", "Obsługa przypomnień: tworzenie, listowanie, usuwanie",
+            listOf("create_reminder", "list_reminders", "delete_reminder")),
+            
+        // Single Tools
+        ToolGroup("alarms", "Budzik", "Ustawianie budzików", listOf("set_alarm")),
+        ToolGroup("weather", "Pogoda", "Sprawdzanie pogody", listOf("get_weather")),
+        ToolGroup("time", "Czas i Data", "Sprawdzanie czasu i daty", listOf("get_current_time")),
+        ToolGroup("location", "Lokalizacja", "Pobieranie lokalizacji GPS", listOf("get_location")),
+        ToolGroup("calculate", "Kalkulator", "Obliczenia matematyczne", listOf("calculate")),
+        ToolGroup("places", "Miejsca w pobliżu", "Szukanie restauracji, sklepów itp.", listOf("search_nearby")),
+        ToolGroup("map_search", "Szukaj na mapie", "Szukanie adresu w Google Maps", listOf("search_on_map")),
+        ToolGroup("navigation", "Nawigacja", "Nawigacja Google Maps", listOf("start_navigation")),
+        ToolGroup("transit", "Komunikacja miejska", "Szukanie połączeń", listOf("find_transit_route")),
+        ToolGroup("show_map", "Pokaż na mapie", "Pokazywanie punktu na mapie", listOf("show_on_map")),
+        ToolGroup("media", "Sterowanie Mediami", "Spotify, YouTube Music", listOf("control_media")),
+        ToolGroup("contacts", "Kontakty", "Szukanie w kontaktach", listOf("search_contacts")),
+        ToolGroup("sms", "Wysyłanie SMS", "Wysyłanie wiadomości tekstowych", listOf("send_sms")),
+        ToolGroup("health", "Sprawdzanie Objawów", "Azure Health Bot", listOf("symptom_checker"))
+    )
+
+
+    /**
+     * Get tool declarations filtered by allowed list
+     */
+    fun getToolsForConversation(context: android.content.Context, allowedTools: List<String>?): List<JsonObject> {
+        val allTools = getAllTools(context) // Gets all available tools including integration tools
+        
+        // If list is null, return all tools (default behavior)
+        if (allowedTools == null) return allTools
+        
+        // Filter tools
+        return allTools.filter { toolJson ->
+            val toolName = toolJson["name"]?.toString()?.replace("\"", "")
+            
+            // Special handling for google_search grounding
+            if (toolJson.containsKey("google_search")) {
+                return@filter allowedTools.contains("google_search")
+            }
+            
+            // Keep if name matches allowed list
+            // Also always include critical system tools if needed? No, let user control everything.
+            allowedTools.contains(toolName)
+        }
+    }
+
     /**
      * Get all tool declarations for Gemini Live API
      * Includes both built-in tools and user-defined custom tools
@@ -41,6 +167,8 @@ object ToolDefinitions {
             startNavigationTool(),
             // copyToClipboardTool(), // REMOVED - handled by Reasoning Agent via start_reasoning_task
             startReasoningTaskTool(),
+            startReasoningTaskTool(),
+            searchPerplexityTool(),
             symptomCheckerTool()
         )
         

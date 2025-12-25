@@ -229,7 +229,7 @@ class VoiceClientManager(
             val toolDeclarations = if (isHelpConversation) {
                 ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getHelpConversationTools(context)
             } else {
-                ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
+                ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getToolsForConversation(context, settings?.allowedTools)
             }
             
             val voiceName = settings?.voiceName ?: "Puck"

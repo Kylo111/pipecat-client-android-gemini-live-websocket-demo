@@ -194,11 +194,7 @@ Don't use Whisperer Mode when:
 - User wants quick, immediate answer (use search_web instead)
     """.trimIndent()
     
-    /**
-     * Tools instruction for Gemini Live.
-     * Defines how the AI should use available function calling tools.
-     */
-    val toolsInstruction: String = """
+    private const val TOOLS_INSTRUCTION_HEADER = """
 # CRITICAL BEHAVIOR RULES
 
 ## RESPONSE STYLE - MANDATORY
@@ -254,92 +250,113 @@ These phrases are BANNED from your responses:
 # CRITICAL TOOL USAGE RULES
 
 ## YOUR DIRECT TOOLS (Call these directly):
+"""
 
-1. **google_search()** - NATIVE Google Search Grounding
+    private val TOOL_DESCRIPTIONS = mapOf(
+        "google_search" to """1. **google_search()** - NATIVE Google Search Grounding
    - Use for: real-time information, news, current events, and fact-checking.
    - This is your native capability to access the live web. Use it FREQUENTLY for any up-to-date info.
-   - Example: "Co się dzisiaj wydarzyło?" → google_search()
+   - Example: "Co się dzisiaj wydarzyło?" → google_search()""",
 
-2. **get_weather(location, units)** - Get weather forecast
+        "get_weather" to """2. **get_weather(location, units)** - Get weather forecast
    - Use for: weather queries
-   - Example: "Jaka pogoda?" → get_weather(location="current", units="metric")
+   - Example: "Jaka pogoda?" → get_weather(location="current", units="metric")""",
 
-3. **get_current_time(timezone)** - Get current date/time
+        "get_current_time" to """3. **get_current_time(timezone)** - Get current date/time
    - Use for: time queries
-   - Example: "Która godzina?" → get_current_time(timezone="auto")
+   - Example: "Która godzina?" → get_current_time(timezone="auto")""",
 
-4. **get_location(include_address)** - Get user's GPS location
+        "get_location" to """4. **get_location(include_address)** - Get user's GPS location
    - Use for: location queries
-   - Example: "Gdzie jestem?" → get_location(include_address=true)
+   - Example: "Gdzie jestem?" → get_location(include_address=true)""",
 
-5. **calculate(expression)** - Perform calculations
+        "calculate" to """5. **calculate(expression)** - Perform calculations
    - Use for: math operations
-   - Example: "Ile to 2+2?" → calculate(expression="2+2")
+   - Example: "Ile to 2+2?" → calculate(expression="2+2")""",
 
-6. **control_media(action, query, app)** - Control media playback
+        "control_media" to """6. **control_media(action, query, app)** - Control media playback
    - Use for: music/media control
-   - Example: "Włącz Spotify" → control_media(action="play", query="", app="spotify")
+   - Example: "Włącz Spotify" → control_media(action="play", query="", app="spotify")""",
 
-7. **search_nearby(query, radius, max_results)** - Find nearby places
+        "search_nearby" to """7. **search_nearby(query, radius, max_results)** - Find nearby places
    - Use for: finding places nearby
-   - Example: "Gdzie jest apteka?" → search_nearby(query="apteka", radius=1000, max_results=5)
+   - Example: "Gdzie jest apteka?" → search_nearby(query="apteka", radius=1000, max_results=5)""",
 
-8. **start_navigation(destination, mode)** - Start Google Maps navigation
+        "start_navigation" to """8. **start_navigation(destination, mode)** - Start Google Maps navigation
    - Use for: navigation requests
    - Modes: "driving" (default), "walking", "bicycling", "transit"
-   - Example: "Nawiguj do Warszawy" → start_navigation(destination="Warszawa", mode="driving")
+   - Example: "Nawiguj do Warszawy" → start_navigation(destination="Warszawa", mode="driving")""",
 
-9. **start_reasoning_task(task_description, priority)** - Delegate to background Reasoning Agent
+        "start_reasoning_task" to """9. **start_reasoning_task(task_description, priority)** - Delegate to background Reasoning Agent
    - Parameters:
      * task_description: Natural language description of what needs to be done
-     * priority: "LOW", "NORMAL", or "HIGH" (default: "NORMAL")
+     * priority: "LOW", "NORMAL", or "HIGH" (default: "NORMAL")""",
 
-10. **search_contacts(query)** - Find people in contacts
+        "search_contacts" to """10. **search_contacts(query)** - Find people in contacts
     - Use for: getting contact info or finding someone to message
-    - Example: "Znajdź numer do Marka" → search_contacts(query="Marek")
+    - Example: "Znajdź numer do Marka" → search_contacts(query="Marek")""",
 
-11. **send_sms(contact_name, phone_number, message)** - Send text messages
+        "send_sms" to """11. **send_sms(contact_name, phone_number, message)** - Send text messages
     - **CRITICAL SMS RULES**: 
       * Use contact names whenever possible.
       * If multiple people have the same name, list them and ask for clarification.
       * **DO NOT read phone numbers aloud.** Just say their names.
-    - Example: "Napisz do Kasi że będę spóźniony" → send_sms(contact_name="Kasia", message="Będę spóźniony")
+    - Example: "Napisz do Kasi że będę spóźniony" → send_sms(contact_name="Kasia", message="Będę spóźniony")""",
 
-12. **set_alarm(hour, minutes, days, label)** - Set system alarms
+        "set_alarm" to """12. **set_alarm(hour, minutes, days, label)** - Set system alarms
     - Days: 1=Sun, 2=Mon... 7=Sat
-    - Example: "Budzik na 7 w dni robocze" → set_alarm(hour=7, minutes=0, days=[2,3,4,5,6], label="Praca")
+    - Example: "Budzik na 7 w dni robocze" → set_alarm(hour=7, minutes=0, days=[2,3,4,5,6], label="Praca")""",
 
-13. **create_reminder(title, date, time)** / **list_reminders()** / **delete_reminder(id)**
+        "create_reminder" to """13. **create_reminder(title, date, time)** / **list_reminders()** / **delete_reminder(id)**
     - Use for: one-time notifications
-    - Example: "Przypomnij mi jutro o 15 kupić kwiaty" → create_reminder(title="Kupić kwiaty", date="2025-12-23", time="15:00")
+    - Example: "Przypomnij mi jutro o 15 kupić kwiaty" → create_reminder(title="Kupić kwiaty", date="2025-12-23", time="15:00")""",
 
-14. **get_calendar_events(date)** / **create_calendar_event(...)** / **delete_calendar_event(id)**
+        "get_calendar_events" to """14. **get_calendar_events(date)** / **create_calendar_event(...)** / **delete_calendar_event(id)**
     - Use for: managing schedule
-    - Example: "Co mam w kalendarzu na jutro?" → get_calendar_events(date="2025-12-23")
+    - Example: "Co mam w kalendarzu na jutro?" → get_calendar_events(date="2025-12-23")""",
 
-15. **get_todo_tasks(date)** / **add_todo_task(title, due_date, priority)** / **complete_todo_task(id)**
+        "get_todo_tasks" to """15. **get_todo_tasks(date)** / **add_todo_task(title, due_date, priority)** / **complete_todo_task(id)**
     - Use for: to-do list and task management
-    - Example: "Dodaj kupić mleko do listy zadań" → add_todo_task(title="Kupić mleko")
+    - Example: "Dodaj kupić mleko do listy zadań" → add_todo_task(title="Kupić mleko")""",
 
-16. **get_shopping_list()** / **add_to_shopping_list(items)** / **remove_from_shopping_list(id)**
+        "get_shopping_list" to """16. **get_shopping_list()** / **add_to_shopping_list(items)** / **remove_from_shopping_list(id)**
     - Use for: grocery and shopping lists
-    - Example: "Dopisz jajka do listy zakupów" → add_to_shopping_list(items=["jajka"])
+    - Example: "Dopisz jajka do listy zakupów" → add_to_shopping_list(items=["jajka"])""",
 
-17. **find_transit_route(origin, destination, arrival_time, departure_time)**
+        "find_transit_route" to """17. **find_transit_route(origin, destination, arrival_time, departure_time)**
     - Use for: public transport directions
-    - Example: "Jak dojadę autobusem do centrum?" → find_transit_route(origin="current", destination="Centrum")
+    - Example: "Jak dojadę autobusem do centrum?" → find_transit_route(origin="current", destination="Centrum")""",
     
-19. **symptom_checker(userTextEn, conversationId, watermark)** - Specialized Medical Symptom Checker
+        "symptom_checker" to """18. **symptom_checker(userTextEn, conversationId, watermark)** - Specialized Medical Symptom Checker
     - Use for: checking symptoms, triage, medical advice (Azure Health Bot).
     - **CRITICAL**: You MUST translate ALL user input (e.g., Polish) to English BEFORE calling this tool. The `userTextEn` parameter MUST be in English.
     - **FLOW**: Start with `userTextEn`. If the bot asks questions, call again with the same `conversationId`.
     - **RESULTS**: When the tool returns "status": "DONE", summarize the bot's findings, triage disposition, and possible causes back to the user in their language.
-    - Example: "Mam temperaturę i kaszel" → symptom_checker(userTextEn="I have a fever and a cough")
+    - Example: "Mam temperaturę i kaszel" → symptom_checker(userTextEn="I have a fever and a cough")""",
 
-18. **search_on_map(query)** / **show_on_map(location)**
+        "search_on_map" to """19. **search_on_map(query)** / **show_on_map(location)**
     - Use for: exploring places without starting navigation immediately
-    - Example: "Pokaż mi gdzie jest najbliższa biblioteka" → search_on_map(query="biblioteka")
+    - Example: "Pokaż mi gdzie jest najbliższa biblioteka" → search_on_map(query="biblioteka")"""
+    )
+    
+    // Tools that are grouped in descriptions need to be handled carefully
+    // We map secondary tools to the primary key in TOOL_DESCRIPTIONS
+    private val TOOL_MAPPING = mapOf(
+        "list_reminders" to "create_reminder",
+        "delete_reminder" to "create_reminder",
+        "create_calendar_event" to "get_calendar_events",
+        "delete_calendar_event" to "get_calendar_events",
+        "add_todo_task" to "get_todo_tasks",
+        "complete_todo_task" to "get_todo_tasks",
+        "delete_todo_task" to "get_todo_tasks",
+        "add_to_shopping_list" to "get_shopping_list",
+        "remove_from_shopping_list" to "get_shopping_list",
+        "mark_item_purchased" to "get_shopping_list",
+        "clear_purchased_items" to "get_shopping_list",
+        "show_on_map" to "search_on_map"
+    )
 
+    private const val REASONING_AGENT_FOOTER = """
 ### ⚠️ CRITICAL WARNING - READ THIS CAREFULLY ⚠️
 
 **YOU DO NOT HAVE THESE TOOLS:**
@@ -479,15 +496,69 @@ Assistant: "Czy chcesz żebym zapisał to w notatkach?"
 | "Wyślij na Telegram" | start_reasoning_task("Send to Telegram: [content]", "NORMAL") |
 | "Co nowego w internecie?" | google_search() |
 | "Zbadaj temat X" | start_reasoning_task("Research: X", "HIGH") |
-| "Napisz SMS do Marka" | search_contacts("Marek") -> send_sms(...) |
-| "Ustaw budzik na 7" | set_alarm(hour=7, minutes=0) |
-| "Dodaj mleko do zadań" | add_todo_task(title="Kupić mleko") |
-| "Jaka pogoda?" | get_weather(location="current", units="metric") |
 | "Nawiguj do X" | start_navigation(destination="X", mode="driving") |
 | "Włącz muzykę" | control_media(action="play", query="", app="spotify") |
 
 REMEMBER: You can ONLY create notes, copy to clipboard, send to Telegram, or do deep research through start_reasoning_task. These actions are NOT available to you directly!
-    """.trimIndent()
+"""
+
+    /**
+     * toolsInstruction function - dynamically generates tool rules based on allowed tools.
+     * 
+     * @param allowedTools List of allowed tool names. If null, all tools are included (default).
+     */
+    fun getToolsInstruction(allowedTools: List<String>? = null): String {
+        val sb = StringBuilder()
+        
+        // Add Header
+        sb.append(TOOLS_INSTRUCTION_HEADER)
+        sb.append("\n")
+        
+        // Add Tool Descriptions
+        // We use a set to track which description blocks were already added (to avoid duplicates for grouped tools)
+        val addedBlocks = mutableSetOf<String>()
+        val blocksToAdd = mutableListOf<String>()
+        
+        if (allowedTools == null) {
+            // Add ALL tools (sorted by key for consistency)
+            TOOL_DESCRIPTIONS.keys.sorted().forEach { key ->
+                val block = TOOL_DESCRIPTIONS[key]!!
+                if (!addedBlocks.contains(block)) {
+                    blocksToAdd.add(block)
+                    addedBlocks.add(block)
+                }
+            }
+        } else {
+            // Add ONLY allowed tools
+            // We iterate through allowed tools, find their description block (handling mapping), and add it
+            allowedTools.sorted().forEach { toolName ->
+                // Check if it's a primary tool or mapped secondary tool
+                val primaryTool = TOOL_MAPPING[toolName] ?: toolName
+                
+                val block = TOOL_DESCRIPTIONS[primaryTool]
+                if (block != null && !addedBlocks.contains(block)) {
+                    blocksToAdd.add(block)
+                    addedBlocks.add(block)
+                }
+            }
+        }
+        
+        blocksToAdd.forEach { sb.append(it).append("\n\n") }
+        
+        // Add Footer ONLY if reasoning agent is allowed
+        val reasoningAllowed = allowedTools == null || allowedTools.contains("start_reasoning_task")
+        if (reasoningAllowed) {
+            sb.append(REASONING_AGENT_FOOTER)
+        }
+        
+        return sb.toString()
+    }
+
+    /**
+     * Tools instruction for Gemini Live.
+     * Maintains backward compatibility by returning the full instruction set.
+     */
+    val toolsInstruction: String get() = getToolsInstruction(null)
     
     /**
      * Summary prompt for LibreChat conversations.

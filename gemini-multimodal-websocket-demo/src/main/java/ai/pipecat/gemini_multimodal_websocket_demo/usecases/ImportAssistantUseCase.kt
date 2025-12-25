@@ -46,8 +46,11 @@ class ImportAssistantUseCase(
             createdAt = currentTime,
             updatedAt = currentTime,
             // Store template tracking information for future updates
+            // Store template tracking information for future updates
             originTemplateId = template.id,
-            originTemplateVersion = template.version
+            originTemplateVersion = template.version,
+            // Copy allowed tools configuration
+            allowedTools = template.allowedTools
             // Note: description is NOT copied - it's marketplace-only
         )
         

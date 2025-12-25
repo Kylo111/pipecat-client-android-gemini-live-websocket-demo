@@ -140,7 +140,8 @@ class ConversationLauncher(
             Log.d(TAG, "✅ [DIAGNOSTIC] Started offline session with context: ${conversationContext.length} chars")
             
             // Build system prompt with conversation context
-            val fullPrompt = buildOfflineSystemPrompt(offlineConv.systemPrompt, conversationContext)
+            // Build system prompt with conversation context
+            val fullPrompt = buildOfflineSystemPrompt(offlineConv.systemPrompt, conversationContext, offlineConv.allowedTools)
             Preferences.systemPrompt.value = fullPrompt
             
             Log.d(TAG, "✅ [DIAGNOSTIC] System prompt set in Preferences: ${fullPrompt.length} chars")
@@ -158,7 +159,8 @@ class ConversationLauncher(
                 presencePenalty = offlineConv.presencePenalty,
                 frequencyPenalty = offlineConv.frequencyPenalty,
                 stopSequences = offlineConv.stopSequences,
-                source = "gemini_live"
+                source = "gemini_live",
+                allowedTools = offlineConv.allowedTools
             )
             
             // Start voice client with offline settings
@@ -173,15 +175,20 @@ class ConversationLauncher(
     /**
      * Build system prompt with conversation context for offline mode
      */
-    private fun buildOfflineSystemPrompt(basePrompt: String, conversationContext: String): String {
+    private fun buildOfflineSystemPrompt(basePrompt: String, conversationContext: String, allowedTools: List<String>? = null): String {
         val prompt = basePrompt.ifBlank { "You are a helpful assistant" }
         
         Log.d(TAG, "🔍 [DIAGNOSTIC] Building offline system prompt:")
         Log.d(TAG, "  - basePrompt length: ${basePrompt.length} chars")
         Log.d(TAG, "  - conversationContext length: ${conversationContext.length} chars")
         
-        // Get tools instruction and whisperer mode instruction from preferences
-        val toolsInstruction = Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
+        // Get tools instruction and whisperer mode instruction
+        // If allowedTools is set, generate dynamic instructions. Otherwise use preferences (legacy/global)
+        val toolsInstruction = if (allowedTools != null) {
+            SystemPrompts.getToolsInstruction(allowedTools)
+        } else {
+            Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
+        }
         val whispererMode = SystemPrompts.whispererModeInstruction
         
         Log.d(TAG, "  - toolsInstruction length: ${toolsInstruction.length} chars")

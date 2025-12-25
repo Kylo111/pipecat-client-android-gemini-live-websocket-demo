@@ -2,11 +2,14 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
-import ai.pipecat.gemini_multimodal_websocket_demo.models.AVAILABLE_VOICES
+import ai.pipecat.gemini_multimodal_websocket_demo.models.GEMINI_VOICES
 import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +46,8 @@ fun OfflineConversationDialog(
     var showVoiceDropdown by remember { mutableStateOf(false) }
     var showModelSettings by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showToolSelection by remember { mutableStateOf(false) }
+    var allowedTools by remember { mutableStateOf(conversation?.allowedTools) }
     
     // Model settings - use conversation's settings or defaults
     var modelSettings by remember {
@@ -194,7 +199,7 @@ fun OfflineConversationDialog(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        val selectedVoiceOption = AVAILABLE_VOICES.find { it.name == selectedVoice }
+                    val selectedVoiceOption = GEMINI_VOICES.find { it.name == selectedVoice }
                         val displayText = if (selectedVoiceOption != null && selectedVoiceOption.description.isNotEmpty()) {
                             "${selectedVoiceOption.name} - ${selectedVoiceOption.description}"
                         } else {
@@ -217,7 +222,7 @@ fun OfflineConversationDialog(
                             .fillMaxWidth(0.9f)
                             .background(Color.White)
                     ) {
-                        AVAILABLE_VOICES.forEach { voice ->
+                        GEMINI_VOICES.forEach { voice ->
                             DropdownMenuItem(
                                 text = {
                                     Column(
@@ -287,6 +292,44 @@ fun OfflineConversationDialog(
                         )
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Tools Selection button
+                Text(
+                    text = "Dostępne Narzędzia",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.Black,
+                    style = TextStyles.base
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF2196F3)) // Blue color
+                        .clickable { showToolSelection = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val toolCount = if (allowedTools == null) "Wszystkie" else "${allowedTools?.size}"
+                        Text(
+                            text = "🛠️ Wybierz Narzędzia ($toolCount)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W600,
+                            color = Color.White,
+                            style = TextStyles.base
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -344,9 +387,9 @@ fun OfflineConversationDialog(
                                         topK = modelSettings.topK,
                                         maxOutputTokens = modelSettings.maxOutputTokens,
                                         presencePenalty = modelSettings.presencePenalty,
-                                        frequencyPenalty = modelSettings.frequencyPenalty,
                                         stopSequences = modelSettings.stopSequences,
-                                        updatedAt = System.currentTimeMillis()
+                                        updatedAt = System.currentTimeMillis(),
+                                        allowedTools = allowedTools
                                     )
                                 } else {
                                     OfflineConversation(
@@ -360,7 +403,8 @@ fun OfflineConversationDialog(
                                         maxOutputTokens = modelSettings.maxOutputTokens,
                                         presencePenalty = modelSettings.presencePenalty,
                                         frequencyPenalty = modelSettings.frequencyPenalty,
-                                        stopSequences = modelSettings.stopSequences
+                                        stopSequences = modelSettings.stopSequences,
+                                        allowedTools = allowedTools
                                     )
                                 }
                                 onSave(updatedConversation)
@@ -440,6 +484,18 @@ fun OfflineConversationDialog(
             onDismiss = { showModelSettings = false }
         )
     }
+    
+    // Tool Selection Dialog
+    if (showToolSelection) {
+        ToolSelectionDialog(
+            initialAllowedTools = allowedTools,
+            onSave = { newAllowedTools ->
+                allowedTools = newAllowedTools
+                showToolSelection = false
+            },
+            onDismiss = { showToolSelection = false }
+        )
+    }
 }
 
 /**
@@ -481,5 +537,127 @@ fun ModelSettingsDialogForOffline(
             onSave(updatedConversation)
         },
         onDismiss = onDismiss
+    )
+}
+
+@Composable
+fun ToolSelectionDialog(
+    initialAllowedTools: List<String>?,
+    onSave: (List<String>?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val toolGroups = remember { ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.TOOL_GROUPS }
+    // We derive 'all available tools' from the groups to ensure consistency
+    val allToolNames = remember { toolGroups.flatMap { it.tools } }
+    
+    // State to track currently selected tools
+    // If passed null, select ALL by default
+    var selectedTools by remember { 
+        mutableStateOf(
+            (initialAllowedTools ?: allToolNames).toSet() 
+        ) 
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Wybierz dostępne narzędzia") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp) // Limit height
+            ) {
+                // Header with "Select All" toggle
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .clickable {
+                            if (selectedTools.containsAll(allToolNames)) {
+                                selectedTools = emptySet()
+                            } else {
+                                selectedTools = allToolNames.toSet() // Select all
+                            }
+                        }
+                ) {
+                    Checkbox(
+                        checked = selectedTools.containsAll(allToolNames),
+                        onCheckedChange = null // Handled by Row click
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Zaznacz wszystkie",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Divider()
+                
+                LazyColumn {
+                    items(toolGroups) { group ->
+                        // Check if ALL tools in this group are currently selected
+                        val isGroupSelected = group.tools.all { selectedTools.contains(it) }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newSet = selectedTools.toMutableSet()
+                                    if (isGroupSelected) {
+                                        // Specific group is fully selected -> Deselect all its tools
+                                        newSet.removeAll(group.tools)
+                                    } else {
+                                        // Group is not selected (or partially) -> Select all its tools
+                                        newSet.addAll(group.tools)
+                                    }
+                                    selectedTools = newSet
+                                }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Checkbox(
+                                checked = isGroupSelected,
+                                onCheckedChange = null // Handled by Row click
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = group.friendlyName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = group.description,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray,
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    // If ALL tools are selected, save as NULL to indicate "Default/All"
+                    // This creates cleaner data and auto-enables future new tools
+                    if (selectedTools.containsAll(allToolNames)) {
+                        onSave(null)
+                    } else {
+                        onSave(selectedTools.toList())
+                    }
+                }
+            ) {
+                Text("Zapisz")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Anuluj")
+            }
+        }
     )
 }

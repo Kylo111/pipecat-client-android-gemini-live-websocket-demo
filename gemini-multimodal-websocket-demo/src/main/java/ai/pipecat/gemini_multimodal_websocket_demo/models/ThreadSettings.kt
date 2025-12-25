@@ -28,5 +28,6 @@ data class ThreadSettings(
     val lastMessageId: String? = null,
     val presencePenalty: Float = 0.0f,    // NOT supported by Gemini Live API
     val frequencyPenalty: Float = 0.0f,   // NOT supported by Gemini Live API
-    val stopSequences: List<String> = emptyList() // NOT supported by Gemini Live API
+    val stopSequences: List<String> = emptyList(), // NOT supported by Gemini Live API
+    val allowedTools: List<String>? = null // List of allowed tool names
 )

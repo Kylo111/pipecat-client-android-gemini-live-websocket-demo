@@ -26,7 +26,8 @@ data class OfflineConversation(
     val copySummaryToClipboard: Boolean = false,
     // Template tracking fields for marketplace integration
     val originTemplateId: String? = null,      // Links back to marketplace template
-    val originTemplateVersion: Int? = null     // Version at time of import
+    val originTemplateVersion: Int? = null,    // Version at time of import
+    val allowedTools: List<String>? = null     // List of allowed tool names. null = all tools allowed.
 )
 
 /**
