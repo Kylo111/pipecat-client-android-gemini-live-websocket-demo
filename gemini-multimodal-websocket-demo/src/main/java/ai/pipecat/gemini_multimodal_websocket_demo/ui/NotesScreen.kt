@@ -211,9 +211,13 @@ fun NotesListView(
     onNoteLongPress: (File) -> Unit,
     onClose: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
     // State for showing special notes screens
     var showShoppingList by remember { mutableStateOf(false) }
     var showTodoList by remember { mutableStateOf(false) }
+    var showDoneList by remember { mutableStateOf(false) }
+    var selectedAgentForDoneList by remember { mutableStateOf<String?>(null) }
     
     // Show special notes screens
     if (showShoppingList) {
@@ -223,6 +227,17 @@ fun NotesListView(
     
     if (showTodoList) {
         TodoListScreen(onClose = { showTodoList = false })
+        return
+    }
+
+    if (showDoneList) {
+        DoneListScreen(
+            agentFilter = selectedAgentForDoneList,
+            onClose = { 
+                showDoneList = false
+                selectedAgentForDoneList = null
+            }
+        )
         return
     }
     
@@ -275,6 +290,22 @@ fun NotesListView(
                 notes.sortedByDescending { it.lastModified() }
             }
             
+            // Load agent groups for "Postępy" items
+            val doneListService = remember { ai.pipecat.gemini_multimodal_websocket_demo.data.DoneListService(context) }
+            val agentGroups = remember(key1 = sortedNotes) {
+                val allItems = doneListService.getAllItems()
+                // Group by agentId and get current title from OfflineConversationManager
+                allItems
+                    .groupBy { it.agentId }
+                    .map { (agentId, items) ->
+                        // Look up current conversation title
+                        val conversation = ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager.getById(agentId)
+                        val displayName = conversation?.title ?: agentId.take(15)
+                        Triple(agentId, displayName, items)
+                    }
+                    .sortedByDescending { (_, _, items) -> items.maxOfOrNull { it.timestamp } ?: 0L }
+            }
+            
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -295,6 +326,19 @@ fun NotesListView(
                         title = "Rzeczy do zrobienia",
                         backgroundColor = Color(0xFFE3F2FD), // Light blue for TODO
                         onClick = { showTodoList = true }
+                    )
+                }
+
+                // Dynamic "Postępy" items - one per agent with done items
+                items(agentGroups) { (agentId, displayName, _) ->
+                    SpecialNoteItem(
+                        icon = "📊",
+                        title = "Postępy $displayName",
+                        backgroundColor = Color(0xFFE8F5E9), // Light green for Progress
+                        onClick = { 
+                            selectedAgentForDoneList = agentId
+                            showDoneList = true 
+                        }
                     )
                 }
                 

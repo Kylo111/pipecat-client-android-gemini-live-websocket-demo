@@ -32,6 +32,7 @@ object ToolDefinitions {
         ToolInfo("start_reasoning_task", "Reasoning Agent (Myślenie)", "System", "Głęboka analiza, notatki, Telegram, Perplexity"),
         ToolInfo("create_offline_conversation", "Tworzenie Asystentów", "System", "Tworzenie nowych botów (do rozmowy 'Pomoc')"),
         ToolInfo("search_perplexity", "Perplexity (Online)", "System", "Wyszukiwanie informacji online z cytowaniami"),
+        ToolInfo("create_done_item", "Zapisywanie Postępów", "System", "Automatyczne logowanie postępów sesji"),
         
         // Information / Search
         ToolInfo("get_weather", "Pogoda", "Informacje", "Sprawdzanie pogody i prognoz"),
@@ -87,6 +88,7 @@ object ToolDefinitions {
         ToolGroup("google_search", "Google Search Grounding", "Natywne wyszukiwanie Google", listOf("google_search")),
         ToolGroup("reasoning", "Reasoning Agent (Myślenie)", "Głęboka analiza, notatki, Telegram, Perplexity", listOf("start_reasoning_task")),
         ToolGroup("search_perplexity", "Perplexity (Online)", "Wyszukiwanie online z cytowaniami (Sonar API)", listOf("search_perplexity")),
+        ToolGroup("progress", "Postępy (Done List)", "Automatyczne zapisywanie podsumowań sesji", listOf("create_done_item")),
         
         // Groups
         ToolGroup("shopping_list", "Lista Zakupów", "Pełna obsługa listy zakupów: przeglądanie, dodawanie, usuwanie, oznaczanie", 
@@ -169,7 +171,8 @@ object ToolDefinitions {
             startReasoningTaskTool(),
             startReasoningTaskTool(),
             searchPerplexityTool(),
-            symptomCheckerTool()
+            symptomCheckerTool(),
+            getCreateDoneItemTool()
         )
         
         // Add system integration tools based on IntegrationManager enabled state
@@ -675,6 +678,30 @@ object ToolDefinitions {
             }
             put("required", buildJsonArray {
                 add(JsonPrimitive("message"))
+            })
+        }
+    }
+    
+    fun getCreateDoneItemTool(): JsonObject {
+        return buildJsonObject {
+            put("name", "create_done_item")
+            put("description", "Log a completed learning objective or topic covered in the session. Use this when the session ends to summarize what was achieved.")
+            put("parameters", buildJsonObject {
+                put("type", "OBJECT")
+                put("properties", buildJsonObject {
+                    put("description", buildJsonObject {
+                        put("type", "STRING")
+                        put("description", "A concise summary of what was done/learned (max 1 sentence).")
+                    })
+                    put("topic", buildJsonObject {
+                        put("type", "STRING")
+                        put("description", "A short tag or topic name (e.g. 'Past Tense', 'Thermodynamics'). Max 3 words.")
+                    })
+                })
+                put("required", buildJsonArray {
+                    add(JsonPrimitive("description"))
+                    add(JsonPrimitive("topic"))
+                })
             })
         }
     }

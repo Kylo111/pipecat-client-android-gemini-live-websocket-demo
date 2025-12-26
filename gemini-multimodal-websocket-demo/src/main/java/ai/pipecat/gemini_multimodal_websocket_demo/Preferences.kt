@@ -241,7 +241,7 @@ object Preferences {
     val fullDuplexMode = BooleanPref(PREF_FULL_DUPLEX_MODE, true) // Default: full-duplex
     
     // Control Agent settings
-    val controlAgentEnabled = BooleanPref(PREF_CONTROL_AGENT_ENABLED, true) // Default: enabled
+    val controlAgentEnabled = BooleanPref(PREF_CONTROL_AGENT_ENABLED, false) // Default: disabled
     
     // Reasoning Agent settings
     val reasoningAgentEnabled = BooleanPref(PREF_REASONING_AGENT_ENABLED, true) // Default: enabled

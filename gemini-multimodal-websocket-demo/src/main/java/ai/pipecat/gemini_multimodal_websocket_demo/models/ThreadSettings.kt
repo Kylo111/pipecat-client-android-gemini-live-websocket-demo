@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ThreadSettings(
     val conversationId: String,
+    val title: String? = null,
     
     // Voice configuration
     val voiceName: String = "Puck",
@@ -13,7 +14,7 @@ data class ThreadSettings(
     val temperature: Float = 1.0f,        // Zbalansowane (domyślne Gemini)
     val topP: Float = 0.95f,              // Zbalansowane (domyślne Gemini)
     val topK: Int = 40,                   // Zbalansowane (domyślne Gemini)
-    val maxOutputTokens: Int = 2048,      // Średnie odpowiedzi
+    val maxOutputTokens: Int = 8192,      // Długie odpowiedzi (zwiększono z 2048)
     
     // Conversation source
     val source: String = "gemini_live", // 'gemini_live' or 'librechat'

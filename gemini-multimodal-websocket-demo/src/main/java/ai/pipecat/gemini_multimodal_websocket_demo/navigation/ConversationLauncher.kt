@@ -65,6 +65,7 @@ class ConversationLauncher(
         
         // Load thread-specific settings
         val threadSettings = ThreadSettingsManager.getSettings(conversation.conversationId)
+            .copy(title = conversation.title)
         
         // Start session and get context
         val result = sessionManager.startSession(conversation.conversationId)
@@ -151,6 +152,7 @@ class ConversationLauncher(
             // Create ThreadSettings from offline conversation settings
             val offlineSettings = ThreadSettings(
                 conversationId = offlineConv.id,
+                title = offlineConv.title,
                 voiceName = offlineConv.voiceName,
                 temperature = offlineConv.temperature,
                 topP = offlineConv.topP,

@@ -70,6 +70,16 @@ fun PINEntryDialog(
                     style = TextStyles.base
                 )
                 
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Domyślny PIN to 2222",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.Gray,
+                    style = TextStyles.base
+                )
+                
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 // PIN dots display

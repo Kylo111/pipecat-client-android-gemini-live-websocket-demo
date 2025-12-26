@@ -511,6 +511,7 @@ fun ModelSettingsDialogForOffline(
     // Convert OfflineConversation to ThreadSettings for the dialog
     val threadSettings = ThreadSettings(
         conversationId = currentSettings.id,
+        title = currentSettings.title,
         voiceName = currentSettings.voiceName,
         temperature = currentSettings.temperature,
         topP = currentSettings.topP,

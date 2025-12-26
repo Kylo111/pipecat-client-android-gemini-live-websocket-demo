@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Scenariusze U&zdot;ycia Asystent&oacute;w AI - Marketplace &lpar;Pe&lstrok;na Lista&rpar;</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="scenariusze-użycia-asystentów-ai---marketplace-pełna-lista">Scenariusze Użycia Asystentów AI - Marketplace (Pełna Lista)</h1>
+<p>Poniższe scenariusze prezentują przykładowe dialogi między Użytkownikiem a Botem, ilustrując specyficzne możliwości każdego asystenta.</p>
+<h2 id="1-ekspert-python">1. Ekspert Python</h2>
+<p><strong>Opis:</strong> Doświadczony programista, który pomaga w nauce i debugowaniu głosem oraz analizuje kod ze zdjęć.
+<strong>Specyfika:</strong> Nie dyktuje długich bloków kodu (jest audio). Tłumaczy koncepcje obrazowo. Analizuje zdjęcia ekranu.</p>
+<h3 id="scenariusz-1-nauka-pętli-wyjaśnienie-głosowe">Scenariusz 1: Nauka pętli (Wyjaśnienie głosowe)</h3>
+<p><strong>Użytkownik:</strong> Cześć, nie rozumiem jak działa pętla &quot;for&quot;. Możesz mi to wytłumaczyć bez skomplikowanego kodu?
+<strong>Bot:</strong> Cześć! Wyobraź sobie, że stoisz przy taśmie w fabryce czekolady. Pętla &quot;for&quot; to Ty, sprawdzający każdą czekoladkę, która przejeżdża. Instrukcja brzmi: &quot;Dla każdej czekoladki w pudełku, sprawdź, czy ma orzech&quot;. W Pythonie piszesz: &quot;for czekoladka in pudelko:&quot; a w następnej linii, wciętej tabulatorem, wpisujesz co masz z nią zrobić. Komputer po prostu powtarza tę czynność dla każdego elementu z listy, aż pudełko będzie puste.
+<strong>Użytkownik:</strong> A jak to zapisać?
+<strong>Bot:</strong> Piszesz słowo &quot;for&quot;, potem nazwę zmiennej, np. &quot;i&quot;, potem słowo &quot;in&quot;, a na końcu zakres, np. &quot;range(5)&quot; i koniecznie dwukropek. W nowej linii pamiętaj o wcięciu – to kluczowe!</p>
+<h3 id="scenariusz-2-debugowanie-ze-zdjęcia-vision">Scenariusz 2: Debugowanie ze zdjęcia (Vision)</h3>
+<p><strong>Użytkownik:</strong> <em>(Wysyła zdjęcie monitora z błędem w terminalu)</em> Coś tu nie działa, ciągle mam błąd składni.
+<strong>Bot:</strong> Widzę Twoje zdjęcie. Spójrz na linię 12 w edytorze. Napisałeś instrukcję warunkową &quot;if x = 5&quot;. W Pythonie pojedyncze &quot;równa się&quot; służy do przypisywania wartości. Żeby <strong>porównać</strong> czy x jest równe 5, musisz użyć podwójnego znaku równości &quot;==&quot;. Zmień to i powinno zadziałać.</p>
+<h3 id="scenariusz-3-wyjaśnienie-koncepcji-oop">Scenariusz 3: Wyjaśnienie koncepcji OOP</h3>
+<p><strong>Użytkownik:</strong> Co to jest Klasa, a co Obiekt?
+<strong>Bot:</strong> Pomyśl o &quot;Klasie&quot; jak o <strong>foremce do wycinania ciastek</strong>. Definiuje ona kształt i rozmiar (czyli cechy i funkcje). Natomiast &quot;Obiekt&quot; to <strong>konkretne ciastko</strong> wycięte tą foremką. Możesz mieć jedną klasę &quot;Pies&quot; (opisującą, że pies szczeka i ma ogon), i stworzyć z niej tysiąc obiektów: Burka, Azora i Reksa. Każdy jest inny, ale wszystkie powstały z tego samego schematu.</p>
+<h3 id="scenariusz-4-rekomendacja-biblioteki">Scenariusz 4: Rekomendacja biblioteki</h3>
+<p><strong>Użytkownik:</strong> Chcę pobrać dane ze strony internetowej, np. ceny produktów. Czego użyć?
+<strong>Bot:</strong> Do tego zadania (tzw. web scraping) standardem są dwie biblioteki. Jeśli strona jest prosta, użyj &quot;Requests&quot; do pobrania i &quot;BeautifulSoup&quot; do wyciągnięcia danych. Jeśli strona ładuje się dynamicznie (dużo JavaScriptu), będziesz potrzebować &quot;Selenium&quot; lub &quot;Playwright&quot;, które udają prawdziwą przeglądarkę. Na początek polecam &quot;BeautifulSoup&quot; – jest prostszy.</p>
+<h2 id="2-nauczyciel-angielskiego">2. Nauczyciel Angielskiego</h2>
+<p><strong>Opis:</strong> Konwersacje, gramatyka, wymowa.</p>
+<h3 id="scenariusz-1-czas-past-simple">Scenariusz 1: Czas Past Simple</h3>
+<p><strong>Użytkownik:</strong> I goed to the cinema yesterday.
+<strong>Bot:</strong> I understand, but there's a small grammar fix needed. &quot;Go&quot; is an irregular verb. In the past tense, we say <strong>&quot;went&quot;</strong>.
+So the correct sentence is: &quot;I <strong>went</strong> to the cinema yesterday.&quot; Try saying it correctly!</p>
+<h3 id="scenariusz-2-symulacja---kawiarnia">Scenariusz 2: Symulacja - Kawiarnia</h3>
+<p><strong>Użytkownik:</strong> Chcę zamówić kawę.
+<strong>Bot:</strong> Let's practice. I'm the barista. &quot;Hello! Welcome to Starbucks. What can I get for you?&quot;
+<strong>Użytkownik:</strong> Tea please.
+<strong>Bot:</strong> Good. To be more polite, try: &quot;I would like a tea, please&quot; or &quot;Can I have a tea?&quot;.</p>
+<h3 id="scenariusz-3-idiomy">Scenariusz 3: Idiomy</h3>
+<p><strong>Użytkownik:</strong> Co znaczy &quot;Break a leg&quot;? Brzmi brutalnie.
+<strong>Bot:</strong> Zabawne, prawda? Ale to wcale nie życzenie, żebyś zrobił sobie krzywdę! To idiom używany w teatrze i sztuce, oznaczający po prostu <strong>&quot;Powodzenia!&quot;</strong> (Good luck), zwłaszcza przed występem.</p>
+<h3 id="scenariusz-4-pomoc-w-wymowie-audio">Scenariusz 4: Pomoc w wymowie (Audio)</h3>
+<p><strong>Użytkownik:</strong> Jak się czyta słowo &quot;Schedule&quot;?
+<strong>Bot:</strong> To zależy! W brytyjskim angielskim często usłyszysz &quot;Szed-jul&quot; (z miękkim 'sz'). W amerykańskim częściej mówi się &quot;Sked-jul&quot; (twardo, jak 'k'). Spróbujmy wersji amerykańskiej: &quot;Sked-jul&quot;. Powtórz za mną.</p>
+<h2 id="3-przewodnik-turystyczny">3. Przewodnik Turystyczny</h2>
+<p><strong>Opis:</strong> Planowanie podróży, ciekawostki.</p>
+<h3 id="scenariusz-1-rzym---nietypowe-miejsca">Scenariusz 1: Rzym - nietypowe miejsca</h3>
+<p><strong>Użytkownik:</strong> Jadę do Rzymu, ale nie chcę zwiedzać tłocznych zabytków.
+<strong>Bot:</strong> Świetnie! Omiń Koloseum i idź do dzielnicy <strong>Coppedè</strong>. To niesamowita mieszanka stylów architektonicznych, wygląda jak z bajki, a jest pusta. Potem wejdź na wzgórze <strong>Gianicolo</strong> na zachód słońca – widok lepszy niż z kopuły Bazyliki, a za darmo.</p>
+<h3 id="scenariusz-2-japonia---porady-kulturowe">Scenariusz 2: Japonia - porady kulturowe</h3>
+<p><strong>Użytkownik:</strong> O czym pamiętać w Japonii?
+<strong>Bot:</strong> Dwie kluczowe zasady:</p>
+<ol>
+<li><strong>Cisza w transporcie</strong> – w metrze i pociągach nie rozmawiamy przez telefon.</li>
+<li><strong>Brak napiwków</strong> – zostawienie napiwku w restauracji może być uznane za brak szacunku. Po prostu zapłać tyle, ile jest na rachunku.</li>
+</ol>
+<h3 id="scenariusz-3-pakowanie-na-islandię">Scenariusz 3: Pakowanie na Islandię</h3>
+<p><strong>Użytkownik:</strong> Lecę na Islandię w październiku. Co spakować?
+<strong>Bot:</strong> Pogoda tam zmienia się co 5 minut. Kluczem jest <strong>ubieranie się na cebulkę</strong>.</p>
+<ol>
+<li>Dobra kurtka przeciwdeszczowa i przeciwwiatrowa to podstawa.</li>
+<li>Buty trekkingowe (wodoodporne).</li>
+<li>Ciepła czapka i rękawiczki – wiatr bywa lodowaty.</li>
+<li>Strój kąpielowy – nie żartuję! Gorące źródła są tam wszędzie.</li>
+</ol>
+<h3 id="scenariusz-4-kuchnia-lokalna---gruzja">Scenariusz 4: Kuchnia lokalna - Gruzja</h3>
+<p><strong>Użytkownik:</strong> Co muszę zjeść w Gruzji?
+<strong>Bot:</strong> Gruzja to raj kulinarny! Koniecznie spróbuj <strong>Chinkali</strong> (pierożki z rosołem w środku – je się je rękami!). Oczywiście <strong>Chaczapuri adżarskie</strong> (łódka z serem i jajkiem). A na deser <strong>Czerczchela</strong> – orzechy w soku winogronowym.</p>
+<h2 id="4-ania-gotuje">4. Ania gotuje</h2>
+<p><strong>Opis:</strong> Asystent kulinarny (źródło: <a href="http://aniagotuje.pl">aniagotuje.pl</a>).</p>
+<h3 id="scenariusz-1-szybki-obiad">Scenariusz 1: Szybki obiad</h3>
+<p><strong>Użytkownik:</strong> Mam pierś z kurczaka. Co zrobić na szybko?
+<strong>Bot:</strong> Znalazłam na <a href="http://aniagotuje.pl">aniagotuje.pl</a> przepis na <strong>&quot;Kurczaka w sosie słodko-kwaśnym&quot;</strong>. Robi się go 20 minut, potrzebujesz tylko ananasa, papryki i ryżu. Alternatywą są <strong>&quot;Kotlety siekane z kurczaka&quot;</strong> z serem i majonezem. Co brzmi lepiej?</p>
+<h3 id="scenariusz-2-lista-zakupów">Scenariusz 2: Lista zakupów</h3>
+<p><strong>Użytkownik:</strong> Robię kotlety siekane. Co kupić?
+<strong>Bot:</strong> Do tego przepisu potrzebujesz: 500g piersi z kurczaka, starty ser żółty, jajka, mąkę ziemniaczaną i majonez. Oraz olej do smażenia. Czy mam dodać te składniki do Twojej listy zakupów?</p>
+<h3 id="scenariusz-3-wersja-wegetariańska">Scenariusz 3: Wersja wegetariańska</h3>
+<p><strong>Użytkownik:</strong> Szukam bigosu, ale nie jem mięsa.
+<strong>Bot:</strong> Ania Gotuje ma świetny przepis na <strong>&quot;Bigos wegetariański&quot;</strong>. Bazuje on na kapuście kiszonej i słodkiej, ale zamiast mięsa używa się wędzonej śliwki, suszonych grzybów i ciemnego sosu sojowego, żeby nadać głębi smaku. Jest równie pyszny! Zanotować przepis?</p>
+<h3 id="scenariusz-4-porada-przy-pieczeniu">Scenariusz 4: Porada przy pieczeniu</h3>
+<p><strong>Użytkownik:</strong> Piekę sernik z przepisu Ani, ale góra pęka.
+<strong>Bot:</strong> Ania radzi: sernik pęka, gdy rośnie zbyt gwałtownie. Kluczem jest <strong>kąpiel wodna</strong> (wstawienie blaszki do większego naczynia z wodą w piekarniku) lub pieczenie w niższej temperaturze (max 160 stopni). Po upieczeniu nie wyciągaj go od razu – niech stygnie w uchylonym piekarniku.</p>
+<h2 id="5-medyk-diagnosta-azure">5. Medyk (Diagnosta Azure)</h2>
+<p><strong>Opis:</strong> Wstępny wywiad medyczny i tłumaczenie objawów.</p>
+<h3 id="scenariusz-1-ból-brzucha">Scenariusz 1: Ból brzucha</h3>
+<p><strong>Użytkownik:</strong> Boli mnie brzuch po prawej stronie.
+<strong>Bot:</strong> Przeprowadzę krótki wywiad. <em>(Uruchamia symptom_checker)</em>. Czy ból jest ostry czy tępy? Czy masz gorączkę? System sugeruje sprawdzenie wyrostka robaczkowego. Zalecam kontakt z lekarzem.</p>
+<h3 id="scenariusz-2-wysypka-u-dziecka">Scenariusz 2: Wysypka u dziecka</h3>
+<p><strong>Użytkownik:</strong> Dziecko ma małe czerwone kropki na plecach.
+<strong>Bot:</strong> Czy kropki swędzą? Czy dziecko gorączkuje? Na podstawie opisu i odpowiedzi (przekazanych do bota Azure), może to być tzw. &quot;trzydniówka&quot; lub ospa. Azure sugeruje obserwację temperatury. Pamiętaj, że jestem tylko asystentem, skonsultuj się z pediatrą.</p>
+<h3 id="scenariusz-3-analiza-leku">Scenariusz 3: Analiza leku</h3>
+<p><strong>Użytkownik:</strong> Lekarz przepisał mi Ibuprofen. Czy mogę go brać na pusty żołądek?
+<strong>Bot:</strong> Generalna zasada medyczna mówi, że leki z grupy NLPZ (jak Ibuprofen) mogą podrażniać błonę śluzową żołądka. Zaleca się przyjmowanie ich <strong>po posiłku</strong> i popijanie dużą ilością wody, aby zmniejszyć ryzyko bólu brzucha.</p>
+<h3 id="scenariusz-4-interpretacja-wyników">Scenariusz 4: Interpretacja wyników</h3>
+<p><strong>Użytkownik:</strong> Mam wysokie CRP w badaniach krwi. Co to znaczy?
+<strong>Bot:</strong> CRP to białko C-reaktywne. Jego podwyższony poziom najczęściej świadczy o toczącym się w organizmie <strong>stanie zapalnym</strong> (np. infekcja bakteryjna, wirusowa lub uraz). Sam wynik nie mówi, gdzie jest problem, ale jest sygnałem dla lekarza, by szukać przyczyny infekcji.</p>
+<h2 id="6-nauczyciel-hiszpańskiego">6. Nauczyciel Hiszpańskiego</h2>
+<p><strong>Opis:</strong> Nauka języka hiszpańskiego.</p>
+<h3 id="scenariusz-1-powitanie">Scenariusz 1: Powitanie</h3>
+<p><strong>Użytkownik:</strong> Jak się mówi &quot;Cześć&quot;?
+<strong>Bot:</strong> &quot;Hola!&quot; (Pamiętaj, że 'h' jest nieme, czytamy 'Ola'). Zapytaj też &quot;Qué tal?&quot; czyli &quot;jak leci?&quot;.</p>
+<h3 id="scenariusz-2-w-sklepie">Scenariusz 2: W sklepie</h3>
+<p><strong>Użytkownik:</strong> Jak zapytać, ile to kosztuje?
+<strong>Bot:</strong> &quot;Cuánto cuesta esto?&quot;. Powtórz: &quot;Kuanto kłesta esto&quot;.</p>
+<h3 id="scenariusz-3-pułapki-językowe-false-friends">Scenariusz 3: Pułapki językowe (False Friends)</h3>
+<p><strong>Użytkownik:</strong> Chcę powiedzieć, że jestem zakłopotana. &quot;Soy embarazada&quot;?
+<strong>Bot:</strong> Uwaga! To klasyczny błąd. <strong>&quot;Embarazada&quot;</strong> znaczy <strong>&quot;w ciąży&quot;</strong>!
+Jeśli chcesz powiedzieć &quot;zażenowana/zakłopotana&quot;, użyj słowa <strong>&quot;Avergonzada&quot;</strong>. Wyobraź sobie minę Hiszpana, gdybyś użyła tego pierwszego słowa!</p>
+<h3 id="scenariusz-4-wymowa-r">Scenariusz 4: Wymowa 'R'</h3>
+<p><strong>Użytkownik:</strong> Nie umiem wymówić tego wibrującego 'R'.
+<strong>Bot:</strong> Rrr! To trudne. Spróbuj powiedzieć słowo &quot;prasa&quot; bardzo szybko wiele razy: &quot;tdasa, tdasa&quot;. Język musi uderzać o podniebienie tuż za zębami. W hiszpańskim słowie &quot;Perro&quot; (pies) musisz wprawić język w wibrację strumieniem powietrza.</p>
+<h2 id="7-nauczyciel-niemieckiego">7. Nauczyciel Niemieckiego</h2>
+<p><strong>Opis:</strong> Nauka języka niemieckiego.</p>
+<h3 id="scenariusz-1-rodzajniki">Scenariusz 1: Rodzajniki</h3>
+<p><strong>Użytkownik:</strong> Jaki rodzajnik ma &quot;Kawa&quot;?
+<strong>Bot:</strong> &quot;Der Kaffee&quot; (męski). Zapamiętaj: napoje alkoholowe i kawa są zazwyczaj męskie (Der Wein, Der Kaffee), ale piwo to wyjątek (Das Bier)!</p>
+<h3 id="scenariusz-2-przedstawianie-się">Scenariusz 2: Przedstawianie się</h3>
+<p><strong>Użytkownik:</strong> Jak powiedzieć &quot;Nazywam się Jan&quot;?
+<strong>Bot:</strong> Masz dwie opcje: &quot;Ich heiße Jan&quot; albo &quot;Ich bin Jan&quot;. Bardziej formalnie: &quot;Mein Name ist Jan&quot;.</p>
+<h3 id="scenariusz-3-przypadki-celownik---dativ">Scenariusz 3: Przypadki (Celownik - Dativ)</h3>
+<p><strong>Użytkownik:</strong> Kiedy używamy &quot;dem&quot; a kiedy &quot;der&quot;?
+<strong>Bot:</strong> To zależy od przypadku. W celowniku (Komu? Czemu?), rodzaj męski &quot;der&quot; zmienia się na <strong>&quot;dem&quot;</strong> (np. z ojcem - <em>mit dem Vater</em>). Rodzaj żeński &quot;die&quot; zmienia się na <strong>&quot;der&quot;</strong> (np. z matką - <em>mit der Mutter</em>). Tak, w celowniku kobieca 'mama' dostaje męski rodzajnik 'der' - to jedna z dziwności niemieckiego!</p>
+<h3 id="scenariusz-4-długie-słowa">Scenariusz 4: Długie słowa</h3>
+<p><strong>Użytkownik:</strong> Podobno niemieckie słowa są nieskończone.
+<strong>Bot:</strong> Tak, Niemcy kochają łączyć słowa. Zamiast &quot;kluczyki do samochodu&quot;, mają &quot;Autoschlüssel&quot;. Zamiast &quot;ubezpieczenie od odpowiedzialności cywilnej pojazdu&quot; mają &quot;Kraftfahrzeug-Haftpflichtversicherung&quot;. To jak puzzle!</p>
+<h2 id="8-asystent-zakupowy">8. Asystent Zakupowy</h2>
+<p><strong>Opis:</strong> Doradztwo przy zakupach, Ceneo.</p>
+<h3 id="scenariusz-1-wybór-smartfona">Scenariusz 1: Wybór Smartfona</h3>
+<p><strong>Użytkownik:</strong> Szukam telefonu do 2000 zł z dobrym aparatem.
+<strong>Bot:</strong> W tej cenie królem zdjęć jest <strong>Pixel 7a</strong> lub <strong>Samsung A54</strong>. Sprawdzam opinie na Ceneo... Pixel ma lepsze oceny za tryb nocny, ale słabszą baterię niż Samsung. Co jest dla Ciebie ważniejsze: jakość fotek w nocy czy czas pracy na baterii?</p>
+<h3 id="scenariusz-2-prezent">Scenariusz 2: Prezent</h3>
+<p><strong>Użytkownik:</strong> Co kupić tacie na urodziny? Lubi majsterkować.
+<strong>Bot:</strong> Może zestaw precyzyjnych wkrętaków (np. iFixit) albo laserowy dalmierz? Dalmierz to świetny gadżet, kosztuje ok. 150 zł i bardzo ułatwia życie. Sprawdzić dla Ciebie najpopularniejsze modele?</p>
+<h3 id="scenariusz-3-porównanie-agd-ze-zdjęcia-lub-opisu">Scenariusz 3: Porównanie AGD (Ze zdjęcia lub opisu)</h3>
+<p><strong>Użytkownik:</strong> <em>(Wysyła zdjęcie dwóch etykiet lodówek)</em> Którą wziąć?
+<strong>Bot:</strong> Patrzę na etykiety energetyczne. Ta po lewej ma klasę <strong>C</strong>, a ta po prawej <strong>E</strong>. Lodówka klasy C zużyje rocznie prądu za około 150 zł mniej. Mimo że jest droższa w zakupie o 200 zł, różnica zwróci się w półtora roku. Bierz tę z lewej (klasa C).</p>
+<h3 id="scenariusz-4-telewizor-do-konsoli">Scenariusz 4: Telewizor do konsoli</h3>
+<p><strong>Użytkownik:</strong> Kupuję PS5, potrzebuję TV.
+<strong>Bot:</strong> Do PS5 koniecznie szukaj telewizora ze złączem <strong>HDMI 2.1</strong> i odświeżaniem <strong>120Hz</strong>. W budżetowych opcjach polecam serię TCL C845, a w premium LG OLED C3. Unikaj tanich modeli 60Hz, bo nie wykorzystasz potencjału konsoli.</p>
+<h2 id="9-codzienny-asystent">9. Codzienny Asystent</h2>
+<p><strong>Opis:</strong> Zarządzanie czasem, lista zakupów, komunikacja, transport.</p>
+<h3 id="scenariusz-1-lista-zakupów-narzędzie-add_to_shopping_list">Scenariusz 1: Lista Zakupów (Narzędzie: add_to_shopping_list)</h3>
+<p><strong>Użytkownik:</strong> Dodaj mleko, chleb i dwie kostki masła do listy.
+<strong>Bot:</strong> Zrobione. Dodałem &quot;mleko&quot;, &quot;chleb&quot; i &quot;masło (x2)&quot; do Twojej listy zakupów w aplikacji. Czy potrzebujesz czegoś jeszcze na śniadanie?</p>
+<h3 id="scenariusz-2-wysyłanie-sms-narzędzie-send_smsdraft">Scenariusz 2: Wysyłanie SMS (Narzędzie: send_sms/draft)</h3>
+<p><strong>Użytkownik:</strong> Napisz do Kasi, że spóźnię się 15 minut, bo są korki.
+<strong>Bot:</strong> Przygotowałem wiadomość do kontaktu Kasia: <em>&quot;Hej, spóźnię się około 15 minut, stoję w korkach. Przepraszam!&quot;</em>. Czy mam ją wysłać teraz?
+<strong>Użytkownik:</strong> Tak.
+<strong>Bot:</strong> Wysłano.</p>
+<h3 id="scenariusz-3-sprawdzanie-transportu-narzędzie-google_search">Scenariusz 3: Sprawdzanie transportu (Narzędzie: google_search)</h3>
+<p><strong>Użytkownik:</strong> O której mam najbliższy pociąg do Krakowa? Jestem w Warszawie.
+<strong>Bot:</strong> <em>(Szuka połączeń)</em> Najbliższe połączenie Pendolino masz o 14:05 z Warszawy Centralnej, będziesz na miejscu o 16:30. Kolejny, tańszy TLK jest o 14:45. Który Cię interesuje?</p>
+<h3 id="scenariusz-4-zarządzanie-zadaniami-todo">Scenariusz 4: Zarządzanie zadaniami (Todo)</h3>
+<p><strong>Użytkownik:</strong> Przypomnij mi, żebym jutro rano podlał kwiaty.
+<strong>Bot:</strong> Dodałem do Twojej listy zadań na jutro na godzinę 9:00: <em>&quot;Podlać kwiaty&quot;</em>. Ustawię też powiadomienie.</p>
+<h2 id="10-uniwersalny-nauczyciel">10. Uniwersalny Nauczyciel</h2>
+<p><strong>Opis:</strong> Tłumaczenie pojęć przez analogie.</p>
+<h3 id="scenariusz-1-fizyka-kot-schrödingera">Scenariusz 1: Fizyka (Kot Schrödingera)</h3>
+<p><strong>Użytkownik:</strong> O co chodzi z tym kotem w pudełku?
+<strong>Bot:</strong> To eksperyment myślowy. Dopóki nie zajrzysz do pudełka, kot jest w dwóch stanach naraz: żywy i martwy. To analogia do cząstek kwantowych, które (zanim je zmierzymy) mogą być w wielu miejscach jednocześnie.</p>
+<h3 id="scenariusz-2-ekonomia-inflacja">Scenariusz 2: Ekonomia (Inflacja)</h3>
+<p><strong>Użytkownik:</strong> Dlaczego ceny rosną, jak drukuje się pieniądze?
+<strong>Bot:</strong> Wyobraź sobie licytację obrazu. Jest 10 osób, każda ma 100 zł. Cena pewnie wyniesie ok. 100 zł. Jeśli nagle rozdamy każdemu dodatkowy 1000 zł, obraz się nie zmienił, ale ludzie mają więcej papierków, więc zaczną licytować wyżej. Cena skoczy do 1000 zł. To jest inflacja.</p>
+<h3 id="scenariusz-3-blockchain">Scenariusz 3: Blockchain</h3>
+<p><strong>Użytkownik:</strong> Co to jest ten Blockchain?
+<strong>Bot:</strong> Wyobraź sobie <strong>zeszyt w kratkę</strong>, w którym cała klasa zapisuje, kto komu pożyczył pieniądze. Ale zasada jest taka: każdy uczeń ma kserokopię tego zeszytu. Gdy Jaś pożycza Zosi 5 zł, wszyscy wpisują to do swoich zeszytów. Nie da się oszukać i wyrwać kartki, bo reszta klasy od razu zauważy, że ich kopie się różnią. Blockchain to taki cyfrowy, niezniszczalny zeszyt rozproszony po milionach komputerów.</p>
+<h3 id="scenariusz-4-historia-efekt-domina">Scenariusz 4: Historia (Efekt domina)</h3>
+<p><strong>Użytkownik:</strong> Dlaczego wybuchła I Wojna Światowa?
+<strong>Bot:</strong> To był klasyczny efekt domina. Zaczęło się od zamachu na arcyksięcia w Sarajewie (pierwsza kostka). Austro-Węgry wypowiedziały wojnę Serbii. Ale Serbia miała &quot;starszego brata&quot; – Rosję, która stanęła w jej obronie. Z kolei Austro-Węgry miały umowę z Niemcami. W ciągu kilku dni sieć sojuszy wciągnęła całą Europę w wojnę, której nikt tak naprawdę nie chciał w takiej skali.</p>
+<h2 id="11-trener-personalny">11. Trener Personalny</h2>
+<p><strong>Opis:</strong> Plany treningowe, motywacja.</p>
+<h3 id="scenariusz-1-brak-sprzętu">Scenariusz 1: Brak sprzętu</h3>
+<p><strong>Użytkownik:</strong> Mam 20 minut, zero sprzętu. Chcę się zmęczyć.
+<strong>Bot:</strong> Robimy Tabatę! 20 sekund pracy, 10 sekund odpoczynku. Ćwiczenia: 1. Pajacyki, 2. Przysiady, 3. Pompki, 4. Brzuszki. Powtarzamy ten obwód 4 razy. Gotowy? Startujemy od pajacyków!</p>
+<h3 id="scenariusz-2-motywacja">Scenariusz 2: Motywacja</h3>
+<p><strong>Użytkownik:</strong> Nie chce mi się dzisiaj iść na siłownię.
+<strong>Bot:</strong> Pamiętasz, jak świetnie czułeś się po ostatnim treningu? Najtrudniejsze jest założenie butów. Umów się ze samym sobą: idę tylko na 15 minut. Jeśli nadal nie będziesz miał siły, wrócisz. Ale gwarantuję, że jak już tam dotrzesz, zrobisz cały trening.</p>
+<h3 id="scenariusz-3-poprawa-techniki-opisvision">Scenariusz 3: Poprawa techniki (Opis/Vision)</h3>
+<p><strong>Użytkownik:</strong> Bolą mnie plecy przy martwym ciągu.
+<strong>Bot:</strong> To niebezpieczne! Najczęstszy błąd to &quot;koci grzbiet&quot; (zaokrąglone plecy). Musisz trzymać plecy proste jak struna, klatkę wypiętą do przodu, a ruch zaczynać od wypchnięcia bioder w tył, a nie zginania się w pasie. Nagraj się z profilu następnym razem i sprawdź, czy kręgosłup jest prosty.</p>
+<h3 id="scenariusz-4-żywienie-okołotreningowe">Scenariusz 4: Żywienie okołotreningowe</h3>
+<p><strong>Użytkownik:</strong> Co zjeść przed bieganiem?
+<strong>Bot:</strong> Na 30-60 minut przed bieganiem zjedz węglowodany proste, które dają szybką energię, ale nie obciążają żołądka. Banan jest idealny. Unikaj tłuszczu i błonnika (np. orzechów, owsianki), bo możesz mieć kolkę.</p>
+<h2 id="12-dietetyk">12. Dietetyk</h2>
+<p><strong>Opis:</strong> Zdrowe żywienie, zamienniki.</p>
+<h3 id="scenariusz-1-analiza-etykiety">Scenariusz 1: Analiza etykiety</h3>
+<p><strong>Użytkownik:</strong> <em>(Wysyła skład jogurtu)</em> Czy to jest zdrowe? Cukier na drugim miejscu.
+<strong>Bot:</strong> Odradzam. Cukier na drugim miejscu oznacza, że to de facto deser, a nie zdrowy jogurt. Lepiej kup jogurt naturalny i dodaj świeże owoce.</p>
+<h3 id="scenariusz-2-kolacja">Scenariusz 2: Kolacja</h3>
+<p><strong>Użytkownik:</strong> Co zjeść na kolację, żeby nie przytyć?
+<strong>Bot:</strong> Sałatkę z tuńczykiem i jajkiem. Dużo białka, zdrowe tłuszcze, mało węglowodanów. Będziesz syty, a nie podniesiesz poziomu cukru na noc.</p>
+<h3 id="scenariusz-3-nawodnienie">Scenariusz 3: Nawodnienie</h3>
+<p><strong>Użytkownik:</strong> Ile powinienem pić wody?
+<strong>Bot:</strong> Standardowy wzór to 30ml na każdy kilogram masy ciała. Jeśli ważysz 70kg, to około 2.1 litra. Ale jeśli ćwiczysz lub jest gorąco – pij więcej. Dobry test: kolor moczu. Powinien być jasnosłomkowy. Jeśli jest ciemny – pijesz za mało.</p>
+<h3 id="scenariusz-4-dieta-bezglutenowa">Scenariusz 4: Dieta bezglutenowa</h3>
+<p><strong>Użytkownik:</strong> Muszę odstawić gluten. Co mogę jeść zamiast chleba i makaronu?
+<strong>Bot:</strong> Jest mnóstwo opcji! Zamiast pszennego makaronu: makaron kukurydziany, ryżowy albo z soczewicy (ma dużo białka!). Źródła węglowodanów naturalnie bezglutenowe to: ryż, kasza gryczana, komosa ryżowa (quinoa) i ziemniaki. Uważaj tylko na gotowe &quot;bezglutenowe&quot; pieczywo w sklepie – często ma bardzo słaby skład pełen chemii.</p>
+<h2 id="13-burza-mózgów">13. Burza Mózgów</h2>
+<p><strong>Opis:</strong> Kreatywność, nowe pomysły.</p>
+<h3 id="scenariusz-1-nazwa-firmy">Scenariusz 1: Nazwa firmy</h3>
+<p><strong>Użytkownik:</strong> Otwieram kawiarnię z książkami. Nazwa?
+<strong>Bot:</strong> &quot;Kawa i Tom&quot;, &quot;Między Wierszami&quot;, &quot;Epilog Cafe&quot;. A może coś abstrakcyjnego? &quot;Rozdział III&quot;. Co myślisz o połączeniu kawy i literatury w nazwie?</p>
+<h3 id="scenariusz-2-rozwój-fabuły">Scenariusz 2: Rozwój fabuły</h3>
+<p><strong>Użytkownik:</strong> Piszę kryminał, ale nie wiem, jak morderca uciekł z zamkniętego pokoju.
+<strong>Bot:</strong> Klasyczny problem &quot;Closed Room Mystery&quot;! Opcje:</p>
+<ol>
+<li>Ukrył się w pokoju wcześniej i wyszedł razem z policją (przebrany).</li>
+<li>Użył przewodów wentylacyjnych (oklepane, ale działa).</li>
+<li>Pokój nie był zamknięty – świadek kłamie. To świadek jest mordercą.
+Co pasuje do Twojej historii?</li>
+</ol>
+<h3 id="scenariusz-3-hasło-reklamowe">Scenariusz 3: Hasło reklamowe</h3>
+<p><strong>Użytkownik:</strong> Sprzedaję ekologiczne słomki z trawy. Potrzebuję sloganu.
+<strong>Bot:</strong></p>
+<ol>
+<li>&quot;Pij w zgodzie z naturą.&quot;</li>
+<li>&quot;To nie plastik, to trawa. Poczuj różnicę.&quot;</li>
+<li>Bardziej zabawnie: &quot;Słomka, za którą żółw Ci podziękuje.&quot;
+Który kierunek Ci się podoba?</li>
+</ol>
+<h3 id="scenariusz-4-prezent-dla-klienta">Scenariusz 4: Prezent dla klienta</h3>
+<p><strong>Użytkownik:</strong> Szukam pomysłu na prezent świąteczny dla kluczowych klientów IT.
+<strong>Bot:</strong> Unikaj typowych kalendarzy i długopisów. Branża IT lubi gadżety i jakość.</p>
+<ol>
+<li>Powerbank z szybkim ładowaniem i waszym logo (praktyczne).</li>
+<li>Wysokiej jakości kawa z lokalnej palarni w ładnej puszce.</li>
+<li>Czytnik AirTag (lokalizator) w breloczku z logo – to teraz hit.</li>
+</ol>
+<h2 id="14-terapeuta-cbt">14. Terapeuta CBT</h2>
+<p><strong>Opis:</strong> Praca z myślami, terapia poznawczo-behawioralna.</p>
+<h3 id="scenariusz-1-katastrofizowanie">Scenariusz 1: Katastrofizowanie</h3>
+<p><strong>Użytkownik:</strong> Zawlę prezentację, wszyscy mnie wyśmieją.
+<strong>Bot:</strong> To &quot;katastrofizowanie&quot;. Jakie masz dowody, że tak będzie? Czy kiedyś Cię wyśmiali?
+<strong>Użytkownik:</strong> Nie, ale teraz się zatnę.
+<strong>Bot:</strong> Nawet jeśli się zatniesz, czy to oznacza koniec świata? Ludzie zazwyczaj są wyrozumiali. Spróbuj zmienić myśl na: &quot;Może się zestresuję, ale jestem przygotowany&quot;.</p>
+<h3 id="scenariusz-2-czytanie-w-myślach">Scenariusz 2: Czytanie w myślach</h3>
+<p><strong>Użytkownik:</strong> Szef krzywo na mnie spojrzał. Chce mnie zwolnić.
+<strong>Bot:</strong> To klasyczne wyciąganie pochopnych wniosków. Czy może być inny powód jego miny? Może boli go głowa? Może pokłócił się z żoną? Skup się na faktach (spojrzał), a nie na interpretacji (zwolnienie).</p>
+<h3 id="scenariusz-3-prokrastynacja">Scenariusz 3: Prokrastynacja</h3>
+<p><strong>Użytkownik:</strong> Nie mogę zabrać się za pisanie raportu, paraliżuje mnie to.
+<strong>Bot:</strong> Często odwlekamy rzeczy, które wydają się nam przytłaczające (zbyt duże). Spróbujmy techniki &quot;5 minut&quot;. Umów się ze mną, że będziesz pisać raport tylko przez 5 minut. Po tym czasie możesz przestać. Tylko 5 minut. Czy to brzmi wykonalnie?</p>
+<h3 id="scenariusz-4-lęk-społeczny">Scenariusz 4: Lęk społeczny</h3>
+<p><strong>Użytkownik:</strong> Boję się iść na imprezę, nikogo nie znam.
+<strong>Bot:</strong> Rozumiem ten lęk. Zróbmy mały eksperyment behawioralny. Twój lęk mówi: &quot;Będę stał sam i wyglądał głupio&quot;.
+Zadanie dla Ciebie: Idź na imprezę z celem &quot;Zadania jednego pytania trzem różnym osobom&quot; (np. skąd znają gospodarza). Jeśli po godzinie będziesz chciał wyjść – wyjdź. Czy podejmiesz wyzwanie?</p>
+<h2 id="15-terapeuta-humanistyczny">15. Terapeuta Humanistyczny</h2>
+<p><strong>Opis:</strong> Empatia, wsparcie emocjonalne.</p>
+<h3 id="scenariusz-1-smutek">Scenariusz 1: Smutek</h3>
+<p><strong>Użytkownik:</strong> Nic mi się nie chce, czuję pustkę.
+<strong>Bot:</strong> Słyszę, że jest Ci bardzo ciężko. To uczucie pustki potrafi odebrać wszelkie siły. Jestem tu z Tobą. Chcesz opowiedzieć więcej o tym, kiedy ta pustka się pojawia?</p>
+<h3 id="scenariusz-2-trudna-relacja">Scenariusz 2: Trudna relacja</h3>
+<p><strong>Użytkownik:</strong> Mąż mnie nie rozumie.
+<strong>Bot:</strong> To musi być bardzo bolesne, czuć się samotnym w małżeństwie. Pragniesz bliskości i zrozumienia, a napotykasz ścianę. Jak się czujesz, gdy próbujesz z nim rozmawiać?</p>
+<h3 id="scenariusz-3-strata">Scenariusz 3: Strata</h3>
+<p><strong>Użytkownik:</strong> Mój pies odszedł wczoraj. Nie mogę przestać płakać.
+<strong>Bot:</strong> Bardzo mi przykro. Strata przyjaciela to ogromny ból i masz pełne prawo do łez. To dowód na to, jak ważny był dla Ciebie. Daj sobie czas na żałobę, nie musisz być teraz &quot;dzielny&quot;. Opowiedz mi o nim, jeśli chcesz.</p>
+<h3 id="scenariusz-4-akceptacja-siebie">Scenariusz 4: Akceptacja siebie</h3>
+<p><strong>Użytkownik:</strong> Nienawidzę swojego wyglądu.
+<strong>Bot:</strong> Słyszę w Twoim głosie dużo złości skierowanej do samego siebie. To smutne, że czujesz się niekomfortowo we własnym ciele. Chciałbym stworzyć dla Ciebie przestrzeń, w której możesz o tym bezpiecznie mówić. Co czujesz, gdy patrzysz w lustro?</p>
+<h2 id="16-helpdesk-android">16. Helpdesk Android</h2>
+<p><strong>Opis:</strong> Pomoc techniczna Android.</p>
+<h3 id="scenariusz-1-jak-zrobić-zrzut-ekranu">Scenariusz 1: Jak zrobić zrzut ekranu?</h3>
+<p><strong>Użytkownik:</strong> Jak zrobić screena?
+<strong>Bot:</strong> Wciśnij jednocześnie przycisk <strong>Taniej</strong> (Volume Down) i przycisk <strong>Zasilania</strong> (Power). Przytrzymaj przez sekundę. Ekran powinien mrugnąć.</p>
+<h3 id="scenariusz-2-przenoszenie-zdjęć">Scenariusz 2: Przenoszenie zdjęć</h3>
+<p><strong>Użytkownik:</strong> Jak zgrać zdjęcia na komputer?
+<strong>Bot:</strong> Podłącz telefon kablem USB do komputera. Na ekranie telefonu pojawi się powiadomienie &quot;Ładowanie przez USB&quot;. Kliknij w nie i zmień opcję na <strong>&quot;Przesyłanie plików&quot;</strong> (File Transfer). Teraz komputer zobaczy telefon jako dysk.</p>
+<h3 id="scenariusz-3-bateria-szybko-pada">Scenariusz 3: Bateria szybko pada</h3>
+<p><strong>Użytkownik:</strong> Telefon mi pada po południu. Co zżera baterię?
+<strong>Bot:</strong> Sprawdźmy winowajcę. Wejdź w Ustawienia -&gt; Bateria -&gt; Użycie baterii. Zobaczysz listę aplikacji. Często to Facebook albo Mapy działające w tle. Możesz kliknąć na aplikację i wybrać &quot;Ogranicz działanie w tle&quot;.</p>
+<h3 id="scenariusz-4-powiększona-czcionka">Scenariusz 4: Powiększona czcionka</h3>
+<p><strong>Użytkownik:</strong> Litery są za małe, nic nie widzę.
+<strong>Bot:</strong> Możemy to łatwo zmienić. Wejdź w Ustawienia -&gt; Wyświetlacz -&gt; <strong>Rozmiar czcionki</strong>. Przesuń suwak w prawo, aż tekst będzie dla Ciebie czytelny.</p>
+<h2 id="17-sprawdzacz-faktów">17. Sprawdzacz Faktów</h2>
+<p><strong>Opis:</strong> Weryfikacja informacji, fake news.</p>
+<h3 id="scenariusz-1-woda-z-cytryną-a-rak">Scenariusz 1: Woda z cytryną a rak</h3>
+<p><strong>Użytkownik:</strong> Czy woda z cytryną leczy raka?
+<strong>Bot:</strong> <strong>WERDYKT: FAŁSZ</strong>. Nie ma badań potwierdzających, że cytryna leczy nowotwory. Jest zdrowa, ale nie zastępuje terapii. To popularny mit medyczny.</p>
+<h3 id="scenariusz-2-opłaty-za-facebooka">Scenariusz 2: Opłaty za Facebooka</h3>
+<p><strong>Użytkownik:</strong> Czy Facebook będzie płatny od poniedziałku?
+<strong>Bot:</strong> <strong>WERDYKT: FAŁSZ</strong>. To tzw. &quot;łańcuszek internetowy&quot;, który krąży od lat. Meta nie ogłosiła wprowadzenia opłat za podstawowe konto.</p>
+<h3 id="scenariusz-3-cytat-einsteina">Scenariusz 3: Cytat Einsteina</h3>
+<p><strong>Użytkownik:</strong> Czy Einstein powiedział, że &quot;Gdy wyginą pszczoły, ludziom zostaną 4 lata życia&quot;?
+<strong>Bot:</strong> <strong>WERDYKT: NIEPOTWIERDZONE/WĄTPLIWE</strong>. Instytut Einsteina w Jerozolimie nie ma tego cytatu w swoich archiwach. Prawdopodobnie przypisano mu te słowa, aby nadać im większą wagę, ale nie ma dowodów, że kiedykolwiek to powiedział.</p>
+<h3 id="scenariusz-4-oszustwo-sms-dopłata-do-paczki">Scenariusz 4: Oszustwo SMS (Dopłata do paczki)</h3>
+<p><strong>Użytkownik:</strong> Dostałem SMS: &quot;Twoja paczka jest wstrzymana z powodu niedopłaty 1.50 PLN. Kliknij w link&quot;.
+<strong>Bot:</strong> <strong>OSTRZEŻENIE: TO OSZUSTWO (SCAM)!</strong> Nie klikaj w link! Firmy kurierskie nigdy nie proszą o dopłaty przez SMS z dziwnymi linkami. To próba kradzieży pieniędzy z konta bankowego. Zablokuj numer i usuń wiadomość.</p>
+<h2 id="18-co-obejrzeć-movie-guide">18. Co obejrzeć? (Movie Guide)</h2>
+<p><strong>Opis:</strong> Rekomendacje filmowe.</p>
+<h3 id="scenariusz-1-thriller-kryminalny">Scenariusz 1: Thriller kryminalny</h3>
+<p><strong>Użytkownik:</strong> Chcę coś w stylu &quot;Siedem&quot;, mroczny kryminał.
+<strong>Bot:</strong> Obejrzyj <strong>&quot;Zodiak&quot;</strong> tego samego reżysera (David Fincher) – gęsty klimat i oparte na faktach. Albo <strong>&quot;Labirynt&quot; (Prisoners)</strong> Denisa Villeneuve – trzyma w napięciu do ostatniej sekundy.</p>
+<h3 id="scenariusz-2-bajka-dla-dorosłych">Scenariusz 2: Bajka dla dorosłych</h3>
+<p><strong>Użytkownik:</strong> Jakaś animacja, ale mądra.
+<strong>Bot:</strong> <strong>&quot;Co w duszy gra&quot; (Soul)</strong> od Pixara. Piękna wizualnie opowieść o sensie życia i jazzie. Wzruszy każdego dorosłego.</p>
+<h3 id="scenariusz-3-filmografia-aktora">Scenariusz 3: Filmografia aktora</h3>
+<p><strong>Użytkownik:</strong> Co jeszcze dobrego zagrał Cillian Murphy (ten z Oppenheimera)?
+<strong>Bot:</strong> Koniecznie zobacz serial <strong>&quot;Peaky Blinders&quot;</strong> – to jego życiowa rola. Z filmów: <strong>&quot;Wiatr buszujący w jęczmieniu&quot;</strong> (dramat wojenny) lub <strong>&quot;Incepcja&quot;</strong>, gdzie zagrał świetną rolę drugoplanową.</p>
+<h3 id="scenariusz-4-identyfikacja-po-opisie">Scenariusz 4: Identyfikacja po opisie</h3>
+<p><strong>Użytkownik:</strong> Taki film o facecie, który utknął na lotnisku i tam zamieszkał.
+<strong>Bot:</strong> To <strong>&quot;Terminal&quot;</strong> ze Stevenem Spielbergiem. W roli głównej Tom Hanks. Ciepły, wzruszający film.</p>
+<h2 id="19-co-nowego-news-agent">19. Co nowego? (News Agent)</h2>
+<p><strong>Opis:</strong> Skrót wiadomości.</p>
+<h3 id="scenariusz-1-technologia">Scenariusz 1: Technologia</h3>
+<p><strong>Użytkownik:</strong> Co nowego w AI w tym tygodniu?
+<strong>Bot:</strong> Google pokazało Gemini 1.5, które analizuje godzinne filmy wideo. OpenAI zapowiedziało model Sora do generowania wideo z tekstu. Dzieje się! Chcesz szczegóły o którymś z nich?</p>
+<h3 id="scenariusz-2-kosmos">Scenariusz 2: Kosmos</h3>
+<p><strong>Użytkownik:</strong> Co słychać na Marsie?
+<strong>Bot:</strong> Łazik Perseverance przesłał nowe zdjęcia delty rzeki, gdzie szuka śladów życia. NASA potwierdziła też, że helikopter Ingenuity zakończył misję po uszkodzeniu śmigła – latał 3 lata dłużej niż planowano!</p>
+<h3 id="scenariusz-3-sport-wyniki">Scenariusz 3: Sport (Wyniki)</h3>
+<p><strong>Użytkownik:</strong> Jak poszło Idze Świątek wczoraj?
+<strong>Bot:</strong> Iga wygrała w dwóch setach 6:2, 6:1 i awansowała do ćwierćfinału turnieju w Madrycie. Mecz trwał tylko godzinę. Jej kolejną rywalką będzie Sabalenka.</p>
+<h3 id="scenariusz-4-wyboryświat">Scenariusz 4: Wybory/Świat</h3>
+<p><strong>Użytkownik:</strong> Jakie są wyniki wyborów w [Kraj]?
+<strong>Bot:</strong> Wg wstępnych wyników (exit poll) wygrała partia X z wynikiem 35%. Oficjalne wyniki PKW poda jutro rano. Szykuje się zmiana koalicji rządzącej.</p>
+
+            
+            
+        </body>
+        </html>

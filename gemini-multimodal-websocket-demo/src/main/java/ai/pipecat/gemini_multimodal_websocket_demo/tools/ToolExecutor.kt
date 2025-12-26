@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import ai.pipecat.gemini_multimodal_websocket_demo.network.AzureHealthBotClient
+import ai.pipecat.gemini_multimodal_websocket_demo.data.DoneListService
+import ai.pipecat.gemini_multimodal_websocket_demo.data.DoneItem
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.*
@@ -72,7 +74,7 @@ class ToolExecutor(private val context: Context) {
     /**
      * Execute a tool call and return the result
      */
-    suspend fun executeTool(toolName: String, parameters: JsonObject): String {
+    suspend fun executeTool(toolName: String, parameters: JsonObject, agentId: String? = null, agentTitle: String? = null): String {
         Log.i(TAG, "🔧 Executing tool: $toolName")
         Log.d(TAG, "📋 Parameters: $parameters")
         
@@ -85,6 +87,7 @@ class ToolExecutor(private val context: Context) {
                 "get_location" -> getLocation(parameters)
                 "calculate" -> calculate(parameters)
                 "create_note" -> createNote(parameters)
+                "create_done_item" -> createDoneItem(parameters, agentId, agentTitle)
                 "control_media" -> controlMedia(parameters)
                 "search_nearby" -> searchNearby(parameters)
                 "create_offline_conversation" -> {
@@ -136,6 +139,29 @@ class ToolExecutor(private val context: Context) {
             Log.e(TAG, "❌ Error executing tool $toolName: ${e.message}", e)
             e.printStackTrace()
             "Error executing $toolName: ${e.message}"
+        }
+    }
+    
+    private suspend fun createDoneItem(params: JsonObject, agentId: String?, agentTitle: String?): String = withContext(Dispatchers.IO) {
+        if (agentId == null) return@withContext "Error: Agent ID is missing. Cannot create done item."
+        
+        val description = params["description"]?.jsonPrimitive?.content ?: return@withContext "Error: Missing description parameter"
+        val topic = params["topic"]?.jsonPrimitive?.content ?: "General"
+        
+        try {
+            val service = DoneListService(context)
+            val item = DoneItem(
+                agentId = agentId,
+                text = description,
+                topic = topic,
+                timestamp = System.currentTimeMillis()
+            )
+            service.addItem(item)
+            Log.i(TAG, "✅ Done item created: $description (Topic: $topic)")
+            "Done item created successfully."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating done item", e)
+            "Error creating done item: ${e.message}"
         }
     }
     

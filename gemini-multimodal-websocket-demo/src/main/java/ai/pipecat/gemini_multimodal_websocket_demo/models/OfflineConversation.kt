@@ -15,7 +15,7 @@ data class OfflineConversation(
     val temperature: Float = 1.0f,        // Zbalansowane (domyślne Gemini)
     val topP: Float = 0.95f,              // Zbalansowane (domyślne Gemini)
     val topK: Int = 40,                   // Zbalansowane (domyślne Gemini)
-    val maxOutputTokens: Int = 2048,      // Średnie odpowiedzi
+    val maxOutputTokens: Int = 8192,      // Długie odpowiedzi (zwiększono z 2048)
     val presencePenalty: Float = 0.0f,    // Nieobsługiwane (zachowane dla kompatybilności)
     val frequencyPenalty: Float = 0.0f,   // Nieobsługiwane (zachowane dla kompatybilności)
     val stopSequences: List<String> = emptyList(), // Nieobsługiwane (zachowane dla kompatybilności)

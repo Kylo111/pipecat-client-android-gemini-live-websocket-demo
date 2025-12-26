@@ -427,6 +427,29 @@ class GeminiProtocol {
     }
     
     /**
+     * Serialize a text input message to JSON.
+     */
+    fun serializeTextInput(text: String): String {
+        val message = buildJsonObject {
+            putJsonObject("client_content") { // Note: client_content, not clientContent
+                putJsonArray("turns") {
+                    add(buildJsonObject {
+                        put("role", "user")
+                        putJsonArray("parts") {
+                            add(buildJsonObject {
+                                put("text", text)
+                            })
+                        }
+                    })
+                }
+                put("turn_complete", true)
+            }
+        }
+        
+        return json.encodeToString(message)
+    }
+
+    /**
      * Serialize an image input to JSON.
      * 
      * Sends an image to Gemini using the realtime_input format.

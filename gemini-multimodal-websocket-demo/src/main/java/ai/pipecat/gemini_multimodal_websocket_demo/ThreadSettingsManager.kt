@@ -42,11 +42,12 @@ object ThreadSettingsManager {
     fun getDefaultSettings(conversationId: String = ""): ThreadSettings {
         return ThreadSettings(
             conversationId = conversationId,
+            title = null,
             voiceName = "Puck",
             temperature = 1.0f,        // Zbalansowane (domyślne Gemini)
             topP = 0.95f,              // Zbalansowane (domyślne Gemini)
             topK = 40,                 // Zbalansowane (domyślne Gemini)
-            maxOutputTokens = 2048,    // Średnie odpowiedzi
+            maxOutputTokens = 8192,    // Długie odpowiedzi (zwiększono z 2048)
             presencePenalty = 0.0f,    // Nieobsługiwane (zachowane dla kompatybilności)
             frequencyPenalty = 0.0f,   // Nieobsługiwane (zachowane dla kompatybilności)
             stopSequences = emptyList() // Nieobsługiwane (zachowane dla kompatybilności)

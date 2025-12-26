@@ -236,8 +236,17 @@ class GeminiClient(
             return
         }
         
-        // TODO: Implement text message serialization if needed
-        Log.w(TAG, "sendText not yet implemented")
+        // Send text message
+        scope.launch(Dispatchers.IO) {
+            try {
+                Log.i(TAG, "Sending text: \"${text.take(50)}...\"")
+                val message = protocol.serializeTextInput(text)
+                webSocket?.send(message)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sending text", e)
+                onError?.invoke(e)
+            }
+        }
     }
     
     /**

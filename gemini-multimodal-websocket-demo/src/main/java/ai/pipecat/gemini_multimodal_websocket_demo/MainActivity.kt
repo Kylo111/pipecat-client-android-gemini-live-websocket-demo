@@ -1038,7 +1038,7 @@ class MainActivity : ComponentActivity() {
                     val startTime = System.currentTimeMillis()
                     
                     // Force stop without waiting for session end
-                    voiceClientManager.stop()
+                    voiceClientManager.forceStop()
                     Log.d("MainActivity", "[MainActivity] onTrimMemory: COMPLETE - VoiceClientManager force-stopped")
                     
                     // Stop VoiceService

@@ -326,7 +326,7 @@ fun ConversationListScreen(
                             fontSize = 20.sp
                         )
                         Text(
-                            text = "Tryb offline: Twoje konwersacje są zapisywane lokalnie. Zaloguj się do Kumpel-chat w zakładce \"Klucze i konta\" aby synchronizować konwersacje.",
+                            text = "Tryb offline: Twoje konwersacje są zapisywane lokalnie. Zaloguj się do Kumpel-chat w zakładce \"Klucze i konta\" aby synchronizować konwersacje. Aby uzyskać pełną funkcjonalność, nadaj uprawnienia w menu Integracje. Sprawdź też Market Place, gdzie znajdziesz asystentów.",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.W400,
                             color = Color(0xFF1976D2),

@@ -118,7 +118,7 @@ object OfflineConversationManager {
         temperature: Float = 1.0f,
         topP: Float = 0.95f,
         topK: Int = 40,
-        maxOutputTokens: Int = 2048,
+        maxOutputTokens: Int = 8192,
         presencePenalty: Float = 0.0f,
         frequencyPenalty: Float = 0.0f,
         stopSequences: List<String> = emptyList()
