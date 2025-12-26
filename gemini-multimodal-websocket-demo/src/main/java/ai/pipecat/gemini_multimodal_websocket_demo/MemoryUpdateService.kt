@@ -175,8 +175,23 @@ class MemoryUpdateService(
         newTranscript: String,
         conversationSystemPrompt: String
     ): String {
-        val globalCardJson = json.encodeToString(GlobalUserCard.serializer(), globalCard)
+    val globalCardJson = json.encodeToString(GlobalUserCard.serializer(), globalCard)
         val localCardJson = json.encodeToString(LocalConversationCard.serializer(), localCard)
+        
+        // Short session detection to prevent aggressive reporting
+        val isShortSession = newTranscript.trim().length < 200
+        val shortSessionInstruction = if (isShortSession) {
+            """
+            
+            CRITICAL: This session is very short (under 200 characters). 
+            - DO NOT generate a report. 
+            - FORCE needs_report = false.
+            - FORCE report_topics = [].
+            - Just update the memory cards with any small details found.
+            """
+        } else {
+            ""
+        }
         
         return """
 ${systemPrompts.memoryUpdateInstruction}
@@ -208,6 +223,7 @@ $newTranscript
 
 Please analyze the transcript within the context of the Assistant Persona above.
 Update the memory structures accordingly.
+$shortSessionInstruction
 Return ONLY the JSON object as specified in the instructions.
         """.trimIndent()
     }

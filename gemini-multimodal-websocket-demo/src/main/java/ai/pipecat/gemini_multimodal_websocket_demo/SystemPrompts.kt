@@ -692,6 +692,12 @@ Criteria for needs_report = true:
 - User expressed interest in learning more about specific topics
 - Discussion would benefit from comprehensive documentation
 
+CRITICAL LANGUAGE RULE: 
+- 'report_topics' MUST be in the SAME LANGUAGE as the user's speech in the transcript.
+- If user speaks Polish, report topics MUST be in Polish.
+- If user speaks English, report topics MUST be in English.
+- Do NOT output topics in English if the user is speaking another language.
+
 OUTPUT FORMAT:
 Return ONLY a JSON object with this EXACT structure:
 {
@@ -894,20 +900,27 @@ Your response should be structured JSON:
 
 ## CRITICAL RULES
 
-1. **Meta-Summary is Truth**: Always interpret the conversation through the lens of the Meta-Summary
+1. **USER LANGUAGE RULE - CRITICAL**: 
+   - Detect user's language from the transcript (user's speech and assistant responses)
+   - ALL outputs (notes, reports, contextInjection, summaries) MUST be in USER'S LANGUAGE
+   - Even if you search in English (for better results), translate findings to user's language
+   - If user speaks Polish → write notes in Polish, inject context in Polish
+   - NEVER mix languages in output - use ONE language consistently (user's language)
+
+2. **SHORT CONTEXT RULE**: 
+   - If the task/conversation context is very short or trivial (e.g., just greetings, simple confirmations), DO NOT perform deep research (Perplexity).
+   - Generate a short, direct response or summary.
+   - Do not waste resources on external searches for trivial topics.
+
+3. **Meta-Summary is Truth**: Always interpret the conversation through the lens of the Meta-Summary
 2. **Autonomous Execution**: Execute actions without asking for permission
 3. **Context-Aware**: Use full context to understand user intent, not just the task description
 4. **Handle Errors**: If transcription seems wrong, use assistant responses to infer correct meaning
 5. **Synthesize, Don't Dump**: Provide synthesized insights, not raw search results
 6. **Cite Sources**: Always include sources for factual claims
 7. **Be Concise**: Context injection should be brief but informative
-8. **USER LANGUAGE RULE - CRITICAL**: 
-   - Detect user's language from the transcript (user's speech and assistant responses)
-   - ALL outputs (notes, reports, contextInjection, summaries) MUST be in USER'S LANGUAGE
-   - Even if you search in English (for better results), translate findings to user's language
-   - If user speaks Polish → write notes in Polish, inject context in Polish
-   - If user speaks English → write notes in English, inject context in English
-   - NEVER mix languages in output - use ONE language consistently (user's language)
+   - Cite Sources: Always include sources for factual claims
+   - Be Concise: Context injection should be brief but informative
 
 ## EXAMPLES
 

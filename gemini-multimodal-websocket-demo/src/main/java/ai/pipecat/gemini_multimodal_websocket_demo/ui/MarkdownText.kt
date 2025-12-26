@@ -25,6 +25,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.webkit.WebView
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.material3.LocalContentColor
 
 /**
  * Markdown parser that converts markdown text to blocks for rendering.
@@ -46,6 +52,7 @@ object MarkdownParser {
     sealed class Block {
         data class TextBlock(val annotatedString: AnnotatedString) : Block()
         data class TableBlock(val rows: List<List<String>>) : Block()
+        data class LatexBlock(val latex: String) : Block()
     }
     
     data class ParsedContent(
@@ -76,6 +83,14 @@ object MarkdownParser {
             val line = lines[i]
             
             when {
+                // Latex Blocks ($$ or \[)
+                line.trim().startsWith("$$") || line.trim().startsWith("\\[") -> {
+                    val latexResult = parseLatexBlock(lines, i)
+                    flushTextBlock()
+                    blocks.add(Block.LatexBlock(latexResult.first))
+                    i = latexResult.second
+                }
+
                 // Tables (| col1 | col2 |)
                 line.trim().startsWith("|") && line.trim().endsWith("|") -> {
                     val tableResult = parseTable(lines, i)
@@ -235,6 +250,41 @@ object MarkdownParser {
         
         // No closing ``` found, treat as regular text
         return Pair(codeLines.joinToString("\n"), i)
+    }
+    
+    /**
+     * Parse LaTeX block starting from current line index.
+     * Supports both single line and multi-line blocks for $$ and \[
+     */
+    private fun parseLatexBlock(lines: List<String>, startIndex: Int): Pair<String, Int> {
+        val i = startIndex
+        val startLine = lines[i].trim()
+        
+        // Determine delimiters
+        val isBracket = startLine.startsWith("\\[")
+        val endMarker = if (isBracket) "\\]" else "$$"
+        val startMarker = if (isBracket) "\\[" else "$$"
+        
+        // Check for single line case: $$ equation $$ or \[ equation \]
+        if (startLine.length > startMarker.length && startLine.endsWith(endMarker) && startLine != startMarker) {
+            val content = startLine.substring(startMarker.length, startLine.length - endMarker.length).trim()
+            return Pair(content, i + 1)
+        }
+        
+        // Multi-line case
+        val latexLines = mutableListOf<String>()
+        var currentIndex = i + 1
+        
+        while (currentIndex < lines.size) {
+            val line = lines[currentIndex]
+            if (line.trim().startsWith(endMarker)) {
+                return Pair(latexLines.joinToString("\n"), currentIndex + 1)
+            }
+            latexLines.add(line)
+            currentIndex++
+        }
+        
+        return Pair(latexLines.joinToString("\n"), currentIndex)
     }
     
     /**
@@ -594,9 +644,111 @@ fun MarkdownText(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                is MarkdownParser.Block.LatexBlock -> {
+                    // LaTeX - rendered via WebView
+                    LatexView(
+                        latex = block.latex,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * Renders LaTeX using a WebView and KaTeX from CDN.
+ * Includes fallback to raw text if KaTeX fails to load (e.g. offline).
+ * Uses auto-render extension to support mixed text and math.
+ */
+@Composable
+fun LatexView(
+    latex: String,
+    modifier: Modifier = Modifier
+) {
+    // Get current text color from theme
+    val contentColor = LocalContentColor.current
+    val textColorHex = String.format("#%06X", (0xFFFFFF and contentColor.toArgb()))
+    
+    // Generate unique ID for this equation
+    val htmlContent = remember(latex, textColorHex) {
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+            <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+            <style>
+                body { 
+                    margin: 0; 
+                    padding: 4px; 
+                    background-color: transparent;
+                    color: $textColorHex; /* Adapt to theme */
+                    font-family: Roboto, sans-serif;
+                    line-height: 1.5;
+                    font-size: 16px; /* Match typical body text size */
+                }
+                .katex-display { margin: 0.5em 0; }
+                #error { color: #FF6B6B; font-size: 12px; display: none; }
+                #raw { font-family: monospace; white-space: pre-wrap; display: none; }
+                #content { word-wrap: break-word; }
+            </style>
+        </head>
+        <body>
+            <div id="content">${latex.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")}</div>
+            <div id="raw" style="display:none">$$ ${latex.replace("<", "&lt;").replace(">", "&gt;")} $$</div>
+            
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    try {
+                        if (typeof renderMathInElement === 'undefined') {
+                            throw new Error("KaTeX auto-render not loaded");
+                        }
+                        
+                        renderMathInElement(document.body, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '\\[', right: '\\]', display: true},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    } catch (e) {
+                         // Fallback to raw text if error occurs
+                        // document.getElementById('content').style.display = 'none'; // Keep content visible as text
+                        // document.getElementById('raw').style.display = 'block';
+                        console.error("Latex render error:", e);
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                settings.domStorageEnabled = true
+                setBackgroundColor(0x00000000) // Transparent background
+                
+                // Disable scrolling to act more like a static view
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+            }
+        },
+        update = { webView ->
+            webView.loadDataWithBaseURL("https://katex.org", htmlContent, "text/html", "UTF-8", null)
+        },
+        // Wrap content height to avoid infinite expansion, but don't limit hard
+        modifier = modifier.heightIn(min = 40.dp)
+    )
 }
 
 /**
