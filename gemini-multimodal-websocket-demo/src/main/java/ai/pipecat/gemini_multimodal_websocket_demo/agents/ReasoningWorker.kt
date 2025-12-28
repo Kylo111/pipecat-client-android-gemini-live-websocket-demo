@@ -1019,7 +1019,7 @@ class ReasoningWorker(
     private fun getReportStrings(language: String): ReportStrings {
         return when (language) {
             "pl" -> ReportStrings(
-                title = "Raport Po Sesji",
+                title = "Raport z sesji",
                 conversationLabel = "Konwersacja:",
                 generatedLabel = "Wygenerowano:",
                 contextHeader = "Kontekst Konwersacji",
@@ -1133,7 +1133,7 @@ class ReasoningWorker(
             )
             
             val noteResult = noteService.createNote(
-                title = "Post-Session Report - ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}",
+                title = "Raport z sesji - ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}",
                 content = report,
                 metadata = metadata
             )

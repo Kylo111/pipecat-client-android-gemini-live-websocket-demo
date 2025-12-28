@@ -433,33 +433,48 @@ class VoiceClientManager(
         
         client.onDisconnected = {
             Log.i(TAG, "❌ Disconnected from Gemini")
-            _uiState.value = _uiState.value.copy(
-                connectionState = ConnectionState.DISCONNECTED,
-                isConnected = false,
-                isBotTalking = false
-            )
             
-            // Start automatic reconnection if currentSettings is not null
-            // We reconnect even if paused, to keep the session alive.
+            // Check if we should try to reconnect
             if (currentSettings != null) {
-                Log.i(TAG, "🔄 Starting automatic reconnection...")
+                Log.i(TAG, "🔄 Disconnection detected, preparing to reconnect...")
+                // Set state to RECONNECTING to prevent MainActivity from stopping the VoiceService
+                _uiState.value = _uiState.value.copy(
+                    connectionState = ConnectionState.RECONNECTING,
+                    isConnected = false,
+                    isBotTalking = false
+                )
+                
+                // Start automatic reconnection
+                // We reconnect even if paused, to keep the session alive.
                 scope.launch {
                     reconnectionManager?.startReconnection()
                 }
+            } else {
+                // Normal disconnect (user ended session)
+                _uiState.value = _uiState.value.copy(
+                    connectionState = ConnectionState.DISCONNECTED,
+                    isConnected = false,
+                    isBotTalking = false
+                )
             }
         }
         
         client.onError = { error ->
             Log.e(TAG, "Gemini error: ${error.message}", error)
-            _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
-            errors.add(Error(error.message ?: "Unknown error"))
             
-            // Start automatic reconnection on error if currentSettings is not null
             if (currentSettings != null) {
-                Log.i(TAG, "🔄 Starting automatic reconnection after error...")
+                // Auto-reconnect active: Suppress error UI and try to reconnect
+                Log.w(TAG, "⚠️ Suppressing error UI during auto-reconnect: ${error.message}")
+                _uiState.value = _uiState.value.copy(connectionState = ConnectionState.RECONNECTING)
+                
+                // Start automatic reconnection on error
                 scope.launch {
                     reconnectionManager?.startReconnection()
                 }
+            } else {
+                // Fatal error or no auto-reconnect: Show error to user
+                _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
+                errors.add(Error(error.message ?: "Unknown error"))
             }
         }
         
@@ -1516,6 +1531,31 @@ class VoiceClientManager(
         autoMuteMonitor?.release()
         audioEngine?.release()
         Log.i(TAG, "Released")
+    }
+
+    /**
+     * Check if session needs to be resumed (e.g. after screen turn on).
+     * Called by MainActivity.onResume.
+     */
+    fun resumeSessionIfNeeded() {
+        if (!uiState.value.isConnected && currentSettings != null) {
+            val state = uiState.value.connectionState
+            Log.i(TAG, "🔄 Resume session check: State=$state, HasSettings=true")
+            
+            // If we are in ERROR or DISCONNECTED state but have settings, 
+            // it means the system might have killed the connection while screen was off.
+            // Restart reconnection now that we are back.
+            if (state == ConnectionState.ERROR || state == ConnectionState.DISCONNECTED || state == ConnectionState.RECONNECTING) {
+                Log.i(TAG, "🔄 Resuming session - restarting reconnection...")
+                
+                // Force state to RECONNECTING to properly update UI
+                _uiState.value = _uiState.value.copy(connectionState = ConnectionState.RECONNECTING)
+                
+                scope.launch {
+                    reconnectionManager?.startReconnection()
+                }
+            }
+        }
     }
 
     private fun cleanTextForSpeech(text: String): String {

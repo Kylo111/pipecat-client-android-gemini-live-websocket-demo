@@ -537,6 +537,14 @@ class MainActivity : ComponentActivity() {
      */
     private fun startVoiceService() {
         try {
+            // Safety check: Prevent starting foreground service from background if not already running
+            // This prevents ForegroundServiceStartNotAllowedException on Android 12+
+            val isForeground = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+            val isServiceRunning = VoiceService.getInstance() != null
+            if (!isForeground && !isServiceRunning) {
+                Log.w(TAG, "⚠️ Cannot start VoiceService: App is in background and service is not running. Skipping to avoid crash.")
+                return
+            }
             val intent = Intent(this, VoiceService::class.java).apply {
                 action = VoiceService.ACTION_START
             }
@@ -765,6 +773,9 @@ class MainActivity : ComponentActivity() {
         
         // Update screen keep awake when returning to foreground
         updateScreenKeepAwake()
+        
+        // Resume session if it was interrupted (e.g. by network loss in doze mode)
+        voiceClientManager.resumeSessionIfNeeded()
         
         val connectionState = voiceClientManager.uiState.value.connectionState
         if (connectionState == ConnectionState.CONNECTED) {

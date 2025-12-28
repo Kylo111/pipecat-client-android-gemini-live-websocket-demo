@@ -224,28 +224,24 @@ fun DoneItemRow(
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Surface(
+                        color = Color(0xFFE0F7FA), // Light Cyan
+                        shape = RoundedCornerShape(4.dp),
                     ) {
-                        Surface(
-                            color = Color(0xFFE0F7FA), // Light Cyan
-                            shape = RoundedCornerShape(4.dp),
-                        ) {
-                            Text(
-                                text = item.topic,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = TextStyles.base.copy(fontSize = 12.sp),
-                                color = Color(0xFF006064)
-                            )
-                        }
-                        
                         Text(
-                            text = dateFormatter.format(Date(item.timestamp)),
+                            text = item.topic,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             style = TextStyles.base.copy(fontSize = 12.sp),
-                            color = Color.Gray
+                            color = Color(0xFF006064)
                         )
                     }
+                    
+                    Text(
+                        text = dateFormatter.format(Date(item.timestamp)),
+                        style = TextStyles.base.copy(fontSize = 12.sp),
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     

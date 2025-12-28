@@ -132,6 +132,12 @@ dependencies {
     // Azure Speech SDK
     implementation(libs.azure.speech)
     
+    // Markwon for Markdown rendering with LaTeX support
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:ext-latex:4.6.2")
+    implementation("io.noties.markwon:html:4.6.2")
+    implementation("io.noties.markwon:linkify:4.6.2")
+    
     // Testing dependencies
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
