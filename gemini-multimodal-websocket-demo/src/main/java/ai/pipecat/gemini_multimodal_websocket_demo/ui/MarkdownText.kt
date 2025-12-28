@@ -269,6 +269,18 @@ object MarkdownParser {
         
         while (i < chars.size) {
             when {
+                // Inline LaTeX \(...\) - render as plain text (simplified)
+                i < chars.size - 3 && chars[i] == '\\' && chars[i + 1] == '(' -> {
+                    val latexResult = parseInlineLatexAt(text, i)
+                    if (latexResult != null) {
+                        appendInlineLatex(latexResult.first)
+                        i = latexResult.second
+                    } else {
+                        append(chars[i])
+                        i++
+                    }
+                }
+                
                 // Markdown links [text](url)
                 i < chars.size - 3 && chars[i] == '[' -> {
                     val linkResult = parseLinkAt(text, i)
@@ -308,6 +320,43 @@ object MarkdownParser {
                 }
             }
         }
+    }
+    
+    // Parse inline LaTeX \(...\) and return content and end position
+    private fun parseInlineLatexAt(text: String, startIndex: Int): Pair<String, Int>? {
+        if (startIndex + 3 >= text.length) return null
+        if (text[startIndex] != '\\' || text[startIndex + 1] != '(') return null
+        
+        var i = startIndex + 2
+        while (i < text.length - 1) {
+            if (text[i] == '\\' && text[i + 1] == ')') {
+                val content = text.substring(startIndex + 2, i)
+                return Pair(content, i + 2)
+            }
+            i++
+        }
+        return null
+    }
+    
+    // Render inline LaTeX as styled text (simplified - strips LaTeX commands)
+    private fun AnnotatedString.Builder.appendInlineLatex(latex: String) {
+        // Simplify common LaTeX commands to readable text
+        val simplified = latex
+            .replace(Regex("\\\\mathbf\\{([^}]+)\\}"), "$1")  // \mathbf{F} -> F
+            .replace(Regex("\\\\mathrm\\{([^}]+)\\}"), "$1")  // \mathrm{d} -> d
+            .replace(Regex("\\\\text\\{([^}]+)\\}"), "$1")    // \text{abc} -> abc
+            .replace(Regex("\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}"), "$1/$2") // \frac{a}{b} -> a/b
+            .replace(Regex("\\\\sqrt\\{([^}]+)\\}"), "√$1")   // \sqrt{x} -> √x
+            .replace(Regex("\\\\([a-zA-Z]+)"), "")            // Remove other commands
+            .replace("_", "")                                  // Remove subscript marker
+            .replace("^", "")                                  // Remove superscript marker
+            .replace("{", "").replace("}", "")                 // Remove braces
+            .trim()
+        
+        // Style as italic to indicate it's a math expression
+        pushStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Color(0xFF1565C0)))
+        append(simplified)
+        pop()
     }
 
     private fun checkUrlAt(text: String, startIndex: Int): Pair<String, Int>? {
@@ -451,6 +500,9 @@ fun LatexView(latex: String, modifier: Modifier = Modifier) {
     val textColorHex = String.format("#%06X", (0xFFFFFF and contentColor.toArgb()))
     var webViewHeight by remember { mutableStateOf(100.dp) }
     
+    // Wrap latex content with delimiters for KaTeX to recognize
+    val latexWithDelimiters = "$$${latex}$$"
+    
     val htmlContent = remember(latex, textColorHex) {
         """
         <!DOCTYPE html>
@@ -471,7 +523,7 @@ fun LatexView(latex: String, modifier: Modifier = Modifier) {
             </style>
         </head>
         <body>
-            <div id="content">${latex.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")}</div>
+            <div id="content">${latexWithDelimiters.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")}</div>
             <div id="error"></div>
             <script>
                 function updateHeight() { const height = document.body.scrollHeight; console.log('HEIGHT:' + height); }

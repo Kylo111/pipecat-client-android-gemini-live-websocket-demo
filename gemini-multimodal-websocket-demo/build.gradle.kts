@@ -137,6 +137,7 @@ dependencies {
     implementation("io.noties.markwon:ext-latex:4.6.2")
     implementation("io.noties.markwon:html:4.6.2")
     implementation("io.noties.markwon:linkify:4.6.2")
+    implementation("io.noties.markwon:inline-parser:4.6.2")
     
     // Testing dependencies
     testImplementation("junit:junit:4.13.2")

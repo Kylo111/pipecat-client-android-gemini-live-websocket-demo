@@ -14,6 +14,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.latex.JLatexMathPlugin
 import io.noties.markwon.html.HtmlPlugin
+import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 
 /**
@@ -45,6 +46,10 @@ fun MarkwonMarkdownText(
         Markwon.builder(context)
             .usePlugin(HtmlPlugin.create())
             .usePlugin(LinkifyPlugin.create())
+            .usePlugin(MarkwonInlineParserPlugin.create())
+            .usePlugin(JLatexMathPlugin.create(style.fontSize.value) { builder ->
+                builder.inlinesEnabled(true)
+            })
             .build()
     }
     
