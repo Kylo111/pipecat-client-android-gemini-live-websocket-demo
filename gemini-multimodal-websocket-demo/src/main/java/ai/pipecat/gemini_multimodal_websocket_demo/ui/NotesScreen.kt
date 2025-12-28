@@ -9,6 +9,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -488,6 +490,7 @@ fun NoteDetailView(
     note: File,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val content = remember(note) { 
         try {
             note.readText()
@@ -542,8 +545,8 @@ fun NoteDetailView(
             )
         }
         
-        // Content area with Markdown rendering and text selection
-        // Note: MarkdownText handles horizontal scrolling internally for tables
+        // Content area with WebView-based Markdown rendering
+        // WebView handles its own scrolling and text selection
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -552,22 +555,23 @@ fun NoteDetailView(
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color.White)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(8.dp)
-            ) {
-                MarkdownText(
-                    markdown = content,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = TextStyles.base.copy(
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        color = Color.Black
-                    )
-                )
-            }
+            MarkdownWebView(
+                markdown = content,
+                modifier = Modifier.fillMaxSize(),
+                onLinkClick = { url ->
+                    // Open links in system browser
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            context,
+                            "Nie można otworzyć linku",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            )
         }
     }
 }

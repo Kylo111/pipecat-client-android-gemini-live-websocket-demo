@@ -1,0 +1,301 @@
+/* CSS Variables for Theming */
+:root {
+    /* Light mode colors */
+    --bg-color: #ffffff;
+    --text-color: #1f1f1f;
+    --text-secondary: #5f6368;
+    --border-color: #e0e0e0;
+    --code-bg: #f5f5f5;
+    --code-border: #e0e0e0;
+    --link-color: #1a73e8;
+    --link-hover: #174ea6;
+    --table-header-bg: #f5f5f5;
+    --table-row-alt: #fafafa;
+    --blockquote-border: #e0e0e0;
+    --blockquote-bg: #f9f9f9;
+}
+
+[data-theme="dark"] {
+    /* Dark mode colors */
+    --bg-color: #1f1f1f;
+    --text-color: #e8eaed;
+    --text-secondary: #9aa0a6;
+    --border-color: #3c4043;
+    --code-bg: #2d2d2d;
+    --code-border: #3c4043;
+    --link-color: #8ab4f8;
+    --link-hover: #aecbfa;
+    --table-header-bg: #2d2d2d;
+    --table-row-alt: #252525;
+    --blockquote-border: #3c4043;
+    --blockquote-bg: #2d2d2d;
+}
+
+/* Base Styles */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#content {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#error {
+    padding: 16px;
+    margin: 16px 0;
+    background-color: #fef7f7;
+    border-left: 4px solid #d32f2f;
+    color: #d32f2f;
+    border-radius: 4px;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--text-color);
+}
+
+h1 {
+    font-size: 2em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+h3 {
+    font-size: 1.25em;
+}
+
+h4 {
+    font-size: 1em;
+}
+
+h5 {
+    font-size: 0.875em;
+}
+
+h6 {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
+
+p {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+/* Lists */
+ul, ol {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-left: 32px;
+}
+
+li {
+    margin-bottom: 4px;
+}
+
+li > p {
+    margin-bottom: 8px;
+}
+
+/* Nested lists */
+ul ul, ul ol, ol ul, ol ol {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+/* Task lists */
+input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* Blockquotes */
+blockquote {
+    margin: 16px 0;
+    padding: 8px 16px;
+    border-left: 4px solid var(--blockquote-border);
+    background-color: var(--blockquote-bg);
+    color: var(--text-secondary);
+}
+
+blockquote > :first-child {
+    margin-top: 0;
+}
+
+blockquote > :last-child {
+    margin-bottom: 0;
+}
+
+/* Code */
+code {
+    padding: 2px 6px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 3px;
+}
+
+pre {
+    margin: 16px 0;
+    padding: 16px;
+    overflow-x: auto;
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 6px;
+}
+
+pre code {
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    font-size: 0.875em;
+    line-height: 1.45;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    margin: 16px 0;
+    border-collapse: collapse;
+    border-spacing: 0;
+    overflow-x: auto;
+    display: block;
+}
+
+thead {
+    background-color: var(--table-header-bg);
+}
+
+th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+th {
+    font-weight: 600;
+}
+
+tbody tr:nth-child(even) {
+    background-color: var(--table-row-alt);
+}
+
+/* Links */
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+/* Horizontal Rule */
+hr {
+    height: 1px;
+    margin: 24px 0;
+    background-color: var(--border-color);
+    border: none;
+}
+
+/* Images */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 16px 0;
+}
+
+/* LaTeX Styling */
+.katex-display {
+    margin: 16px 0;
+    text-align: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.katex {
+    font-size: 1.1em;
+}
+
+/* Inline math baseline alignment */
+.katex-inline {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* LaTeX error styling */
+.katex-error {
+    color: #d32f2f;
+    background-color: #fef7f7;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* Strikethrough (GFM) */
+del {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+
+/* Emphasis */
+em {
+    font-style: italic;
+}
+
+strong {
+    font-weight: 600;
+}
+
+/* Selection */
+::selection {
+    background-color: rgba(26, 115, 232, 0.3);
+}
+
+::-moz-selection {
+    background-color: rgba(26, 115, 232, 0.3);
+}
+
+/* Scrollbar styling for WebKit browsers */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}

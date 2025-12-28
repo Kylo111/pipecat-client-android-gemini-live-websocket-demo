@@ -103,6 +103,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
+    // WebView support for secure asset loading
+    implementation("androidx.webkit:webkit:1.8.0")
+    
     // Picovoice Porcupine for wake word detection
     implementation("ai.picovoice:porcupine-android:3.0.0")
     

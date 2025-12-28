@@ -35,8 +35,26 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.webkit.WebView
 
 /**
- * Markdown parser that converts markdown text to blocks for rendering.
+ * DEPRECATED: This custom Markdown parser is deprecated in favor of MarkdownWebView.
+ * 
+ * MarkdownWebView provides:
+ * - Professional-grade rendering with marked.js and KaTeX
+ * - Full LaTeX support (block and inline)
+ * - Syntax highlighting for code blocks
+ * - Better table rendering
+ * - Security hardening (XSS prevention, URL validation)
+ * 
+ * This parser will be removed after 2 releases.
+ * Please migrate to MarkdownWebView for new code.
+ * 
+ * @see MarkdownWebView
+ * @deprecated Use MarkdownWebView instead
  */
+@Deprecated(
+    message = "Use MarkdownWebView instead for better rendering and security",
+    replaceWith = ReplaceWith("MarkdownWebView(markdown, modifier)"),
+    level = DeprecationLevel.WARNING
+)
 object MarkdownParser {
     
     sealed class Block {
@@ -463,6 +481,27 @@ object MarkdownParser {
     }
 }
 
+/**
+ * DEPRECATED: This Composable is deprecated in favor of MarkdownWebView.
+ * 
+ * MarkdownWebView provides:
+ * - Professional-grade rendering with marked.js and KaTeX
+ * - Full LaTeX support (block and inline)
+ * - Syntax highlighting for code blocks
+ * - Better table rendering
+ * - Security hardening (XSS prevention, URL validation)
+ * 
+ * This Composable will be removed after 2 releases.
+ * Please migrate to MarkdownWebView for new code.
+ * 
+ * @see MarkdownWebView
+ * @deprecated Use MarkdownWebView instead
+ */
+@Deprecated(
+    message = "Use MarkdownWebView instead for better rendering and security",
+    replaceWith = ReplaceWith("MarkdownWebView(markdown, modifier)"),
+    level = DeprecationLevel.WARNING
+)
 @Composable
 fun MarkdownText(
     markdown: String,
