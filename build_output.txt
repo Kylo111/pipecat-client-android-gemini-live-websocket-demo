@@ -1,7 +1,6 @@
+> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :gemini-multimodal-websocket-demo:preBuild UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:preDebugBuild UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :gemini-multimodal-websocket-demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :gemini-multimodal-websocket-demo:generateDebugBuildConfig UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:checkDebugAarMetadata UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:generateDebugResValues UP-TO-DATE
@@ -16,42 +15,11 @@
 > Task :gemini-multimodal-websocket-demo:processDebugManifest UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugManifestForPackage UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugResources UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:javaPreCompileDebug UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugShaders UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:compileDebugShaders NO-SOURCE
-> Task :gemini-multimodal-websocket-demo:generateDebugAssets UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugAssets UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:compressDebugAssets UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:checkDebugDuplicateClasses UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:desugarDebugFileDependencies UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugStartupProfile UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeExtDexDebug UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeLibDexDebug UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugJniLibFolders UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugNativeLibs UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:stripDebugDebugSymbols UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:validateSigningDebug UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:writeDebugAppMetadata UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:kspDebugKotlin
+
 > Task :gemini-multimodal-websocket-demo:compileDebugKotlin
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/agents/ReasoningWorker.kt:713:52 'class LocalBroadcastManager : Any' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:695:38 'fun getFromLocation(p0: Double, p1: Double, p2: Int): (MutableList<Address!>?..List<Address!>?)' is deprecated. Deprecated in Java.
 
-> Task :gemini-multimodal-websocket-demo:compileDebugJavaWithJavac UP-TO-DATE
-Java compiler version 21 has deprecated support for compiling with source/target version 8.
-Try one of the following options:
-    1. [Recommended] Use Java toolchain with a lower language version
-    2. Set a higher source/target version
-    3. Use a lower version of the JDK running the build (if you're not using Java toolchain)
-For more details on how to configure these settings, see https://developer.android.com/build/jdks.
-To suppress this warning, set android.javaCompile.suppressSourceTargetDeprecationWarning=true in gradle.properties.
-
-> Task :gemini-multimodal-websocket-demo:processDebugJavaRes UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugJavaResource UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:dexBuilderDebug
-> Task :gemini-multimodal-websocket-demo:mergeProjectDexDebug
-> Task :gemini-multimodal-websocket-demo:packageDebug
-> Task :gemini-multimodal-websocket-demo:createDebugApkListingFileRedirect UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:assembleDebug
-
-BUILD SUCCESSFUL in 3s
-38 actionable tasks: 5 executed, 33 up-to-date
+BUILD SUCCESSFUL in 5s
+16 actionable tasks: 2 executed, 14 up-to-date

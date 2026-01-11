@@ -141,6 +141,9 @@ dependencies {
     implementation("io.noties.markwon:html:4.6.2")
     implementation("io.noties.markwon:linkify:4.6.2")
     implementation("io.noties.markwon:inline-parser:4.6.2")
+
+    // Jsoup for HTML parsing (Recipe Importer)
+    implementation("org.jsoup:jsoup:1.22.1")
     
     // Testing dependencies
     testImplementation("junit:junit:4.13.2")

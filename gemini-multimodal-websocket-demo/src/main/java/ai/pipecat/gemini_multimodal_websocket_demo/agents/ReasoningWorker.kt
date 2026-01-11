@@ -18,6 +18,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * ReasoningWorker - WorkManager Worker for executing Reasoning Agent tasks in background.
@@ -279,7 +281,9 @@ class ReasoningWorker(
                     // Try to inject result immediately to active session via broadcast
                     // If session is not active, it will be saved as pendingInsight
                     // Requirements: 6.3, 6.4
-                    broadcastResultToActiveSession(snapshot.conversationId, finalResult)
+                    // DISABLED TO PREVENT AUDIO STABILITY ISSUES:
+                    // broadcastResultToActiveSession(snapshot.conversationId, finalResult)
+                    saveResultAsPendingInsight(snapshot.conversationId, finalResult)
                     
                     Log.i(TAG, "✅ Result broadcast to active session")
                 } else {
@@ -616,6 +620,8 @@ class ReasoningWorker(
         
         return executedActions
     }
+
+
     
     /**
      * Execute Perplexity search action.
@@ -689,12 +695,6 @@ class ReasoningWorker(
         return action.copy(sent = result.success)
     }
     
-    /**
-     * Broadcast reasoning result to active session for immediate injection.
-     * Falls back to pendingInsight if session is not active.
-     * 
-     * Requirements: 6.3, 6.4, 14.4
-     */
     private suspend fun broadcastResultToActiveSession(
         conversationId: String,
         result: ReasoningTaskResult
@@ -847,6 +847,9 @@ class ReasoningWorker(
                 }
             }
             
+            // Detect language for report localization
+            val language = detectLanguageFromTranscript(snapshot.currentSessionTranscript)
+            
             // Generate Markdown report (in user's language)
             val report = generateMarkdownReport(
                 topics = topics,
@@ -854,14 +857,14 @@ class ReasoningWorker(
                 conversationTitle = fullContext.conversationTitle,
                 metaSummary = fullContext.metaSummary,
                 timestamp = System.currentTimeMillis(),
-                transcript = snapshot.currentSessionTranscript
+                language = language
             )
             
             Log.d(TAG, "📝 Generated Markdown report (${report.length} chars)")
             
             // Task 21.3: Save report to multiple destinations
             // Requirements: 9.5
-            val saveResults = saveReportToDestinations(report, snapshot)
+            val saveResults = saveReportToDestinations(report, snapshot, language)
             
             // Log results
             Log.i(TAG, "📊 Report generation complete:")
@@ -1060,10 +1063,8 @@ class ReasoningWorker(
         conversationTitle: String,
         metaSummary: String,
         timestamp: Long,
-        transcript: String
+        language: String
     ): String {
-        // Detect user's language from transcript
-        val language = detectLanguageFromTranscript(transcript)
         val strings = getReportStrings(language)
         
         Log.d(TAG, "📝 Generating report in language: $language")
@@ -1117,7 +1118,8 @@ class ReasoningWorker(
      */
     private suspend fun saveReportToDestinations(
         report: String,
-        snapshot: ReasoningSnapshot
+        snapshot: ReasoningSnapshot,
+        language: String
     ): ReportSaveResults {
         var savedToNotes = false
         var sentToTelegram = false
@@ -1132,8 +1134,10 @@ class ReasoningWorker(
                 tags = listOf("reasoning-agent", "report", "post-session")
             )
             
+            val reportTitle = if (language == "pl") "Raport z sesji" else "Post-Session Report"
+            
             val noteResult = noteService.createNote(
-                title = "Raport z sesji - ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}",
+                title = reportTitle,
                 content = report,
                 metadata = metadata
             )

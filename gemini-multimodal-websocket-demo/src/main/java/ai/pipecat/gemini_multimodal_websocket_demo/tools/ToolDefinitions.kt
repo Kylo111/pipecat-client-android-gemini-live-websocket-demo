@@ -71,7 +71,8 @@ object ToolDefinitions {
         ToolInfo("add_to_shopping_list", "Dodaj do Zakupów", "Zakupy", "Dodawanie produktów"),
         ToolInfo("remove_from_shopping_list", "Usuń z Zakupów", "Zakupy", "Usuwanie produktów"),
         ToolInfo("mark_item_purchased", "Oznacz Kupione", "Zakupy", "Oznaczanie jako kupione"),
-        ToolInfo("clear_purchased_items", "Wyczyść Kupione", "Zakupy", "Usuwanie kupionych produktów")
+        ToolInfo("clear_purchased_items", "Wyczyść Kupione", "Zakupy", "Usuwanie kupionych produktów"),
+        ToolInfo("ania_process_recipe", "Kuchnia: Ania Gotuje", "Kulinaria", "Automatyczne pobieranie, formatowanie i lista zakupów")
     )
 
     // Data class for tool groups in UI
@@ -172,7 +173,8 @@ object ToolDefinitions {
 
             searchPerplexityTool(),
             symptomCheckerTool(),
-            getCreateDoneItemTool()
+            getCreateDoneItemTool(),
+            aniaProcessRecipeTool()
         )
         
         // Add system integration tools based on IntegrationManager enabled state
@@ -1116,13 +1118,13 @@ object ToolDefinitions {
      */
     internal fun addToShoppingListTool() = buildJsonObject {
         put("name", "add_to_shopping_list")
-        put("description", "Add one or more items to the shopping list. Items are automatically categorized (dairy, bread, vegetables, fruits, meat, fish, frozen, drinks, sweets, household, other). Use this when the user wants to add groceries or products to their shopping list.")
+        put("description", "Add one or more items to the shopping list. VERY IMPORTANT: You SHOULD categorize each item yourself to ensure they are grouped correctly. Available categories: Owoce i Warzywa, Pieczywo, Nabiał, Mięso i Wędliny, Ryby i Owoce Morza, Produkty Sypkie, Przetwory i Sosy, Bakalie i Przyprawy, Napoje, Słodycze i Przekąski, Mrożonki, Chemia i Kosmetyki. Format for each item: 'name | category' (e.g., 'mleko | Nabiał', '2 kg mąki | Produkty Sypkie'). If you don't provide a category, the system will try to guess it.")
         putJsonObject("parameters") {
             put("type", "object")
             putJsonObject("properties") {
                 putJsonObject("items") {
                     put("type", "array")
-                    put("description", "List of items to add. Each item can be just a name (e.g., 'milk') or include quantity (e.g., 'milk 2', '3 apples')")
+                    put("description", "List of items to add. Each item can be just a name (e.g., 'milk') or include quantity and category (e.g., 'milk | Nabiał', '3 apples | Owoce')")
                     putJsonObject("items") {
                         put("type", "string")
                     }
@@ -1193,6 +1195,31 @@ object ToolDefinitions {
             putJsonObject("properties") {
                 // No parameters needed
             }
+        }
+    }
+
+    /**
+     * Specialized culinary tool for Ania Gotuje bot.
+     * Fetches, formats, saves recipes and updates shopping list in one go.
+     */
+    internal fun aniaProcessRecipeTool() = buildJsonObject {
+        put("name", "ania_process_recipe")
+        put("description", "Download, format, save recipe note and update shopping list in the background (fire-and-forget). Use ONLY for culinary recipes from 'aniagotuje.pl'. Provide dish name in 'query'.")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("query") {
+                    put("type", "string")
+                    put("description", "Name of the dish (e.g., 'szarlotka') or search query.")
+                }
+                putJsonObject("url") {
+                    put("type", "string")
+                    put("description", "Optional: Direct URL to the recipe on aniagotuje.pl")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("query"))
+            })
         }
     }
 }

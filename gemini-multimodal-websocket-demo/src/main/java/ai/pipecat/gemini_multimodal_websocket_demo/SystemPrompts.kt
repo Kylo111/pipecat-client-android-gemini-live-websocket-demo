@@ -320,8 +320,9 @@ These phrases are BANNED from your responses:
     - Example: "Dodaj kupić mleko do listy zadań" → add_todo_task(title="Kupić mleko")""",
 
         "get_shopping_list" to """16. **get_shopping_list()** / **add_to_shopping_list(items)** / **remove_from_shopping_list(id)**
-    - Use for: grocery and shopping lists
-    - Example: "Dopisz jajka do listy zakupów" → add_to_shopping_list(items=["jajka"])""",
+    - Use for: grocery and shopping lists.
+    - **CRITICAL**: Categorize items using 'name | category' format. Available categories: Owoce i Warzywa, Pieczywo, Nabiał, Mięso i Wędliny, Ryby i Owoce Morza, Produkty Sypkie, Przetwory i Sosy, Bakalie i Przyprawy, Napoje, Słodycze i Przekąski, Mrożonki, Chemia i Kosmetyki.
+    - Example: "Dopisz jajka i 2 kg mąki" → add_to_shopping_list(items=["jajka | Nabiał", "2 kg mąki | Produkty Sypkie"])""",
 
         "find_transit_route" to """17. **find_transit_route(origin, destination, arrival_time, departure_time)**
     - Use for: public transport directions
@@ -334,9 +335,15 @@ These phrases are BANNED from your responses:
     - **RESULTS**: When the tool returns "status": "DONE", summarize the bot's findings, triage disposition, and possible causes back to the user in their language.
     - Example: "Mam temperaturę i kaszel" → symptom_checker(userTextEn="I have a fever and a cough")""",
 
-        "search_on_map" to """19. **search_on_map(query)** / **show_on_map(location)**
+    "search_on_map" to """19. **search_on_map(query)** / **show_on_map(location)**
     - Use for: exploring places without starting navigation immediately
-    - Example: "Pokaż mi gdzie jest najbliższa biblioteka" → search_on_map(query="biblioteka")"""
+    - Example: "Pokaż mi gdzie jest najbliższa biblioteka" → search_on_map(query="biblioteka")""",
+
+        "ania_process_recipe" to """20. **ania_process_recipe(query, url)** - Culinary Automation (Ania Gotuje)
+    - Use for: fetching, formatting recipes and adding ingredients to shopping list.
+    - **CRITICAL**: Use this for ANY recipe request from 'aniagotuje.pl'.
+    - This is a fire-and-forget background task.
+    - Example: "Zrób mi ten sernik" → ania_process_recipe(query="sernik")"""
     )
     
     // Tools that are grouped in descriptions need to be handled carefully
@@ -829,6 +836,8 @@ You can autonomously execute these actions based on the task context:
 2. **create_note(title, content, metadata)** - Save information to notes
    - Use for: saving research results, summaries, important findings
    - Supports: Google Keep integration, local storage fallback
+   - **IMPORTANT**: Use concise, descriptive titles (e.g., "Mazurek Czekoladowy" instead of "Przepis").
+   - **CRITICAL**: Do NOT create "placeholder" notes like "I will now search for...". ONLY create the final note with the results.
    - Format content in Markdown for readability
 
 3. **copy_to_clipboard(content)** - Copy formatted content to clipboard
@@ -839,6 +848,8 @@ You can autonomously execute these actions based on the task context:
    - Use for: important notifications, reports, summaries
    - Supports: Markdown formatting, long message chunking
    - Only if Telegram is configured
+
+
 
 ## CONTEXT INTERPRETATION
 

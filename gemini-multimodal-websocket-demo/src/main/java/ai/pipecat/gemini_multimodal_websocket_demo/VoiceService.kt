@@ -24,6 +24,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.graphics.Color
 
 /**
  * Foreground service to maintain voice conversation in background.
@@ -361,7 +362,7 @@ class VoiceService : Service() {
     private fun createNotification(status: String = "Trwa rozmowa głosowa"): Notification {
         // Intent to open the app when notification is tapped
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
-            setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         }
         val openAppPendingIntent = PendingIntent.getActivity(
             this,
@@ -382,7 +383,7 @@ class VoiceService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Rozmowa z AI")
+            .setContentTitle("🔴 Sesja Live z AI")
             .setContentText(status)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(openAppPendingIntent)
@@ -392,8 +393,11 @@ class VoiceService : Service() {
                 endConversationPendingIntent
             )
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setUsesChronometer(true)
+            .setColor(Color.RED)
+            .setColorized(true)
             .build()
     }
 

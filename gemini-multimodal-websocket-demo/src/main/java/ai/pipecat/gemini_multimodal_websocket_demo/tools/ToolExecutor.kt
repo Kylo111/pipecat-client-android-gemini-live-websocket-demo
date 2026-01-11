@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import ai.pipecat.gemini_multimodal_websocket_demo.network.AzureHealthBotClient
+import ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ProductCategory
 import ai.pipecat.gemini_multimodal_websocket_demo.data.DoneListService
 import ai.pipecat.gemini_multimodal_websocket_demo.data.DoneItem
 import kotlinx.coroutines.withContext
@@ -29,6 +30,7 @@ import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -97,6 +99,7 @@ class ToolExecutor(private val context: Context) {
                 "start_navigation" -> startNavigation(parameters)
                 "copy_to_clipboard" -> copyToClipboard(parameters)
                 "start_reasoning_task" -> startReasoningTask(parameters)
+                "ania_process_recipe" -> aniaProcessRecipe(parameters)
                 "search_contacts" -> searchContacts(parameters)
                 "send_sms" -> sendSms(parameters)
                 "set_alarm" -> setAlarm(parameters)
@@ -1117,7 +1120,7 @@ class ToolExecutor(private val context: Context) {
             Log.i(TAG, "✅ Successfully created offline conversation: ${conversation.id}")
             Log.i(TAG, "✅ Conversation details: title='${conversation.title}', voiceName='${conversation.voiceName}'")
             
-            "Successfully created offline conversation '$name'! You can now find it in the conversation list. The bot is ready to use with the following behavior: ${systemPrompt.take(100)}${if (systemPrompt.length > 100) "..." else ""}"
+            "Pomyślnie utworzono asystenta '$name'! Możesz go teraz znaleźć na liście rozmów. Bot jest gotowy do pracy z następującym zachowaniem: ${systemPrompt.take(100)}${if (systemPrompt.length > 100) "..." else ""}"
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error creating offline conversation: ${e.message}", e)
@@ -1274,11 +1277,11 @@ class ToolExecutor(private val context: Context) {
             // Return acknowledgment immediately (don't wait for result!)
             when (priority) {
                 ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.HIGH ->
-                    "I'm working on that right now in the background. I'll let you know what I find as soon as possible."
+                    "Już się tym zajmuję w tle. Dam znać, gdy tylko skończę."
                 ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.NORMAL ->
-                    "I've started working on that in the background. I'll share the results with you when they're ready."
+                    "Przygotuję to dla Ciebie w tle. Poinformuję Cię, gdy wyniki będą gotowe."
                 ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningAgentManager.TaskPriority.LOW ->
-                    "I've noted that and will work on it in the background. I'll let you know when I have something."
+                    "Zapisałam to zadanie. Wykonam je w tle i dam znać, gdy będzie gotowe."
             }
             
         } catch (e: Exception) {
@@ -2154,8 +2157,27 @@ class ToolExecutor(private val context: Context) {
             val addedItems = mutableListOf<String>()
             
             itemsArray.forEach { itemElement ->
-                val itemStr = itemElement.jsonPrimitive.content.trim()
-                if (itemStr.isNotEmpty()) {
+                val rawItemStr = itemElement.jsonPrimitive.content.trim()
+                if (rawItemStr.isNotEmpty()) {
+                    var parsedCategory: ProductCategory? = null
+                    var itemStr = rawItemStr
+
+                    // Handle "name | category" format
+                    if (rawItemStr.contains("|")) {
+                        val parts = rawItemStr.split("|")
+                        if (parts.size >= 2) {
+                            itemStr = parts[0].trim()
+                            val categoryStr = parts[1].trim()
+                            parsedCategory = try {
+                                // Try to match by display name (case insensitive)
+                                ProductCategory.values().find { cat -> cat.displayName.equals(categoryStr, ignoreCase = true) }
+                                    ?: ProductCategory.values().find { cat -> cat.name.equals(categoryStr, ignoreCase = true) }
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                    }
+
                     // Try to parse quantity from string like "milk 2" or "3 apples"
                     val parts = itemStr.split(" ")
                     val quantity: Int?
@@ -2176,7 +2198,7 @@ class ToolExecutor(private val context: Context) {
                         name = itemStr
                     }
                     
-                    val item = shoppingListManager.addItem(name, quantity)
+                    val item = shoppingListManager.addItem(name, quantity, parsedCategory)
                     val quantityStr = quantity?.let { " ($it)" } ?: ""
                     addedItems.add("${item.name}$quantityStr (${item.category.displayName})")
                 }
@@ -2187,9 +2209,9 @@ class ToolExecutor(private val context: Context) {
             }
             
             val response = if (addedItems.size == 1) {
-                "Added ${addedItems[0]} to your shopping list."
+                "Dodano ${addedItems[0]} do listy zakupów."
             } else {
-                "Added ${addedItems.size} items to your shopping list:\n" + 
+                "Dodano ${addedItems.size} produktów do listy zakupów:\n" + 
                 addedItems.joinToString("\n") { "• $it" }
             }
             
@@ -2548,5 +2570,36 @@ class ToolExecutor(private val context: Context) {
         }
         
         return results
+    }
+    private suspend fun aniaProcessRecipe(parameters: JsonObject): String = withContext(Dispatchers.Main) {
+        val query = parameters["query"]?.jsonPrimitive?.content ?: ""
+        val url = parameters["url"]?.jsonPrimitive?.content
+        
+        Log.i(TAG, "🍳 Starting background recipe task: $query")
+        
+        try {
+            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+            val sessionManager = voiceService?.getSessionManager()
+            val conversationId = sessionManager?.getCurrentConversationId() ?: "default"
+            
+            val workManager = androidx.work.WorkManager.getInstance(context)
+            val inputData = androidx.work.Data.Builder()
+                .putString(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_QUERY, query)
+                .putString(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_CONVERSATION_ID, conversationId)
+            
+            url?.let { inputData.putString(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_URL, it) }
+            
+            val workRequest = androidx.work.OneTimeWorkRequestBuilder<ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker>()
+                .setInputData(inputData.build())
+                .addTag("culinary_task")
+                .build()
+                
+            workManager.enqueue(workRequest)
+            
+            "Zaczęłam pobierać przepis, formatować go i dodawać składniki do listy zakupów. Poinformuję Cię (notatka pojawi się w sekcji Postępy), gdy wszystko będzie gotowe."
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to enqueue culinary task: ${e.message}", e)
+            "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania kulinarnego: ${e.message}"
+        }
     }
 }

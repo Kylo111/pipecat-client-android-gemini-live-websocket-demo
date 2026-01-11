@@ -211,12 +211,19 @@ class NoteService(
                 if (!exists()) mkdirs()
             }
             
-            // Create filename from title and timestamp
-            val sanitizedTitle = title.replace(Regex("[^a-zA-Z0-9-_]"), "_")
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val filename = "${sanitizedTitle}_${timestamp}.txt"
+            // Create filename from title
+            // Allow letters from any language (including Polish), numbers, dashes, underscores and spaces
+            val sanitizedTitle = title.replace(Regex("[^\\p{L}0-9-_\\s]"), "_").take(50)
+            var filename = "$sanitizedTitle.txt"
+            var noteFile = File(notesDir, filename)
             
-            val noteFile = File(notesDir, filename)
+            // If file exists, append a short counter instead of a full timestamp
+            var counter = 1
+            while (noteFile.exists()) {
+                filename = "${sanitizedTitle}_$counter.txt"
+                noteFile = File(notesDir, filename)
+                counter++
+            }
             noteFile.writeText(content)
             
             Log.i(TAG, "Note saved to local storage: ${noteFile.absolutePath}")

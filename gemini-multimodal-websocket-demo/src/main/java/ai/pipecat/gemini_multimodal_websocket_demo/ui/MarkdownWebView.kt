@@ -178,6 +178,16 @@ fun MarkdownWebView(
                             return assetLoader.shouldInterceptRequest(url)
                         }
                         
+                        // Allow specific image domains for recipes (aniagotuje.pl and its CDN aniagotuje.com)
+                        val host = url.host?.lowercase()
+                        val path = url.path?.lowercase()
+                        if (request.method == "GET" && 
+                            host != null && (host == "aniagotuje.pl" || host.endsWith(".aniagotuje.pl") || 
+                                            host == "aniagotuje.com" || host.endsWith(".aniagotuje.com")) &&
+                            path != null && (path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png") || path.endsWith(".webp"))) {
+                            return null // Allow network request
+                        }
+                        
                         // HARD BLOCK: Return 403 Forbidden for all other requests
                         // This prevents WebView from attempting network fallback
                         Log.w(TAG, "Blocked unauthorized request: $url")
@@ -186,7 +196,7 @@ fun MarkdownWebView(
                             "UTF-8",
                             403,
                             "Forbidden",
-                            mapOf("X-Blocked-Reason" to "Not appassets domain"),
+                            mapOf("X-Blocked-Reason" to "Not allowlisted domain"),
                             ByteArrayInputStream("403 Forbidden: Network requests blocked".toByteArray())
                         )
                     }

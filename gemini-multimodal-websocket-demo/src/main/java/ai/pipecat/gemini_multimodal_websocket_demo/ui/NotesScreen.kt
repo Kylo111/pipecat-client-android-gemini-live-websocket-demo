@@ -445,8 +445,15 @@ fun NoteListItem(
     onLongPress: () -> Unit
 ) {
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
-    val title = note.nameWithoutExtension
-        .replace("_", " ")
+    // Clean up title: replace underscores with spaces and strip trailing timestamps (yyyyMMdd HHmmss)
+    val displayTitle = remember(note.nameWithoutExtension) {
+        val base = note.nameWithoutExtension.replace("_", " ")
+        // Regex to match trailing timestamps like "20260111 145955" or "2026-01-11 14 59"
+        val timestampRegex = Regex("\\s\\d{4}-?\\d{2}-?\\d{2}\\s\\d{2}\\s\\d{2}(\\s\\d{2})?$")
+        val compactTimestampRegex = Regex("\\s\\d{8}\\s\\d{6}$")
+        
+        base.replace(timestampRegex, "").replace(compactTimestampRegex, "").trim()
+    }
     
     Column(
         modifier = Modifier
@@ -460,7 +467,7 @@ fun NoteListItem(
             .padding(16.dp)
     ) {
         Text(
-            text = title,
+            text = displayTitle,
             fontSize = 16.sp,
             fontWeight = FontWeight.W600,
             color = Color.Black,
@@ -533,8 +540,15 @@ fun NoteDetailView(
             Spacer(modifier = Modifier.width(16.dp))
             
             // Title
+            val displayTitle = remember(note.nameWithoutExtension) {
+                val base = note.nameWithoutExtension.replace("_", " ")
+                val timestampRegex = Regex("\\s\\d{4}-?\\d{2}-?\\d{2}\\s\\d{2}\\s\\d{2}(\\s\\d{2})?$")
+                val compactTimestampRegex = Regex("\\s\\d{8}\\s\\d{6}$")
+                base.replace(timestampRegex, "").replace(compactTimestampRegex, "").trim()
+            }
+
             Text(
-                text = note.nameWithoutExtension.replace("_", " "),
+                text = displayTitle,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.W700,
                 color = Color.Black,
@@ -593,8 +607,14 @@ fun NoteContextMenu(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
+            val displayTitle = remember(note.nameWithoutExtension) {
+                val base = note.nameWithoutExtension.replace("_", " ")
+                val timestampRegex = Regex("\\s\\d{4}-?\\d{2}-?\\d{2}\\s\\d{2}\\s\\d{2}(\\s\\d{2})?$")
+                val compactTimestampRegex = Regex("\\s\\d{8}\\s\\d{6}$")
+                base.replace(timestampRegex, "").replace(compactTimestampRegex, "").trim()
+            }
             Text(
-                text = note.nameWithoutExtension.replace("_", " "),
+                text = displayTitle,
                 style = TextStyles.base,
                 fontWeight = FontWeight.W600,
                 maxLines = 2,

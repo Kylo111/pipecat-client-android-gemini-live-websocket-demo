@@ -153,33 +153,8 @@ class ActionExecutor(
      * Requirements: 4.2, 4.3
      */
     private suspend fun executeToolUseAction(response: ControlResponse): ActionResult = withContext(Dispatchers.IO) {
-        Log.i(TAG, "🔧 Executing TOOL_USE action")
-        
-        try {
-            // Extract tool name from parameters
-            val toolName = response.parameters["tool_name"]
-            if (toolName.isNullOrBlank()) {
-                Log.w(TAG, "❌ TOOL_USE requires tool_name parameter")
-                return@withContext ActionResult.Error("Missing tool_name parameter")
-            }
-            
-            // Extract tool parameters and convert to JsonObject
-            val toolParameters = response.parameters.filterKeys { it != "tool_name" }
-            val jsonParameters = JsonObject(
-                toolParameters.mapValues { (_, value) -> JsonPrimitive(value) }
-            )
-            
-            Log.i(TAG, "🔧 Executing tool: $toolName with parameters: $jsonParameters")
-            
-            // Call ToolExecutor.executeTool()
-            val result = toolExecutor.executeTool(toolName, jsonParameters)
-            
-            Log.i(TAG, "✅ Tool execution completed: $toolName -> ${result.take(100)}...")
-            ActionResult.Success
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to execute TOOL_USE action", e)
-            ActionResult.Error("Failed to execute tool: ${e.message}")
-        }
+        Log.i(TAG, "🔧 Skipping TOOL_USE action in Control Agent sidecar (now handled by main session to avoid conflicts)")
+        ActionResult.Skipped
     }
     
     /**
@@ -187,43 +162,7 @@ class ActionExecutor(
      * Requirements: 10.1, 10.2
      */
     private suspend fun executeReasoningTaskAction(response: ControlResponse): ActionResult = withContext(Dispatchers.IO) {
-        Log.i(TAG, "🧠 Executing REASONING_TASK action")
-        
-        try {
-            // Check if reasoning_agent is enabled in config
-            val configProvider = ai.pipecat.gemini_multimodal_websocket_demo.config.AgentConfigProvider
-            val reasoningConfig = configProvider.getReasoningAgentConfig()
-            
-            if (!reasoningConfig.enabled) {
-                Log.w(TAG, "❌ Reasoning agent is disabled in configuration")
-                return@withContext ActionResult.Error("Reasoning agent is disabled")
-            }
-            
-            val reasoningPrompt = response.reasoningPrompt
-            if (reasoningPrompt.isNullOrBlank()) {
-                Log.w(TAG, "❌ REASONING_TASK requires reasoningPrompt")
-                return@withContext ActionResult.Error("Missing reasoning prompt")
-            }
-            
-            // Prepare input data for ReasoningWorker
-            val inputData = Data.Builder()
-                .putString("reasoning_prompt", reasoningPrompt)
-                .putString("conversation_id", sessionManager.getCurrentSession()?.conversationId ?: "")
-                .putString("session_id", sessionManager.getCurrentSession()?.sessionId ?: "")
-                .build()
-            
-            // Schedule ReasoningWorker via WorkManager
-            val workRequest = OneTimeWorkRequestBuilder<ReasoningWorker>()
-                .setInputData(inputData)
-                .build()
-            
-            WorkManager.getInstance(context).enqueue(workRequest)
-            
-            Log.i(TAG, "✅ REASONING_TASK scheduled successfully: ${workRequest.id}")
-            ActionResult.Success
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to execute REASONING_TASK action", e)
-            ActionResult.Error("Failed to schedule reasoning task: ${e.message}")
-        }
+        Log.i(TAG, "🧠 Skipping REASONING_TASK action in Control Agent sidecar (now handled by main session to avoid conflicts)")
+        ActionResult.Skipped
     }
 }

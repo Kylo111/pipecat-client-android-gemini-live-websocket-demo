@@ -84,6 +84,8 @@ class VoiceClientManager(
     // Image processor
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
     private var imageProcessingJob: kotlinx.coroutines.Job? = null
+    private var lastBotSpeechEndedAt: Long = 0
+    private val ECHO_SUPPRESSION_WINDOW_MS = 1000L // Ignore transcripts for 1s after bot stops talking
     
     // UI State (VoiceUiState for compatibility with MainActivity)
     private val _uiState = MutableStateFlow(VoiceUiState())
@@ -387,29 +389,36 @@ class VoiceClientManager(
         client.onInputTranscription = { text, isFinal ->
             _uiState.value = _uiState.value.copy(lastUserTranscript = text)
             
-            // Send to SessionManager if not empty
-            if (text.isNotBlank()) {
-                sessionManager?.captureUserTranscript(text, isFinal)
-            }
-            
-            // Send to ControlAgentManager in parallel (fire-and-forget)
-            // Use isFinal for immediate processing or VAD-debounce as fallback
-            // ControlAgentManager will handle debouncing internally if not final
-            if (text.isNotBlank() && text.length > 2) { // Only process if text is meaningful
-                Log.d(TAG, "📝 Transcript received: '$text' (final=$isFinal) - forwarding to ControlAgent")
+            // ECHO SUPPRESSION: Ignore transcripts if bot is talking or just finished talking.
+            // This prevents the bot from hearing its own voice and creating an feedback loop.
+            val now = System.currentTimeMillis()
+            if (_uiState.value.isBotTalking || (now - lastBotSpeechEndedAt < ECHO_SUPPRESSION_WINDOW_MS)) {
+                Log.d(TAG, "🔇 Suppressing echo transcript (bot talking/just finished): '$text'")
+            } else {
+                // Send to SessionManager if not empty
+                if (text.isNotBlank()) {
+                    sessionManager?.captureUserTranscript(text, isFinal)
+                }
                 
-                // Get ControlAgentManager from VoiceService
-                val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
-                val controlAgent = voiceService?.getControlAgentManager()
-                
-                if (voiceService == null) {
-                    Log.w(TAG, "⚠️ VoiceService.getInstance() returned null - ControlAgent not available")
-                } else if (controlAgent == null) {
-                    Log.w(TAG, "⚠️ ControlAgentManager not initialized in VoiceService")
-                } else {
-                    // Collect transcript fragment
-                    Log.d(TAG, "📝 Forwarding transcript to Control Agent")
-                    controlAgent.onUserTranscript(text, isFinal)
+                // Send to ControlAgentManager in parallel (fire-and-forget)
+                // Use isFinal for immediate processing or VAD-debounce as fallback
+                // ControlAgentManager will handle debouncing internally if not final
+                if (text.isNotBlank() && text.length > 2) { // Only process if text is meaningful
+                    Log.d(TAG, "📝 Transcript received: '$text' (final=$isFinal) - forwarding to ControlAgent")
+                    
+                    // Get ControlAgentManager from VoiceService
+                    val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+                    val controlAgent = voiceService?.getControlAgentManager()
+                    
+                    if (voiceService == null) {
+                        Log.w(TAG, "⚠️ VoiceService.getInstance() returned null - ControlAgent not available")
+                    } else if (controlAgent == null) {
+                        Log.w(TAG, "⚠️ ControlAgentManager not initialized in VoiceService")
+                    } else {
+                        // Collect transcript fragment
+                        Log.d(TAG, "📝 Forwarding transcript to Control Agent")
+                        controlAgent.onUserTranscript(text, isFinal)
+                    }
                 }
             }
         }
@@ -529,10 +538,12 @@ class VoiceClientManager(
         
         engine.onPlaybackComplete = {
             Log.d(TAG, "Playback complete")
+            lastBotSpeechEndedAt = System.currentTimeMillis()
             _uiState.value = _uiState.value.copy(
                 isBotTalking = false,
                 botAudioLevel = 0f
             )
+            updateSystemState()
         }
     }
     
@@ -633,6 +644,7 @@ class VoiceClientManager(
     private fun onGeminiInterrupted() {
         Log.i(TAG, "🚫 Interrupted by user")
         audioEngine?.flush()
+        lastBotSpeechEndedAt = System.currentTimeMillis()
         _uiState.value = _uiState.value.copy(isBotTalking = false)
         autoMuteMonitor?.setBotTalking(false)
         

@@ -58,6 +58,7 @@
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.RTVIClient">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

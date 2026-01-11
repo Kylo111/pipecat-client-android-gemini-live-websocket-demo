@@ -162,6 +162,12 @@ class MainActivity : ComponentActivity() {
                             startVoiceService()
                             updateVoiceServiceNotification("Połączono - rozmowa aktywna")
                             Log.d(TAG, "Connection established - VoiceService started")
+                            
+                            // Ensure we are on the IN_CALL screen if a session is active
+                            if (navigationController.currentScreen.value != Screen.IN_CALL) {
+                                Log.d(TAG, "Switching to IN_CALL screen due to active connection")
+                                navigationController.navigateTo(Screen.IN_CALL)
+                            }
                         }
                         ConnectionState.RECONNECTING -> {
                             // Update notification during reconnection
@@ -778,9 +784,11 @@ class MainActivity : ComponentActivity() {
         voiceClientManager.resumeSessionIfNeeded()
         
         val connectionState = voiceClientManager.uiState.value.connectionState
-        if (connectionState == ConnectionState.CONNECTED) {
-            Log.d(TAG, "[handleResume] Active connection - already running normally")
-            // ✅ Do nothing - session is already active
+        if (connectionState == ConnectionState.CONNECTED || connectionState == ConnectionState.RECONNECTING) {
+            Log.d(TAG, "[handleResume] Active connection - ensuring IN_CALL screen")
+            if (navigationController.currentScreen.value != Screen.IN_CALL) {
+                navigationController.navigateTo(Screen.IN_CALL)
+            }
         } else {
             Log.d(TAG, "[handleResume] No active connection (state=$connectionState)")
         }

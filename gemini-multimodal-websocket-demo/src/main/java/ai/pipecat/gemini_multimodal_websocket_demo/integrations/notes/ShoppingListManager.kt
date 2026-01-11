@@ -52,16 +52,18 @@ class ShoppingListManager(private val context: Context) {
      * Adds a new item to the shopping list with automatic categorization.
      * 
      * The category is determined by:
-     * 1. User correction for this product (if exists)
-     * 2. Default dictionary mapping
-     * 3. Fallback to OTHER
+     * 1. Manual override (if provided)
+     * 2. User correction for this product (if exists)
+     * 3. Default dictionary mapping
+     * 4. Fallback to OTHER
      * 
      * @param name Product name
      * @param quantity Optional quantity
+     * @param categoryOverride Optional category to use instead of auto-categorization
      * @return The created shopping item
      */
-    suspend fun addItem(name: String, quantity: Int? = null): ShoppingItem {
-        val category = getCategoryForProduct(name)
+    suspend fun addItem(name: String, quantity: Int? = null, categoryOverride: ProductCategory? = null): ShoppingItem {
+        val category = categoryOverride ?: getCategoryForProduct(name)
         
         val entity = ShoppingItemEntity(
             name = name.trim(),
