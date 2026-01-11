@@ -2574,8 +2574,9 @@ class ToolExecutor(private val context: Context) {
     private suspend fun aniaProcessRecipe(parameters: JsonObject): String = withContext(Dispatchers.Main) {
         val query = parameters["query"]?.jsonPrimitive?.content ?: ""
         val url = parameters["url"]?.jsonPrimitive?.content
+        val shouldAddShoppingList = parameters["should_add_shopping_list"]?.jsonPrimitive?.booleanOrNull ?: true
         
-        Log.i(TAG, "🍳 Starting background recipe task: $query")
+        Log.i(TAG, "🍳 Starting background recipe task: $query (addShoppingList: $shouldAddShoppingList)")
         
         try {
             val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
@@ -2586,6 +2587,7 @@ class ToolExecutor(private val context: Context) {
             val inputData = androidx.work.Data.Builder()
                 .putString(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_QUERY, query)
                 .putString(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_CONVERSATION_ID, conversationId)
+                .putBoolean(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_SHOULD_ADD_SHOPPING_LIST, shouldAddShoppingList)
             
             url?.let { inputData.putString(ai.pipecat.gemini_multimodal_websocket_demo.agents.CulinaryWorker.KEY_URL, it) }
             
@@ -2596,7 +2598,7 @@ class ToolExecutor(private val context: Context) {
                 
             workManager.enqueue(workRequest)
             
-            "Zaczęłam pobierać przepis, formatować go i dodawać składniki do listy zakupów. Poinformuję Cię (notatka pojawi się w sekcji Postępy), gdy wszystko będzie gotowe."
+            "Success. Background recipe processing task has been started."
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to enqueue culinary task: ${e.message}", e)
             "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania kulinarnego: ${e.message}"
