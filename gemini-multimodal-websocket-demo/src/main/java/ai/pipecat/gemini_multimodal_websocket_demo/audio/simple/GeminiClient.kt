@@ -335,10 +335,10 @@ class GeminiClient(
             is GeminiEvent.Transcript -> {
                 when (event.speaker) {
                     GeminiEvent.Transcript.Speaker.USER -> {
-                        onInputTranscription?.invoke(event.text, false)
+                        onInputTranscription?.invoke(event.text, event.isFinal)
                     }
                     GeminiEvent.Transcript.Speaker.BOT -> {
-                        onOutputTranscription?.invoke(event.text, false)
+                        onOutputTranscription?.invoke(event.text, event.isFinal)
                     }
                 }
             }

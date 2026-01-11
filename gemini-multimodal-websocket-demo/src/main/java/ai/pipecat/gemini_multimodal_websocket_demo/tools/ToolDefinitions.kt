@@ -169,7 +169,7 @@ object ToolDefinitions {
             startNavigationTool(),
             // copyToClipboardTool(), // REMOVED - handled by Reasoning Agent via start_reasoning_task
             startReasoningTaskTool(),
-            startReasoningTaskTool(),
+
             searchPerplexityTool(),
             symptomCheckerTool(),
             getCreateDoneItemTool()

@@ -59,12 +59,30 @@ fun ShoppingListScreen(
             .background(Colors.activityBackground)
             .padding(6.dp)
     ) {
-        // Header with cart icon and title
+        // Header with back button and title
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Back button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Colors.buttonNormal)
+                    .clickable { onClose() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "←",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.W600,
+                    color = Color.White,
+                    style = TextStyles.base
+                )
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -79,24 +97,6 @@ fun ShoppingListScreen(
                     fontSize = 24.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
-                    style = TextStyles.base
-                )
-            }
-
-            // X button
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Colors.buttonNormal)
-                    .clickable { onClose() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "✕",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.W600,
-                    color = Color.White,
                     style = TextStyles.base
                 )
             }

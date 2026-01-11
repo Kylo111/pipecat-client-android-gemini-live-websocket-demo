@@ -252,18 +252,10 @@ fun NotesListView(
         // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Notatki",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.W700,
-                color = Color.Black,
-                style = TextStyles.base
-            )
-
-            // X button
+            // Back button
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -273,13 +265,21 @@ fun NotesListView(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "✕",
+                    text = "←",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
                     style = TextStyles.base
                 )
             }
+
+            Text(
+                text = "Notatki",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.W700,
+                color = Color.Black,
+                style = TextStyles.base
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

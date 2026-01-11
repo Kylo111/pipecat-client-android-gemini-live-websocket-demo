@@ -53,7 +53,8 @@ sealed class GeminiEvent {
     @Immutable
     data class Transcript(
         val text: String,
-        val speaker: Speaker
+        val speaker: Speaker,
+        val isFinal: Boolean = true
     ) : GeminiEvent() {
         /**
          * Enum indicating the source of the transcript.

@@ -101,29 +101,31 @@ class ControlAgentManager(
     }
     
     /**
-     * Process user transcript fragment with VAD-based debounce.
+     * Process user transcript fragment with VAD-based debounce and isFinal support.
      * 
      * Official Gemini Live API approach:
-     * - No isFinal flag in transcripts
-     * - Use automatic VAD (Voice Activity Detection)
-     * - Buffer transcripts and process after >1s silence (per docs)
-     * 
-     * This method:
-     * - Returns IMMEDIATELY (non-blocking)
      * - Collects fragments in 5-second window
-     * - Processes after 1.2s silence (VAD-based turn detection)
+     * - Processes IMMEDIATELY if isFinal is true (turn complete)
+     * - Processes after 1.2s silence if isFinal is false (VAD backup)
      * 
      * Requirements: 5.3, 5.4, 5.5, 7.2
      * 
      * @param transcript Fragment of user utterance from Gemini
+     * @param isFinal True if Gemini indicates the user has finished this utterance
      */
-    fun onUserTranscript(transcript: String) {
+    fun onUserTranscript(transcript: String, isFinal: Boolean = false) {
         // Return immediately - this is fire-and-forget
-        Log.d(TAG, "📝 Received transcript fragment: '$transcript'")
+        Log.d(TAG, "📝 Received transcript fragment: '$transcript' (isFinal=$isFinal)")
         
         // Add to buffer with timestamp
         val now = System.currentTimeMillis()
         synchronized(transcriptBuffer) {
+            // Gemini transcription is typically cumulative for the current turn.
+            // If isFinal is true, we replace the buffer with this final text.
+            // In other cases, we store fragments.
+            if (isFinal) {
+                transcriptBuffer.clear()
+            }
             transcriptBuffer.add(Pair(now, transcript))
             
             // Remove old transcripts (>5 seconds old)
@@ -135,32 +137,46 @@ class ControlAgentManager(
         // Cancel previous debounce (new fragment arrived)
         debounceJob?.cancel()
         
-        // Start new debounce timer
-        debounceJob = scope.launch {
-            try {
-                // Wait for silence (>1s per Gemini VAD docs)
-                kotlinx.coroutines.delay(DEBOUNCE_DELAY_MS)
-                
-                // Combine all fragments from buffer
+        if (isFinal) {
+            // Process immediately if turn is complete
+            scope.launch {
                 val completeUtterance = synchronized(transcriptBuffer) {
-                    val utterance = transcriptBuffer.joinToString(" ") { it.second }
-                    transcriptBuffer.clear() // Clear after combining
+                    val utterance = transcriptBuffer.joinToString(" ") { it.second }.trim()
+                    transcriptBuffer.clear()
                     utterance
                 }
-                
-                if (completeUtterance.isBlank()) {
-                    Log.d(TAG, "⚠️ Debounce complete but utterance is empty")
-                    return@launch
+                if (completeUtterance.isNotBlank()) {
+                    Log.d(TAG, "✅ IsFinal detected - processing complete utterance immediately: '$completeUtterance'")
+                    processTranscriptAsync(completeUtterance)
                 }
-                
-                Log.d(TAG, "✅ VAD silence detected - processing complete utterance: '$completeUtterance'")
-                processTranscriptAsync(completeUtterance)
-                
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // Cancelled by new transcript - this is expected
-                Log.d(TAG, "Debounce cancelled (new transcript arrived)")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in debounce processing", e)
+            }
+        } else {
+            // Start new debounce timer (VAD fallback)
+            debounceJob = scope.launch {
+                try {
+                    // Wait for silence (>1s per Gemini VAD docs)
+                    kotlinx.coroutines.delay(DEBOUNCE_DELAY_MS)
+                    
+                    // Combine all fragments from buffer
+                    val completeUtterance = synchronized(transcriptBuffer) {
+                        val utterance = transcriptBuffer.joinToString(" ") { it.second }.trim()
+                        transcriptBuffer.clear() // Clear after combining
+                        utterance
+                    }
+                    
+                    if (completeUtterance.isBlank()) {
+                        Log.d(TAG, "⚠️ Debounce complete but utterance is empty")
+                        return@launch
+                    }
+                    
+                    Log.d(TAG, "✅ VAD silence detected - processing complete utterance: '$completeUtterance'")
+                    processTranscriptAsync(completeUtterance)
+                    
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // Cancelled by new transcript - this is expected
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in debounce processing", e)
+                }
             }
         }
     }

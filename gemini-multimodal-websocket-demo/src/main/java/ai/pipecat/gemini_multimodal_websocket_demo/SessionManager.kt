@@ -101,7 +101,8 @@ class SessionManager(
     data class TranscriptEntry(
         val timestamp: Long,
         val speaker: Speaker,
-        val text: String
+        val text: String,
+        val isFinal: Boolean = true
     )
     
     /**
@@ -579,25 +580,43 @@ class SessionManager(
      * 
      * @param text The transcribed text from the user
      */
-    fun captureUserTranscript(text: String) {
-        if (text.isBlank()) {
+    fun captureUserTranscript(text: String, isFinal: Boolean = true) {
+        if (text.isEmpty()) {
             Log.d(TAG, "Skipping empty user transcript")
             return
         }
         
-        val trimmedText = text.trim()
         val currentList = _transcriptItems.value.toMutableList()
         val lastEntry = currentList.lastOrNull()
         
-        // Check if we should merge with the last entry (same speaker within 5 seconds)
+        // Check if we should merge with the last entry
+        // We merge if:
+        // 1. Same speaker AND
+        // 2. Last entry was NOT final OR 
+        // 3. Last entry was very recent (within 5 seconds)
         val shouldMerge = lastEntry != null && 
             lastEntry.speaker == Speaker.USER &&
-            (System.currentTimeMillis() - lastEntry.timestamp) < 5000
+            (!lastEntry.isFinal || (System.currentTimeMillis() - lastEntry.timestamp) < 5000)
         
         if (shouldMerge && lastEntry != null) {
-            // Merge with the last entry - append text with space
-            val mergedText = "${lastEntry.text} $trimmedText"
-            val updatedEntry = lastEntry.copy(text = mergedText)
+            // Merge with the last entry
+            // Gemini transcription is typically cumulative for the turn but can be incremental.
+            // We use the raw text to preserve spaces sent by Gemini and avoid adding unnatural ones.
+            
+            val newText = if (!lastEntry.isFinal) {
+                // If the previous was interim, we join directly and let Gemini provide the spaces.
+                "${lastEntry.text}$text"
+            } else {
+                // If the previous was final but within 5s, we join.
+                // We only add a space if the new text doesn't already have one and the old didn't end with one.
+                if (lastEntry.text.endsWith(" ") || text.startsWith(" ")) {
+                    "${lastEntry.text}$text"
+                } else {
+                    "${lastEntry.text} $text"
+                }
+            }
+            
+            val updatedEntry = lastEntry.copy(text = newText, isFinal = isFinal, timestamp = System.currentTimeMillis())
             currentList[currentList.lastIndex] = updatedEntry
             _transcriptItems.value = currentList
             
@@ -608,13 +627,14 @@ class SessionManager(
                 }
             }
             
-            Log.d(TAG, "Merged user transcript: ${mergedText.take(50)}...")
+            Log.d(TAG, "Merged user transcript: ${newText.take(50)}... (final=$isFinal)")
         } else {
             // Create new entry
             val entry = TranscriptEntry(
                 timestamp = System.currentTimeMillis(),
                 speaker = Speaker.USER,
-                text = trimmedText
+                text = text,
+                isFinal = isFinal
             )
             
             // For LibreChat sessions, add to in-memory transcript
@@ -627,14 +647,14 @@ class SessionManager(
             currentList.add(entry)
             _transcriptItems.value = currentList
             
-            Log.d(TAG, "Captured user transcript: ${trimmedText.take(50)}...")
+            Log.d(TAG, "Captured user transcript: ${text.take(50)}...")
         }
         
         // For ALL sessions (LibreChat and offline), save to database
         currentDbSessionId?.let { dbSessionId ->
             scope.launch {
                 try {
-                    sessionRepository.appendTranscript(dbSessionId, "user", trimmedText)
+                    sessionRepository.appendTranscript(dbSessionId, "user", text)
                     Log.d(TAG, "Saved user transcript to database")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to save user transcript to database", e)
@@ -652,25 +672,35 @@ class SessionManager(
      * 
      * @param text The transcribed text from the bot
      */
-    fun captureBotTranscript(text: String) {
-        if (text.isBlank()) {
+    fun captureBotTranscript(text: String, isFinal: Boolean = true) {
+        if (text.isEmpty()) {
             Log.d(TAG, "Skipping empty bot transcript")
             return
         }
         
-        val trimmedText = text.trim()
         val currentList = _transcriptItems.value.toMutableList()
         val lastEntry = currentList.lastOrNull()
         
-        // Check if we should merge with the last entry (same speaker within 5 seconds)
+        // Check if we should merge with the last entry
         val shouldMerge = lastEntry != null && 
             lastEntry.speaker == Speaker.BOT &&
-            (System.currentTimeMillis() - lastEntry.timestamp) < 5000
+            (!lastEntry.isFinal || (System.currentTimeMillis() - lastEntry.timestamp) < 5000)
         
         if (shouldMerge && lastEntry != null) {
-            // Merge with the last entry - append text with space
-            val mergedText = "${lastEntry.text} $trimmedText"
-            val updatedEntry = lastEntry.copy(text = mergedText)
+            // Merge with the last entry
+            // Gemini transcription is typically cumulative for the current turn.
+            
+            val newText = if (!lastEntry.isFinal) {
+                "${lastEntry.text}$text"
+            } else {
+                if (lastEntry.text.endsWith(" ") || text.startsWith(" ")) {
+                    "${lastEntry.text}$text"
+                } else {
+                    "${lastEntry.text} $text"
+                }
+            }
+            
+            val updatedEntry = lastEntry.copy(text = newText, isFinal = isFinal, timestamp = System.currentTimeMillis())
             currentList[currentList.lastIndex] = updatedEntry
             _transcriptItems.value = currentList
             
@@ -681,13 +711,14 @@ class SessionManager(
                 }
             }
             
-            Log.d(TAG, "Merged bot transcript: ${mergedText.take(50)}...")
+            Log.d(TAG, "Merged bot transcript: ${newText.take(50)}... (final=$isFinal)")
         } else {
             // Create new entry
             val entry = TranscriptEntry(
                 timestamp = System.currentTimeMillis(),
                 speaker = Speaker.BOT,
-                text = trimmedText
+                text = text,
+                isFinal = isFinal
             )
             
             // For LibreChat sessions, add to in-memory transcript
@@ -700,14 +731,14 @@ class SessionManager(
             currentList.add(entry)
             _transcriptItems.value = currentList
             
-            Log.d(TAG, "Captured bot transcript: ${trimmedText.take(50)}...")
+            Log.d(TAG, "Captured bot transcript: ${text.take(50)}...")
         }
         
         // For ALL sessions (LibreChat and offline), save to database
         currentDbSessionId?.let { dbSessionId ->
             scope.launch {
                 try {
-                    sessionRepository.appendTranscript(dbSessionId, "assistant", trimmedText)
+                    sessionRepository.appendTranscript(dbSessionId, "assistant", text)
                     Log.d(TAG, "Saved bot transcript to database")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to save bot transcript to database", e)

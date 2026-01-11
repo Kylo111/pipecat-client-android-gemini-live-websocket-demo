@@ -164,18 +164,26 @@ class GeminiProtocol {
         // Check for output transcription (bot's speech)
         serverContent["outputTranscription"]?.jsonObject?.let { outputTranscription ->
             val transcriptText = outputTranscription["text"]?.jsonPrimitive?.content
+            // Check multiple possible keys for finality, default to false for streaming
+            val isFinal = (outputTranscription["final"] ?: outputTranscription["isFinal"] ?: outputTranscription["is_final"])
+                ?.jsonPrimitive?.content?.toBoolean() ?: false
+                
             if (transcriptText != null) {
-                Log.d(TAG, "Parsed: Transcript (BOT): ${transcriptText.take(50)}...")
-                return GeminiEvent.Transcript(transcriptText, GeminiEvent.Transcript.Speaker.BOT)
+                Log.d(TAG, "Parsed: Transcript (BOT): ${transcriptText.take(50)}... (final=$isFinal)")
+                return GeminiEvent.Transcript(transcriptText, GeminiEvent.Transcript.Speaker.BOT, isFinal)
             }
         }
         
         // Check for input transcription (user's speech)
         serverContent["inputTranscription"]?.jsonObject?.let { inputTranscription ->
             val transcriptText = inputTranscription["text"]?.jsonPrimitive?.content
+            // Check multiple possible keys for finality, default to false for streaming
+            val isFinal = (inputTranscription["final"] ?: inputTranscription["isFinal"] ?: inputTranscription["is_final"])
+                ?.jsonPrimitive?.content?.toBoolean() ?: false
+                
             if (transcriptText != null) {
-                Log.d(TAG, "Parsed: Transcript (USER): ${transcriptText.take(50)}...")
-                return GeminiEvent.Transcript(transcriptText, GeminiEvent.Transcript.Speaker.USER)
+                Log.d(TAG, "Parsed: Transcript (USER): ${transcriptText.take(50)}... (final=$isFinal)")
+                return GeminiEvent.Transcript(transcriptText, GeminiEvent.Transcript.Speaker.USER, isFinal)
             }
         }
         

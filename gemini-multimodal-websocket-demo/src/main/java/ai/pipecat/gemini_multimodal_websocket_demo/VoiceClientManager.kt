@@ -389,14 +389,14 @@ class VoiceClientManager(
             
             // Send to SessionManager if not empty
             if (text.isNotBlank()) {
-                sessionManager?.captureUserTranscript(text)
+                sessionManager?.captureUserTranscript(text, isFinal)
             }
             
             // Send to ControlAgentManager in parallel (fire-and-forget)
-            // Send all transcripts (Gemini Live doesn't provide isFinal flag)
-            // ControlAgentManager will handle debouncing internally
-            if (text.isNotBlank() && text.length > 3) { // Only process if text is meaningful
-                Log.d(TAG, "📝 Transcript received: '$text' - forwarding to ControlAgent")
+            // Use isFinal for immediate processing or VAD-debounce as fallback
+            // ControlAgentManager will handle debouncing internally if not final
+            if (text.isNotBlank() && text.length > 2) { // Only process if text is meaningful
+                Log.d(TAG, "📝 Transcript received: '$text' (final=$isFinal) - forwarding to ControlAgent")
                 
                 // Get ControlAgentManager from VoiceService
                 val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
@@ -407,9 +407,9 @@ class VoiceClientManager(
                 } else if (controlAgent == null) {
                     Log.w(TAG, "⚠️ ControlAgentManager not initialized in VoiceService")
                 } else {
-                    // Collect transcript fragment (will be processed after user stops speaking)
-                    Log.d(TAG, "📝 Collecting transcript fragment for Control Agent")
-                    controlAgent.onUserTranscript(text)
+                    // Collect transcript fragment
+                    Log.d(TAG, "📝 Forwarding transcript to Control Agent")
+                    controlAgent.onUserTranscript(text, isFinal)
                 }
             }
         }
@@ -419,7 +419,7 @@ class VoiceClientManager(
             
             // Send to SessionManager if not empty
             if (text.isNotBlank()) {
-                sessionManager?.captureBotTranscript(text)
+                sessionManager?.captureBotTranscript(text, isFinal)
             }
         }
         
