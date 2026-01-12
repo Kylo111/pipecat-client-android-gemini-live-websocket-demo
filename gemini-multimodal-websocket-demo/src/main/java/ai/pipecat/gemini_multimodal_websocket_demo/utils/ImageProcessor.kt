@@ -181,40 +181,67 @@ class ImageProcessor(private val context: Context) {
     }
     
     /**
-     * Loads a bitmap from URI using efficient memory management
+     * Loads a bitmap from URI using efficient memory management.
+     * Includes retry logic for newly created files (screenshots) that might not be 
+     * immediately accessible due to system indexing.
      */
     private suspend fun loadBitmap(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
-        try {
-            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-            inputStream?.use { stream ->
-                // First decode with inJustDecodeBounds to get dimensions
-                val options = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
+        var attempts = 0
+        val maxAttempts = 5
+        var lastException: Exception? = null
+        
+        while (attempts < maxAttempts) {
+            try {
+                Log.v(TAG, "Attempt ${attempts + 1} to open stream for URI: $uri")
+                val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+                
+                if (inputStream == null) {
+                    Log.w(TAG, "InputStream is null for URI: $uri (attempt ${attempts + 1})")
+                    attempts++
+                    kotlinx.coroutines.delay(1000L * attempts)
+                    continue
                 }
-                BitmapFactory.decodeStream(stream, null, options)
-                
-                // Calculate inSampleSize
-                val sampleSize = calculateInSampleSize(
-                    options,
-                    MAX_DIMENSION_PX,
-                    MAX_DIMENSION_PX
-                )
-                
-                Log.d(TAG, "Using inSampleSize: $sampleSize")
-                
-                // Reopen stream and decode with inSampleSize
-                context.contentResolver.openInputStream(uri)?.use { newStream ->
-                    val decodeOptions = BitmapFactory.Options().apply {
-                        inSampleSize = sampleSize
-                        inJustDecodeBounds = false
+
+                return@withContext inputStream.use { stream ->
+                    // First decode with inJustDecodeBounds to get dimensions
+                    val options = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
                     }
-                    BitmapFactory.decodeStream(newStream, null, decodeOptions)
+                    BitmapFactory.decodeStream(stream, null, options)
+                    
+                    // Calculate inSampleSize
+                    val sampleSize = calculateInSampleSize(
+                        options,
+                        MAX_DIMENSION_PX,
+                        MAX_DIMENSION_PX
+                    )
+                    
+                    Log.d(TAG, "Using inSampleSize: $sampleSize for URI: $uri")
+                    
+                    // Reopen stream and decode with inSampleSize
+                    context.contentResolver.openInputStream(uri)?.use { newStream ->
+                        val decodeOptions = BitmapFactory.Options().apply {
+                            inSampleSize = sampleSize
+                            inJustDecodeBounds = false
+                        }
+                        BitmapFactory.decodeStream(newStream, null, decodeOptions)
+                    }
+                }
+            } catch (e: Exception) {
+                lastException = e
+                Log.w(TAG, "Attempt ${attempts + 1} failed for URI $uri: ${e.message}")
+                
+                // If it's a security exception or "Permission denied", it might be a transient 
+                // issue with a newly created file not being fully indexed/accessible yet.
+                attempts++
+                if (attempts < maxAttempts) {
+                    kotlinx.coroutines.delay(1000L * attempts) // Exponentially increasing backoff
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading bitmap", e)
-            null
         }
+        
+        Log.e(TAG, "Failed to load bitmap from URI: $uri after $maxAttempts attempts", lastException)
+        null
     }
     
     /**

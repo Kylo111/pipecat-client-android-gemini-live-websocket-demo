@@ -221,13 +221,21 @@ class GeminiProtocol {
                             }
                         }
                     }
+                    
+                    // NEW: Handle diagnostic text parts (Reasoning/Internal thoughts)
+                    if (partObj.containsKey("text")) {
+                        val text = partObj["text"]?.jsonPrimitive?.content
+                        if (text != null && text.isNotBlank()) {
+                            Log.d(TAG, "Bot internal context/thought: $text")
+                        }
+                    }
                 }
             }
         }
         
         // Check for turn complete (bot finished speaking)
-        if (serverContent.containsKey("turnComplete")) {
-            Log.d(TAG, "Parsed: TurnComplete (in serverContent)")
+        if (serverContent.containsKey("turnComplete") || serverContent.containsKey("generationComplete")) {
+            Log.d(TAG, "Parsed: TurnComplete (via ${if (serverContent.containsKey("turnComplete")) "turnComplete" else "generationComplete"})")
             return GeminiEvent.TurnComplete
         }
         

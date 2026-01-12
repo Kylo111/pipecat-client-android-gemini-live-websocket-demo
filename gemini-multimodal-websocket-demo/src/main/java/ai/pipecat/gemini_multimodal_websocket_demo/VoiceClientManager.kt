@@ -60,6 +60,7 @@ class VoiceClientManager(
     private var geminiClient: GeminiClient? = null
     private var audioDeviceHandler: AudioDeviceHandler? = null
     private var autoMuteMonitor: AutoMuteMonitor? = null
+    private var screenshotMonitor: ai.pipecat.gemini_multimodal_websocket_demo.integrations.ScreenshotMonitor? = null
     private var azureSpeechService: AzureSpeechService? = null
     
     // LibreChat specific state
@@ -83,6 +84,7 @@ class VoiceClientManager(
     
     // Image processor
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
+    private val integrationManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationManager(context)
     private var imageProcessingJob: kotlinx.coroutines.Job? = null
     private var lastBotSpeechEndedAt: Long = 0
     private val ECHO_SUPPRESSION_WINDOW_MS = 1000L // Ignore transcripts for 1s after bot stops talking
@@ -724,6 +726,9 @@ class VoiceClientManager(
             
             Log.i(TAG, "✅ Connected successfully")
             
+            // Start screenshot monitoring if enabled
+            startScreenshotMonitoring()
+            
         } catch (e: Exception) {
             Log.e(TAG, "❌ Connection failed: ${e.message}", e)
             _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
@@ -1119,8 +1124,12 @@ class VoiceClientManager(
         libreChatJob?.cancel()
         libreChatJob = null
         
-        // Disconnect from Gemini
+        // Check for turn complete (bot finished speaking)
         geminiClient?.disconnect()
+        
+        // Stop screenshot monitor
+        screenshotMonitor?.stopMonitoring()
+        screenshotMonitor = null
         
         // Stop audio device handler AFTER audio
         audioDeviceHandler?.stop()
@@ -1585,5 +1594,30 @@ class VoiceClientManager(
             .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
             .replace(Regex("""[^\p{L}\p{N}\s,.\-!?;:]"""), "")
             .trim()
+    }
+
+    /**
+     * Start monitoring for new screenshots during the session.
+     */
+    private fun startScreenshotMonitoring() {
+        if (!integrationManager.isIntegrationEnabled(ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationType.SCREENSHOTS)) {
+            Log.d(TAG, "Screenshot monitoring is disabled in integrations")
+            return
+        }
+
+        if (screenshotMonitor == null) {
+            screenshotMonitor = ai.pipecat.gemini_multimodal_websocket_demo.integrations.ScreenshotMonitor(context)
+        }
+
+        screenshotMonitor?.let { monitor ->
+            if (!monitor.isMonitoring()) {
+                Log.i(TAG, "Starting screenshot monitor...")
+                monitor.startMonitoring { uri ->
+                    Log.i(TAG, "📸 Screenshot detected by monitor: $uri")
+                    // Use existing stable image pipeline
+                    processImageForGemini(uri)
+                }
+            }
+        }
     }
 }

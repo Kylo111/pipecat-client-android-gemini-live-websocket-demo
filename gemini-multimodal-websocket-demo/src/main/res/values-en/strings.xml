@@ -264,7 +264,7 @@
     <string name="integ_tg_test_error">❌ Error: %1$s</string>
     <string name="integ_tg_how_to_title">ℹ️ How to configure Telegram bot:</string>
     <string name="integ_system_title">System Integrations</string>
-    <string name="integ_system_desc">Enable or disable individual system integrations. Disabled integrations will not be available to the voice assistant.</string>
+    <string name="integ_system_desc">Manage permissions and automation (e.g. screenshots).</string>
     <string name="integ_status_disabled">Disabled</string>
     <string name="integ_status_active">Active</string>
     <string name="integ_status_need_perms">Requires permissions</string>
@@ -453,6 +453,7 @@
     <string name="integ_name_maps">Google Maps</string>
     <string name="integ_name_transit">Public Transit</string>
     <string name="integ_name_shopping">Shopping List</string>
+    <string name="integ_name_screenshots">Screenshots (Automatic)</string>
 
     <!-- Permission Names -->
     <string name="integ_perm_contacts">Contacts</string>
@@ -461,6 +462,7 @@
     <string name="integ_perm_alarms">Exact alarms</string>
     <string name="integ_perm_notif">Notifications</string>
     <string name="integ_perm_location">Location</string>
+    <string name="integ_perm_media_images">Photos &amp; Media</string>
 
     <!-- Integration Unavailable Messages -->
     <string name="integ_unavailable_contacts">Assistant cannot search contacts or send SMS.</string>
@@ -470,6 +472,7 @@
     <string name="integ_unavailable_maps">Assistant cannot start navigation or search places on map.</string>
     <string name="integ_unavailable_transit">Assistant cannot check public transit routes.</string>
     <string name="integ_unavailable_shopping">Assistant cannot manage shopping list.</string>
+    <string name="integ_unavailable_screenshots">Assistant will not automatically analyze newly taken screenshots.</string>
 
     <!-- Tool Groups -->
     <string name="tool_group_search_title">Google Search Grounding</string>

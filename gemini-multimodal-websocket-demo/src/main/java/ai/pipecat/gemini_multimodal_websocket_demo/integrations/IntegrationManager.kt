@@ -122,6 +122,8 @@ class IntegrationManager(private val context: Context) {
                 android.Manifest.permission.SCHEDULE_EXACT_ALARM -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_alarms
                 android.Manifest.permission.POST_NOTIFICATIONS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_notif
                 android.Manifest.permission.ACCESS_FINE_LOCATION -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_location
+                "android.permission.READ_MEDIA_IMAGES" -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_media_images
+                "android.permission.READ_EXTERNAL_STORAGE" -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_media_images
                 else -> 0
             }
             if (resId != 0) context.getString(resId) else permission.substringAfterLast('.')
@@ -144,6 +146,7 @@ class IntegrationManager(private val context: Context) {
             IntegrationType.GOOGLE_MAPS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_maps
             IntegrationType.PUBLIC_TRANSIT -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_transit
             IntegrationType.SHOPPING_LIST -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_shopping
+            IntegrationType.SCREENSHOTS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_screenshots
         }
         return context.getString(resId)
     }
@@ -167,6 +170,15 @@ enum class IntegrationType(
     val displayNameResId: Int,
     val requiredPermissions: List<String>
 ) {
+    SCREENSHOTS(
+        "integration_screenshots",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_screenshots,
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            listOf("android.permission.READ_MEDIA_IMAGES")
+        } else {
+            listOf("android.permission.READ_EXTERNAL_STORAGE")
+        }
+    ),
     CONTACTS_SMS(
         "integration_contacts_sms",
         ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_contacts_sms,
@@ -222,6 +234,7 @@ enum class IntegrationType(
         val toolDefs = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions
         
         return when (this) {
+            SCREENSHOTS -> emptyList()
             CONTACTS_SMS -> listOf(
                 toolDefs.searchContactsTool(),
                 toolDefs.sendSmsTool()
@@ -258,6 +271,7 @@ enum class IntegrationType(
                 toolDefs.markItemPurchasedTool(),
                 toolDefs.clearPurchasedItemsTool()
             )
+            SCREENSHOTS -> emptyList()
         }
     }
 }

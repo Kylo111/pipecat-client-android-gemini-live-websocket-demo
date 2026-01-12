@@ -262,7 +262,7 @@
     <string name="integ_tg_test_error">❌ Błąd: %1$s</string>
     <string name="integ_tg_how_to_title">ℹ️ Jak skonfigurować bota Telegram:</string>
     <string name="integ_system_title">Integracje systemowe</string>
-    <string name="integ_system_desc">Włącz lub wyłącz poszczególne integracje systemowe. Wyłączone integracje nie będą dostępne dla asystenta głosowego.</string>
+    <string name="integ_system_desc">Zarządzaj uprawnieniami i automatyzacją (np. screenshoty).</string>
     <string name="integ_status_disabled">Wyłączone</string>
     <string name="integ_status_active">Aktywne</string>
     <string name="integ_status_need_perms">Wymaga uprawnień</string>
@@ -490,6 +490,7 @@
     <string name="integ_name_maps">Google Maps</string>
     <string name="integ_name_transit">Transport publiczny</string>
     <string name="integ_name_shopping">Lista zakupów</string>
+    <string name="integ_name_screenshots">Screenshoty (Automatyczne)</string>
 
     <!-- Permission Names -->
     <string name="integ_perm_contacts">Kontakty</string>
@@ -498,6 +499,7 @@
     <string name="integ_perm_alarms">Dokładne alarmy</string>
     <string name="integ_perm_notif">Powiadomienia</string>
     <string name="integ_perm_location">Lokalizacja</string>
+    <string name="integ_perm_media_images">Zdjęcia i multimedia</string>
 
     <!-- Integration Unavailable Messages -->
     <string name="integ_unavailable_contacts">Asystent nie może wyszukiwać kontaktów ani wysyłać SMS-ów.</string>
@@ -507,6 +509,7 @@
     <string name="integ_unavailable_maps">Asystent nie może uruchamiać nawigacji ani wyszukiwać miejsc na mapie.</string>
     <string name="integ_unavailable_transit">Asystent nie może sprawdzać połączeń transportu publicznego.</string>
     <string name="integ_unavailable_shopping">Asystent nie może zarządzać listą zakupów.</string>
+    <string name="integ_unavailable_screenshots">Asystent nie będzie automatycznie analizował nowo wykonanych screenshotów.</string>
 
     <!-- Tool Groups -->
     <string name="tool_group_search_title">Google Search Grounding</string>
