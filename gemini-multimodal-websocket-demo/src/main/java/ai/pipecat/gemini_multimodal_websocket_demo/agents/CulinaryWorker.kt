@@ -10,13 +10,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
+import kotlinx.serialization.json.*
+import ai.pipecat.gemini_multimodal_websocket_demo.integrations.notes.ProductCategory
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -36,6 +31,7 @@ class CulinaryWorker(
         const val KEY_QUERY = "query"
         const val KEY_URL = "url"
         const val KEY_CONVERSATION_ID = "conversation_id"
+        const val KEY_SHOULD_ADD_SHOPPING_LIST = "should_add_shopping_list"
     }
 
     private val noteService by lazy {
@@ -60,8 +56,9 @@ class CulinaryWorker(
         val query = inputData.getString(KEY_QUERY) ?: ""
         val url = inputData.getString(KEY_URL)
         val conversationId = inputData.getString(KEY_CONVERSATION_ID) ?: "default"
+        val shouldAddShoppingList = inputData.getBoolean(KEY_SHOULD_ADD_SHOPPING_LIST, true)
 
-        Log.i(TAG, "🍳 Starting CulinaryWorker task for: $query (URL: $url)")
+        Log.i(TAG, "🍳 Starting CulinaryWorker task for: $query (URL: $url, addShoppingList: $shouldAddShoppingList)")
 
         try {
             // 1. Resolve URL if missing
@@ -80,19 +77,62 @@ class CulinaryWorker(
             val rawRecipeJson = RecipeParser.parse(resolvedUrl)
             val recipeData = json.parseToJsonElement(rawRecipeJson).jsonObject
 
-            val name = recipeData["name"]?.jsonPrimitive?.content?.removeSuffix(" - Ania Gotuje")?.removeSuffix(" - Aniagotuje.pl")?.trim() ?: "Przepis"
+            val rawName = recipeData["name"]?.jsonPrimitive?.content ?: query
             val image = recipeData["image"]?.jsonPrimitive?.content ?: ""
-            val ingredients = recipeData["ingredients"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
-            val instructions = recipeData["instructions"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            val rawIngredients = recipeData["ingredients"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            val rawInstructions = recipeData["instructions"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
 
-            // 3. Clean up instructions via LLM (Gemini 1.5 Flash)
-            Log.i(TAG, "🧠 Cleaning up instructions with Gemini...")
-            val rawInstructionsText = instructions.joinToString("\n\n")
-            val formattedInstructions = if (rawInstructionsText.length > 30) {
-                formatInstructionsWithLLM(rawInstructionsText, name)
-            } else {
-                rawInstructionsText
+            // 3. Process EVERYTHING via LLM (Gemini 3 Flash)
+            Log.i(TAG, "🧠 Processing recipe with Gemini (Intelligent Categorization & Formatting)...")
+            val prompt = """
+                Jesteś profesjonalnym robotem kuchennym i redaktorem. Przetwórz surowe dane przepisu na ustrukturyzowany format JSON.
+                
+                NAZWA: $rawName
+                SKŁADNIKI: ${rawIngredients.joinToString(", ")}
+                INSTRUKCJE: ${rawInstructions.joinToString("\n\n")}
+                
+                TWOJE ZADANIA:
+                1. NAME: Oczyść nazwę potrawy (usuń "Przepis na", nazwy stron itp.).
+                2. INSTRUCTIONS: Sformatuj instrukcje jako czytelną listę numerowaną (Polski).
+                3. INGREDIENTS: Dla każdego składnika:
+                   - Wyodrębnij czystą nazwę produktu (np. "mąka pszenna" zamiast "2 szklanki mąki pszennej typ 500").
+                   - Przypisz kategorię z dozwolonej listy: 
+                     [FRUIT_VEG, BREAD, DAIRY, MEAT, FISH, DRY_GOODS, PRESERVES, NIGHTSHADE, DRINKS, SWEETS, FROZEN, HOUSEHOLD, OTHER]
+                
+                ZWRÓĆ TYLKO CZYSTY JSON:
+                {
+                  "name": "nazwa potrawy",
+                  "instructions": "1. Pierwszy krok...\n2. Drugi krok...",
+                  "ingredients": [
+                    { "name": "mąka pszenna", "category": "DRY_GOODS" },
+                    { "name": "mleko", "category": "DAIRY" }
+                  ]
+                }
+            """.trimIndent()
+
+            val llmResponse = geminiClient.complete(prompt).getOrNull()
+            if (llmResponse == null) {
+                Log.e(TAG, "❌ LLM failed to process recipe")
+                return@withContext Result.failure()
             }
+
+            // Strip markdown code blocks if present
+            val jsonString = llmResponse.replace("```json", "").replace("```", "").trim()
+            val processed = try {
+                json.parseToJsonElement(jsonString).jsonObject
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to parse LLM JSON: $jsonString", e)
+                return@withContext Result.failure()
+            }
+            
+            val name = processed["name"]?.jsonPrimitive?.content ?: rawName
+            val formattedInstructions = processed["instructions"]?.jsonPrimitive?.content ?: ""
+            val categorizedIngredients = processed["ingredients"]?.jsonArray?.map { 
+                val obj = it.jsonObject
+                val ingName = obj["name"]?.jsonPrimitive?.content ?: ""
+                val catStr = obj["category"]?.jsonPrimitive?.content ?: "OTHER"
+                ingName to ProductCategory.fromString(catStr)
+            } ?: emptyList()
 
             // 4. Save Note
             Log.d(TAG, "📝 Saving note: $name")
@@ -102,7 +142,7 @@ class CulinaryWorker(
                 }
                 appendLine("**Link do przepisu:** [$resolvedUrl]($resolvedUrl)\n")
                 appendLine("## Składniki")
-                ingredients.forEach { appendLine("- $it") }
+                rawIngredients.forEach { appendLine("- $it") }
                 appendLine("\n## Przygotowanie")
                 appendLine(formattedInstructions)
             }
@@ -115,11 +155,14 @@ class CulinaryWorker(
             )
             noteService.createNote(name, markdown, metadata)
 
-            // 5. Update Shopping List
-            Log.i(TAG, "🛒 Adding ${ingredients.size} items to shopping list")
-            ingredients.forEach { item ->
-                // Basic cleanup of ingredient (remove quantities if simple)
-                shoppingListManager.addItem(item)
+            // 5. Update Shopping List (Optional)
+            if (shouldAddShoppingList) {
+                Log.i(TAG, "🛒 Adding ${categorizedIngredients.size} items to shopping list with LLM categories")
+                categorizedIngredients.forEach { (ingName, category) ->
+                    shoppingListManager.addItem(ingName, quantity = null, categoryOverride = category)
+                }
+            } else {
+                Log.i(TAG, "⏭️ Skipping shopping list update as requested")
             }
 
             Log.i(TAG, "✅ Culinary task completed successfully")
@@ -163,28 +206,4 @@ class CulinaryWorker(
         }
     }
 
-    private suspend fun formatInstructionsWithLLM(rawInstructions: String, recipeName: String): String {
-        val prompt = """
-            Jesteś profesjonalnym redaktorem kulinarnym. Oczyść instrukcje i zamień je w klarowną listę kroków.
-            
-            NAZWA: $recipeName
-            DANE: $rawInstructions
-            
-            ZASADY:
-            1. USUŃ: wstępy, emocje, wartości odżywcze, czasy, składniki.
-            2. USUŃ: śmieci techniczne (Kopiuj, Drukuj itp.).
-            3. WYDOBĄDŹ: tylko kroki przygotowania.
-            4. SFORMATUJ: lista numerowana, krótkie zdania.
-            5. JĘZYK: Polski.
-            
-            ZWRÓĆ TYLKO LISTĘ KROKÓW.
-        """.trimIndent()
-
-        return try {
-            val result = geminiClient.complete(prompt)
-            result.getOrNull()?.trim() ?: rawInstructions
-        } catch (e: Exception) {
-            rawInstructions
-        }
-    }
 }

@@ -72,7 +72,8 @@ object ToolDefinitions {
         ToolInfo("remove_from_shopping_list", "Usuń z Zakupów", "Zakupy", "Usuwanie produktów"),
         ToolInfo("mark_item_purchased", "Oznacz Kupione", "Zakupy", "Oznaczanie jako kupione"),
         ToolInfo("clear_purchased_items", "Wyczyść Kupione", "Zakupy", "Usuwanie kupionych produktów"),
-        ToolInfo("ania_process_recipe", "Kuchnia: Ania Gotuje", "Kulinaria", "Automatyczne pobieranie, formatowanie i lista zakupów")
+        ToolInfo("ania_process_recipe", "Kuchnia: Ania Gotuje", "Kulinaria", "Automatyczne pobieranie, formatowanie i lista zakupów"),
+        ToolInfo("encyclopedia_lookup", "Encyklopedia", "Wiedza", "Szczegółowe opracowania z Wikipedii i bogate notatki")
     )
 
     // Data class for tool groups in UI
@@ -97,6 +98,9 @@ object ToolDefinitions {
             
         ToolGroup("todo_list", "Lista Zadań (TODO)", "Zarządzanie listą zadań: dodawanie, usuwanie, oznaczanie jako zrobione",
             listOf("get_todo_tasks", "add_todo_task", "complete_todo_task", "delete_todo_task")),
+            
+        ToolGroup("encyclopedia", "Encyklopedia (Wikipedia)", "Tworzenie bogatych notatek na dowolny temat na podstawie Wikipedii",
+            listOf("encyclopedia_lookup")),
             
         ToolGroup("calendar", "Kalendarz", "Obsługa kalendarza: odczyt wydarzeń, tworzenie, usuwanie",
             listOf("get_calendar_events", "create_calendar_event", "delete_calendar_event")),
@@ -174,7 +178,8 @@ object ToolDefinitions {
             searchPerplexityTool(),
             symptomCheckerTool(),
             getCreateDoneItemTool(),
-            aniaProcessRecipeTool()
+            aniaProcessRecipeTool(),
+            encyclopediaLookupTool()
         )
         
         // Add system integration tools based on IntegrationManager enabled state
@@ -1215,6 +1220,35 @@ object ToolDefinitions {
                 putJsonObject("url") {
                     put("type", "string")
                     put("description", "Optional: Direct URL to the recipe on aniagotuje.pl")
+                }
+                putJsonObject("should_add_shopping_list") {
+                    put("type", "boolean")
+                    put("description", "Whether to automatically add ingredients to the shopping list. Default is true.")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("query"))
+            })
+        }
+    }
+    fun encyclopediaLookupTool() = buildJsonObject {
+        put("name", "encyclopedia_lookup")
+        put("description", """
+            Lookup detailed information from Wikipedia (English) and generate a comprehensive, rich Markdown note in the user's language.
+            Use this when the user confirms they want a detailed research note, article, or encyclopedia entry on a specific topic.
+            This tool fetches images, tables, and structured data, translates it, and saves it as a new note.
+        """.trimIndent())
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("query") {
+                    put("type", "string")
+                    put("description", "The specific topic or entity to look up on Wikipedia (e.g., 'Marie Curie', 'Quantum Mechanics', 'History of Poland').")
+                }
+                putJsonObject("exhaustive_note") {
+                    put("type", "boolean")
+                    put("description", "Whether to generate a full, rich note with images and tables. Default is true.")
+                    put("default", true)
                 }
             }
             put("required", buildJsonArray {

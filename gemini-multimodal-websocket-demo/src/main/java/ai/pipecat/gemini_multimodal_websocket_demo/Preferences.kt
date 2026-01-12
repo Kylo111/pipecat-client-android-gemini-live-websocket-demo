@@ -41,6 +41,7 @@ object Preferences {
     private const val PREF_AZURE_TTS_VOICE = "azure_tts_voice"
     private const val PREF_AZURE_DIRECTLINE_SECRET = "azure_directline_secret"
     private const val PREF_LIBRECHAT_OCR_MODE = "librechat_ocr_mode"
+    private const val PREF_APP_LANGUAGE = "app_language"
     private const val PREF_VERSION = "preferences_version"
     private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
 
@@ -57,7 +58,7 @@ object Preferences {
             geminiApiKey, googleCloudApiKey, perplexityApiKey, openRouterApiKey, googleDirectionsApiKey, telegramBotToken, telegramChatId, sessionTimeoutMinutes, autoPauseTimeoutSeconds, botResponseTimeoutMinutes, activityDetectionThreshold, keepScreenAwake,
             selectedSkin, userPin, defaultServerUrl, isDarkTheme, appTheme, toolsInstruction, useSummaryMode, summaryPrompt, summaryModel, parentalLockEnabled, fullDuplexMode, controlAgentEnabled,
             reasoningAgentEnabled, reasoningAgentModel, whispererModeEnabled, offlineBannerDismissed,
-            azureApiKey, azureRegion, azureTtsVoice, directLineSecret, libreChatOcrMode
+            azureApiKey, azureRegion, azureTtsVoice, directLineSecret, libreChatOcrMode, appLanguage
         ).forEach { it.init() }
     }
 
@@ -257,4 +258,7 @@ object Preferences {
     val azureTtsVoice = StringPref(PREF_AZURE_TTS_VOICE, "pl-PL-MarekNeural")
     val directLineSecret = StringPref(PREF_AZURE_DIRECTLINE_SECRET, "")
     val libreChatOcrMode = BooleanPref(PREF_LIBRECHAT_OCR_MODE, false)
+    
+    // Language settings
+    val appLanguage = StringPref(PREF_APP_LANGUAGE, "pl") // Default: Polish
 }

@@ -100,6 +100,7 @@ class ToolExecutor(private val context: Context) {
                 "copy_to_clipboard" -> copyToClipboard(parameters)
                 "start_reasoning_task" -> startReasoningTask(parameters)
                 "ania_process_recipe" -> aniaProcessRecipe(parameters)
+                "encyclopedia_lookup" -> encyclopediaLookup(parameters)
                 "search_contacts" -> searchContacts(parameters)
                 "send_sms" -> sendSms(parameters)
                 "set_alarm" -> setAlarm(parameters)
@@ -2602,6 +2603,36 @@ class ToolExecutor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to enqueue culinary task: ${e.message}", e)
             "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania kulinarnego: ${e.message}"
+        }
+    }
+    private suspend fun encyclopediaLookup(parameters: JsonObject): String = withContext(Dispatchers.Main) {
+        val query = parameters["query"]?.jsonPrimitive?.content ?: ""
+        val exhaustiveNote = parameters["exhaustive_note"]?.jsonPrimitive?.booleanOrNull ?: true
+        
+        Log.i(TAG, "📚 Starting background encyclopedia task: $query (exhaustive: $exhaustiveNote)")
+        
+        try {
+            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+            val sessionManager = voiceService?.getSessionManager()
+            val conversationId = sessionManager?.getCurrentConversationId() ?: "default"
+            
+            val workManager = androidx.work.WorkManager.getInstance(context)
+            val inputData = androidx.work.Data.Builder()
+                .putString("query", query)
+                .putString("conversation_id", conversationId)
+                .putBoolean("exhaustive_note", exhaustiveNote)
+            
+            val workRequest = androidx.work.OneTimeWorkRequestBuilder<ai.pipecat.gemini_multimodal_websocket_demo.agents.EncyclopediaWorker>()
+                .setInputData(inputData.build())
+                .addTag("encyclopedia_task")
+                .build()
+                
+            workManager.enqueue(workRequest)
+            
+            "Success. Encyclopedia research started in background."
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to enqueue encyclopedia task: ${e.message}", e)
+            "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania encyklopedycznego: ${e.message}"
         }
     }
 }
