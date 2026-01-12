@@ -34,10 +34,14 @@ class CulinaryWorker(
         const val KEY_SHOULD_ADD_SHOPPING_LIST = "should_add_shopping_list"
     }
 
-    private val noteService by lazy {
+    private val resultsStore by lazy {
         val database = ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase.getDatabase(applicationContext)
         val topicMatcher = TopicMatcher()
-        val resultsStore = ReasoningResultsStore(database.reasoningResultDao(), topicMatcher)
+        ReasoningResultsStore(database.reasoningResultDao(), topicMatcher)
+    }
+
+    private val noteService by lazy {
+        val topicMatcher = TopicMatcher()
         val noteEnricher = NoteEnricher(resultsStore, topicMatcher)
         NoteService(applicationContext, noteEnricher, topicMatcher)
     }
@@ -47,7 +51,7 @@ class CulinaryWorker(
     }
 
     private val geminiClient by lazy {
-        GeminiReasoningClient(applicationContext, AgentConfigProvider)
+        GeminiLlmClient()
     }
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -127,7 +131,13 @@ class CulinaryWorker(
                 }
             """.trimIndent()
 
-            val llmResponse = geminiClient.complete(prompt).getOrNull()
+            val llmResponse = geminiClient.complete(
+                modelId = Preferences.reasoningAgentModel.value ?: "gemini-3-flash-preview",
+                userPrompt = prompt,
+                temperature = 0.3f,
+                jsonMode = true
+            ).getOrNull()
+            
             if (llmResponse == null) {
                 Log.e(TAG, "❌ LLM failed to process recipe")
                 return@withContext Result.failure()
@@ -170,7 +180,26 @@ class CulinaryWorker(
                 timestamp = System.currentTimeMillis(),
                 tags = tags as List<String>
             )
-            noteService.createNote(name, markdown, metadata)
+            val result = noteService.createNote(name, markdown, metadata)
+
+            // 6. Save research result to store for report deduplication
+            if (result.success) {
+                try {
+                    val resultId = resultsStore.saveResult(
+                        taskId = "culinary_${System.currentTimeMillis()}",
+                        conversationId = conversationId,
+                        resultType = ai.pipecat.gemini_multimodal_websocket_demo.models.ResultType.RESEARCH,
+                        topics = listOf(query, name),
+                        summary = "Detailed recipe note created for: $name. Includes ingredients, instructions, and source link.",
+                        keyFacts = emptyList(),
+                        sources = listOf(resolvedUrl),
+                        fullContent = markdown
+                    )
+                    Log.d(TAG, "Research result saved: $resultId")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save research result", e)
+                }
+            }
 
             // 5. Update Shopping List (Optional)
             if (shouldAddShoppingList) {

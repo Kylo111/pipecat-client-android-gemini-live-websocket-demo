@@ -35,6 +35,7 @@ fun PermissionScreen() {
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
     val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
+    val notificationPermission = rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -42,7 +43,8 @@ fun PermissionScreen() {
         Log.i("MainActivity", "Permissions granted: $isGranted")
     }
 
-    if (!cameraPermission.status.isGranted || !micPermission.status.isGranted || !locationPermission.status.isGranted) {
+    if (!cameraPermission.status.isGranted || !micPermission.status.isGranted || 
+        !locationPermission.status.isGranted || !notificationPermission.status.isGranted) {
 
         Dialog(
             onDismissRequest = {},
@@ -67,7 +69,7 @@ fun PermissionScreen() {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Please grant camera, microphone, and location permissions to continue",
+                    text = "Please grant camera, microphone, notification, and location permissions to continue",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.W400,
                     style = TextStyles.base
@@ -84,7 +86,8 @@ fun PermissionScreen() {
                                 Manifest.permission.CAMERA,
                                 Manifest.permission.RECORD_AUDIO,
                                 Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.POST_NOTIFICATIONS
                             )
                         )
                     }

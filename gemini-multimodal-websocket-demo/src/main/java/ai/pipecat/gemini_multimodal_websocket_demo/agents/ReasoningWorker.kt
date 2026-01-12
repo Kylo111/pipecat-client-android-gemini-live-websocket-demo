@@ -901,8 +901,37 @@ class ReasoningWorker(
             
             // Search Perplexity for each topic
             val topicResults = mutableMapOf<String, String>()
+            var newSearchesPerformed = 0
             
             for (topic in topics) {
+                // Check if we already have a detailed research result for this topic in this conversation
+                val existingResults = reasoningResultsStore.getResultsByTopics(
+                    conversationId = snapshot.conversationId,
+                    topics = listOf(topic),
+                    minRelevance = 0.4f // Lowered threshold for better matching (e.g. "Warsaw" matching "Warsaw history")
+                )
+                
+                if (existingResults.isNotEmpty()) {
+                    val result = existingResults.first()
+                    Log.i(TAG, "♻️ Topic '$topic' already covered by research: ${result.resultId}. Skipping Perplexity.")
+                    
+                    val formattedResult = buildString {
+                        val currentLang = Preferences.appLanguage.value
+                        val skipMsg = when(currentLang) {
+                            "pl" -> "*(Informacje na ten temat zostały już zebrane w tej sesji i są dostępne w osobnej notatce)*"
+                            "de" -> "*(Informationen zu diesem Thema wurden in dieser Sitzung bereits gesammelt und sind in einer separaten Notiz verfügbar)*"
+                            "fr" -> "*(Les informations sur ce sujet ont déjà été collectées au cours de cette session et sont disponibles dans une note séparée)*"
+                            "es" -> "*(La información sobre este tema ya ha sido recopilada en esta sesión y está disponible en una nota aparte)*"
+                            else -> "*(Information on this topic has already been collected in this session and is available in a separate note)*"
+                        }
+                        appendLine(skipMsg)
+                        appendLine()
+                        appendLine(result.summary)
+                    }
+                    topicResults[topic] = formattedResult
+                    continue
+                }
+
                 Log.d(TAG, "🔎 Searching Perplexity for topic: $topic")
                 
                 try {
@@ -920,16 +949,26 @@ class ReasoningWorker(
                     }
                     
                     topicResults[topic] = formattedResult
+                    newSearchesPerformed++
                     Log.d(TAG, "✅ Search completed for topic: $topic")
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Search failed for topic: $topic", e)
                     topicResults[topic] = "Error searching for this topic: ${e.message}"
+                    newSearchesPerformed++
                 }
             }
+
+            // DEDUPLICATION LOGIC: 
+            // If all topics were already covered by detailed notes and no new searches were performed,
+            // we skip generating the report to avoid duplicating information.
+            if (newSearchesPerformed == 0 && topics.isNotEmpty()) {
+                Log.i(TAG, "⏭️ Skipping report generation: All topics are already covered by detailed notes.")
+                return Result.success()
+            }
             
-            // Detect language for report localization
-            val language = detectLanguageFromTranscript(snapshot.currentSessionTranscript)
+            // Use global appLanguage preference for report localization
+            val language = Preferences.appLanguage.value ?: "pl"
             
             // Generate Markdown report (in user's language)
             val report = generateMarkdownReport(

@@ -29,16 +29,20 @@ class EncyclopediaWorker(
         private const val WIKIPEDIA_API_BASE = "https://en.wikipedia.org/api/rest_v1"
     }
 
-    private val noteService by lazy {
+    private val resultsStore by lazy {
         val database = ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase.getDatabase(applicationContext)
         val topicMatcher = TopicMatcher()
-        val resultsStore = ReasoningResultsStore(database.reasoningResultDao(), topicMatcher)
+        ReasoningResultsStore(database.reasoningResultDao(), topicMatcher)
+    }
+
+    private val noteService by lazy {
+        val topicMatcher = TopicMatcher()
         val noteEnricher = NoteEnricher(resultsStore, topicMatcher)
         NoteService(applicationContext, noteEnricher, topicMatcher)
     }
 
     private val geminiClient by lazy {
-        GeminiReasoningClient(applicationContext, AgentConfigProvider)
+        GeminiLlmClient()
     }
 
     private val httpClient = OkHttpClient()
@@ -72,7 +76,33 @@ class EncyclopediaWorker(
 
             val title = summaryData["title"]?.jsonPrimitive?.content ?: query
             val extract = summaryData["extract"]?.jsonPrimitive?.content ?: ""
-            val thumbnail = summaryData["thumbnail"]?.jsonObject?.get("source")?.jsonPrimitive?.content ?: ""
+            
+            // Try to get original image first, then fallback to thumbnail
+            var imageUrl = summaryData["originalimage"]?.jsonObject?.get("source")?.jsonPrimitive?.content 
+                ?: summaryData["thumbnail"]?.jsonObject?.get("source")?.jsonPrimitive?.content 
+                ?: ""
+            
+            Log.i(TAG, "🖼️ Image from REST API: $imageUrl")
+            
+            // Fallback: If REST summary has no image, try Action API (prop=pageimages)
+            if (imageUrl.isEmpty()) {
+                Log.i(TAG, "🔄 No image in REST summary, trying Action API for: $title")
+                imageUrl = fetchWikipediaLeadImage(title) ?: ""
+                Log.i(TAG, "🖼️ Image from Action API: $imageUrl")
+            }
+            
+            // Normalize protocol-relative URLs (e.g. //upload.wikimedia.org -> https://upload.wikimedia.org)
+            if (imageUrl.startsWith("//")) {
+                imageUrl = "https:$imageUrl"
+                Log.d(TAG, "🌐 Normalized protocol-relative URL: $imageUrl")
+            }
+            
+            if (imageUrl.isEmpty()) {
+                Log.w(TAG, "⚠️ No image found for: $title")
+            } else {
+                Log.i(TAG, "✅ Final image URL to be used: $imageUrl")
+            }
+                
             val desktopUrl = summaryData["content_urls"]?.jsonObject?.get("desktop")?.jsonObject?.get("page")?.jsonPrimitive?.content ?: ""
 
             // 2. Fetch full content sections for richer notes
@@ -123,7 +153,13 @@ class EncyclopediaWorker(
                 IGNORE any previous instructions about 'actions' or 'reasoning' formats. I ONLY need the JSON above.
             """.trimIndent()
 
-            val llmResponse = geminiClient.complete(prompt).getOrNull()
+            val llmResponse = geminiClient.complete(
+                modelId = Preferences.reasoningAgentModel.value ?: "gemini-3-flash-preview",
+                userPrompt = prompt,
+                temperature = 0.3f,
+                jsonMode = true
+            ).getOrNull()
+            
             if (llmResponse == null) {
                 Log.e(TAG, "❌ LLM failed to process encyclopedia note")
                 return@withContext Result.failure()
@@ -143,21 +179,27 @@ class EncyclopediaWorker(
                     ?: jsonResult["content_markdown"]?.jsonPrimitive?.content
                     ?: llmResponse
                 
-                t to m
+                // Normalize internal markdown images (e.g. //upload.wikimedia.org -> https://upload.wikimedia.org)
+                val normalizedM = m.replace("](//", "](https://")
+                
+                t to normalizedM
             } catch (e: Exception) {
                 Log.w(TAG, "⚠️ Failed to parse primary JSON, trying fallback...")
-                title to llmResponse
+                val fallbackM = llmResponse.replace("](//", "](https://")
+                title to fallbackM
             }
 
             // 5. Save Note
             Log.d(TAG, "📝 Saving translated encyclopedia note: $finalTitle")
             val noteContent = buildString {
-                if (thumbnail.isNotEmpty()) {
-                    appendLine("![$finalTitle]($thumbnail)\n")
+                if (imageUrl.isNotEmpty()) {
+                    appendLine("![$finalTitle]($imageUrl)\n")
                 }
                 appendLine(finalMarkdown)
                 appendLine(footerText as String)
             }
+            
+            Log.d(TAG, "🔍 Final note content starts with: ${noteContent.take(100)}...")
 
             val metadata = NoteMetadata(
                 conversationId = conversationId,
@@ -165,7 +207,26 @@ class EncyclopediaWorker(
                 timestamp = System.currentTimeMillis(),
                 tags = tags as List<String>
             )
-            noteService.createNote(finalTitle, noteContent, metadata)
+            val result = noteService.createNote(finalTitle, noteContent, metadata)
+
+            // 6. Save research result to store for report deduplication
+            if (result.success) {
+                try {
+                    val resultId = resultsStore.saveResult(
+                        taskId = "encyclopedia_${System.currentTimeMillis()}",
+                        conversationId = conversationId,
+                        resultType = ai.pipecat.gemini_multimodal_websocket_demo.models.ResultType.RESEARCH,
+                        topics = listOf(title, finalTitle),
+                        summary = "Detailed encyclopedia note created for: $finalTitle. Contents include: Wikipedia summary, sections, and trivia.",
+                        keyFacts = emptyList(), // Not explicitly extracted yet
+                        sources = listOf(desktopUrl),
+                        fullContent = noteContent
+                    )
+                    Log.d(TAG, "Research result saved: $resultId")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save research result", e)
+                }
+            }
 
             Log.i(TAG, "✅ Encyclopedia task completed successfully")
             Result.success()
@@ -241,6 +302,34 @@ class EncyclopediaWorker(
             } else null
         } catch (e: Exception) {
             Log.e(TAG, "❌ Wikipedia search error", e)
+            null
+        }
+    }
+
+    private fun fetchWikipediaLeadImage(title: String): String? {
+        val encodedTitle = android.net.Uri.encode(title.replace(" ", "_"))
+        val url = "https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&titles=$encodedTitle&pithumbsize=1000&format=json&piprop=original|thumbnail"
+        Log.d(TAG, "🌐 Fetching lead image from Action API: $url")
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "GeminiLiveAndroidDemo/1.0 (https://github.com/Kylo111; contact@example.com)")
+            .build()
+        return try {
+            val response = httpClient.newCall(request).execute()
+            if (response.isSuccessful) {
+                val body = response.body?.string() ?: return null
+                val root = json.parseToJsonElement(body).jsonObject
+                val pages = root["query"]?.jsonObject?.get("pages")?.jsonObject
+                val pageId = pages?.keys?.firstOrNull()
+                val page = pages?.get(pageId ?: "")?.jsonObject
+                
+                val original = page?.get("original")?.jsonObject?.get("source")?.jsonPrimitive?.content
+                val thumbnail = page?.get("thumbnail")?.jsonObject?.get("source")?.jsonPrimitive?.content
+                
+                original ?: thumbnail
+            } else null
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Wikipedia Lead Image API error: ${e.message}")
             null
         }
     }

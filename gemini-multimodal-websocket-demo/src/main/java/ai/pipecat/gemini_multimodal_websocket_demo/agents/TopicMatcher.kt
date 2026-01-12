@@ -130,13 +130,26 @@ class TopicMatcher {
             return 0.0f // One empty = no overlap
         }
         
-        // Normalize all topics
-        val normalized1 = topics1.map { normalize(it) }.toSet()
-        val normalized2 = topics2.map { normalize(it) }.toSet()
+        // Normalize and split all topics into individual words for granular matching
+        val words1 = topics1.flatMap { it.split(Regex("\\s+")) }
+            .map { normalize(it) }
+            .filter { it.length >= 3 && it !in STOPWORDS }
+            .toSet()
+        val words2 = topics2.flatMap { it.split(Regex("\\s+")) }
+            .map { normalize(it) }
+            .filter { it.length >= 3 && it !in STOPWORDS }
+            .toSet()
+        
+        if (words1.isEmpty() && words2.isEmpty()) {
+            return 1.0f 
+        }
+        if (words1.isEmpty() || words2.isEmpty()) {
+            return 0.0f
+        }
         
         // Expand with synonyms
-        val expanded1 = expandWithSynonyms(normalized1)
-        val expanded2 = expandWithSynonyms(normalized2)
+        val expanded1 = expandWithSynonyms(words1)
+        val expanded2 = expandWithSynonyms(words2)
         
         // Compute Jaccard similarity: |intersection| / |union|
         val intersection = expanded1.intersect(expanded2)

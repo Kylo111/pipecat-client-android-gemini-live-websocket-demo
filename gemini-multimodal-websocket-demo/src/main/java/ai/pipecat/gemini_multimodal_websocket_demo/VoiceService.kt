@@ -346,7 +346,15 @@ class VoiceService : Service() {
      */
     private fun startForegroundService() {
         val notification = createNotification("Trwa rozmowa głosowa")
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, 
+                notification, 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         
         // Start battery profiling
         batteryProfiler.startProfiling()

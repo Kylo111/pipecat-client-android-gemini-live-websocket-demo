@@ -178,19 +178,28 @@ fun MarkdownWebView(
                             return assetLoader.shouldInterceptRequest(url)
                         }
                         
-                        // Allow specific image domains for recipes (aniagotuje.pl and its CDN aniagotuje.com)
+                        // Allow specific image domains for recipes and encyclopedia
                         val host = url.host?.lowercase()
                         val path = url.path?.lowercase()
-                        if (request.method == "GET" && 
-                            host != null && (host == "aniagotuje.pl" || host.endsWith(".aniagotuje.pl") || 
-                                            host == "aniagotuje.com" || host.endsWith(".aniagotuje.com")) &&
-                            path != null && (path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png") || path.endsWith(".webp"))) {
-                            return null // Allow network request
+                        if (request.method == "GET" && host != null && path != null) {
+                            val isSafeImage = path.endsWith(".jpg") || path.endsWith(".jpeg") || 
+                                              path.endsWith(".png") || path.endsWith(".webp") ||
+                                              path.endsWith(".gif") || path.endsWith(".svg")
+                            
+                            val isAllowedDomain = host == "aniagotuje.pl" || host.endsWith(".aniagotuje.pl") || 
+                                                 host == "aniagotuje.com" || host.endsWith(".aniagotuje.com") ||
+                                                 host == "wikimedia.org" || host.endsWith(".wikimedia.org") ||
+                                                 host == "wikipedia.org" || host.endsWith(".wikipedia.org")
+                            
+                            if (isSafeImage && isAllowedDomain) {
+                                Log.d(TAG, "🟢 Allowed network request: $url")
+                                return null // Allow network request
+                            }
                         }
                         
                         // HARD BLOCK: Return 403 Forbidden for all other requests
                         // This prevents WebView from attempting network fallback
-                        Log.w(TAG, "Blocked unauthorized request: $url")
+                        Log.w(TAG, "🔴 Blocked unauthorized request: $url (host=$host, method=${request.method})")
                         return WebResourceResponse(
                             "text/plain",
                             "UTF-8",
@@ -249,6 +258,8 @@ fun MarkdownWebView(
             if (markdown.contains("<") && markdown.contains(">")) {
                 Log.w(TAG, "HTML detected in Markdown content - will be sanitized")
             }
+            
+            Log.d(TAG, "🔄 update() called - Markdown length: ${markdown.length}. Starts with: ${markdown.take(50)}...")
             
             // Check if page is loaded
             val pageLoaded = webView.getTag(R.id.webview_page_loaded) as? Boolean ?: false
