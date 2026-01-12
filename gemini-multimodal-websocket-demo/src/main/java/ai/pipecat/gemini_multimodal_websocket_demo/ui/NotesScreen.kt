@@ -6,6 +6,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.agents.NoteService
 import ai.pipecat.gemini_multimodal_websocket_demo.agents.ReasoningResultsStore
 import ai.pipecat.gemini_multimodal_websocket_demo.agents.TopicMatcher
 import ai.pipecat.gemini_multimodal_websocket_demo.data.AppDatabase
+import ai.pipecat.gemini_multimodal_websocket_demo.R
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import android.content.Context
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -151,11 +153,12 @@ fun NotesScreen(
                         val result = clipboardService.copyToClipboard(content)
                         Toast.makeText(
                             context,
-                            if (result.success) "Skopiowano do schowka" else "Błąd kopiowania: ${result.message}",
+                            if (result.success) context.getString(R.string.notes_copy_success) 
+                            else context.getString(R.string.notes_copy_error, result.message),
                             Toast.LENGTH_SHORT
                         ).show()
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Błąd odczytu notatki", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.notes_read_error), Toast.LENGTH_SHORT).show()
                     }
                 }
                 showContextMenu = false
@@ -195,7 +198,8 @@ fun NotesScreen(
                 val success = noteService.renameLocalNote(noteToRename!!.absolutePath, newName)
                 Toast.makeText(
                     context,
-                    if (success) "Zmieniono nazwę notatki" else "Błąd zmiany nazwy",
+                    if (success) context.getString(R.string.notes_rename_success) 
+                    else context.getString(R.string.notes_rename_error),
                     Toast.LENGTH_SHORT
                 ).show()
                 showRenameDialog = false
@@ -274,7 +278,7 @@ fun NotesListView(
             }
 
             Text(
-                text = "Notatki",
+                text = stringResource(id = R.string.notes_title),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.W700,
                 color = Color.Black,
@@ -316,7 +320,7 @@ fun NotesListView(
                 item {
                     SpecialNoteItem(
                         icon = "🛒",
-                        title = "Lista zakupów",
+                        title = stringResource(id = R.string.notes_shopping_list),
                         backgroundColor = Color(0xFFFFF3E0), // Light orange for shopping
                         onClick = { showShoppingList = true }
                     )
@@ -325,7 +329,7 @@ fun NotesListView(
                 item {
                     SpecialNoteItem(
                         icon = "✓",
-                        title = "Rzeczy do zrobienia",
+                        title = stringResource(id = R.string.notes_todo_list),
                         backgroundColor = Color(0xFFE3F2FD), // Light blue for TODO
                         onClick = { showTodoList = true }
                     )
@@ -335,7 +339,7 @@ fun NotesListView(
                 items(agentGroups) { (agentId, displayName, _) ->
                     SpecialNoteItem(
                         icon = "📊",
-                        title = "Postępy $displayName",
+                        title = stringResource(id = R.string.notes_progress, displayName),
                         backgroundColor = Color(0xFFE8F5E9), // Light green for Progress
                         onClick = { 
                             selectedAgentForDoneList = agentId
@@ -358,7 +362,7 @@ fun NotesListView(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Brak innych notatek",
+                                text = stringResource(id = R.string.notes_no_other_notes),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.W600,
                                 color = Color.Gray,
@@ -366,7 +370,7 @@ fun NotesListView(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Powiedz: 'Zapisz w notatkach: ...'",
+                                text = stringResource(id = R.string.notes_instruction),
                                 fontSize = 14.sp,
                                 color = Color.Gray,
                                 style = TextStyles.base
@@ -580,7 +584,7 @@ fun NoteDetailView(
                     } catch (e: Exception) {
                         Toast.makeText(
                             context,
-                            "Nie można otworzyć linku",
+                            context.getString(R.string.notes_open_link_error),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -643,7 +647,7 @@ fun NoteContextMenu(
                         fontSize = 20.sp
                     )
                     Text(
-                        text = "Usuń",
+                        text = stringResource(id = R.string.common_delete),
                         style = TextStyles.base,
                         fontSize = 16.sp,
                         color = Color.Red,

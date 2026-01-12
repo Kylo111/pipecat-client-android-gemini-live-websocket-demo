@@ -1,6 +1,8 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.PINManager
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import androidx.compose.ui.res.stringResource
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.compose.foundation.background
@@ -63,7 +65,7 @@ fun PINEntryDialog(
             ) {
                 // Title
                 Text(
-                    text = "Wprowadź PIN",
+                    text = stringResource(id = R.string.pin_enter_title),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -73,7 +75,7 @@ fun PINEntryDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Domyślny PIN to 2222",
+                    text = stringResource(id = R.string.pin_default_info),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Gray,
@@ -107,8 +109,14 @@ fun PINEntryDialog(
                 
                 // Error message
                 if (errorMessage != null) {
+                    val errorText = if (errorMessage == "ERROR_INVALID_PIN") {
+                        stringResource(id = R.string.pin_invalid_error)
+                    } else {
+                        errorMessage!!
+                    }
+                    
                     Text(
-                        text = errorMessage!!,
+                        text = errorText,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W400,
                         color = Colors.buttonWarning,
@@ -289,7 +297,7 @@ fun PINEntryDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Anuluj",
+                        text = stringResource(id = R.string.common_cancel),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Colors.buttonNormal,
@@ -340,7 +348,13 @@ private fun checkPIN(
         if (PINManager.validatePIN(pin)) {
             onSuccess()
         } else {
-            onError("Nieprawidłowy PIN")
+            // We can't access context here easily for string resource in logic function,
+            // but the error is displayed in UI which is Composable.
+            // Better to pass a resource ID or let the UI handle the error message.
+            // For now, let's keep it simple and assume the UI will display a generic error
+            // or we modify the signature.
+            // To be safe and quick without changing signature too much:
+            onError("ERROR_INVALID_PIN") // We will handle this in UI to show localized string
         }
     }
 }

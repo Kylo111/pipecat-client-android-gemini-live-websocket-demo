@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.usecases
 
 import ai.pipecat.gemini_multimodal_websocket_demo.OfflineConversationManager
+import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConfigurationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
 import java.util.UUID
@@ -37,10 +38,11 @@ class ImportAssistantUseCase(
         
         // Create a new conversation with a unique ID
         val currentTime = System.currentTimeMillis()
+        val lang = Preferences.appLanguage.value ?: "pl"
         val newConversation = OfflineConversation(
             id = UUID.randomUUID().toString(),
-            title = template.title,
-            systemPrompt = template.systemPrompt,
+            title = template.getLocalizedTitle(lang),
+            systemPrompt = template.getLocalizedSystemPrompt(lang),
             voiceName = template.voiceId ?: "Puck",
             temperature = template.temperature,
             createdAt = currentTime,

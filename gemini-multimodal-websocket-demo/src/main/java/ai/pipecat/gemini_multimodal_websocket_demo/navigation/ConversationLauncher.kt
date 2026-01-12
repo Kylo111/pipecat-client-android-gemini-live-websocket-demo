@@ -10,6 +10,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
 import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManager
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
+import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ sealed class LaunchResult {
  * Extracted from MainActivity to reduce complexity and improve testability.
  */
 class ConversationLauncher(
+    private val context: Context,
     private val authManager: AuthManager,
     private val sessionManager: SessionManager,
     private val voiceClientManager: VoiceClientManager,
@@ -187,9 +189,9 @@ class ConversationLauncher(
         // Get tools instruction and whisperer mode instruction
         // If allowedTools is set, generate dynamic instructions. Otherwise use preferences (legacy/global)
         val toolsInstruction = if (allowedTools != null) {
-            SystemPrompts.getToolsInstruction(allowedTools)
+            SystemPrompts.getToolsInstruction(context, allowedTools)
         } else {
-            Preferences.toolsInstruction.value ?: SystemPrompts.toolsInstruction
+            Preferences.toolsInstruction.value ?: SystemPrompts.getToolsInstructionLegacy(context)
         }
         val whispererMode = SystemPrompts.whispererModeInstruction
         

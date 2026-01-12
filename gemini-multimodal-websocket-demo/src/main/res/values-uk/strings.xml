@@ -1,0 +1,342 @@
+<resources>
+    <string name="app_name">Live Bot</string>
+    
+    <!-- Connection Status -->
+    <string name="connection_status_reconnecting">Повторне підключення...</string>
+    <string name="connection_status_reconnecting_with_attempt">Повторне підключення... спроба %1$d з %2$d</string>
+    <string name="connection_status_connecting">Підключення...</string>
+    <string name="connection_status_connected">Підключено - розмова активна</string>
+    <string name="connection_status_disconnected">Відключено</string>
+    
+    <!-- Reconnection Dialog -->
+    <string name="reconnection_dialog_title">Проблема зі з\'єднанням</string>
+    <string name="reconnection_dialog_message">Не вдалося підключитися після 5 спроб. Продовжити спроби?</string>
+    <string name="reconnection_dialog_continue">Продовжити</string>
+    <string name="reconnection_dialog_end">Завершити розмову</string>
+    
+    <!-- Transcript Sync -->
+    <string name="transcript_sync_in_progress">Збереження транскрипції... спроба %1$d</string>
+    <string name="transcript_sync_success">Транскрипцію успішно збережено</string>
+    <string name="transcript_sync_error">Помилка синхронізації: %1$s</string>
+    
+    <!-- Navigation Items -->
+    <string name="nav_conversations">Розмови</string>
+    <string name="nav_marketplace">Маркетплейс</string>
+    <string name="nav_notes">Нотатки</string>
+    <string name="nav_settings">Налаштування</string>
+    
+    <!-- Conversation Categories -->
+    <string name="category_education">Освіта</string>
+    <string name="category_productivity">Продуктивність</string>
+    <string name="category_lifestyle">Стиль життя</string>
+    <string name="category_health">Здоров\'я</string>
+    <string name="category_entertainment">Розваги</string>
+    <string name="category_custom">Власні</string>
+
+    <string name="login_title">Привітання!</string>
+    <string name="login_subtitle">Увійдіть за допомогою свого акаунта LibreChat</string>
+    <string name="login_email_placeholder">Електронна пошта</string>
+    <string name="login_password_placeholder">Пароль</string>
+    <string name="login_button">Увійти</string>
+    <string name="login_logging_in">Вхід у систему...</string>
+    <string name="login_error_invalid_credentials">Невірні дані для входу</string>
+    <string name="login_error_network">Помилка мережі. Перевірте підключення.</string>
+    <string name="login_error_unknown">Виникла непередбачена помилка</string>
+    
+    <string name="thread_list_title">Ваші бесіди</string>
+    <string name="thread_list_empty">Немає бесід. Створіть нову!</string>
+    <string name="thread_list_new_chat">Нова бесіда</string>
+    <string name="thread_list_logout">Вийти</string>
+    
+    <string name="settings_title">Налаштування</string>
+    <string name="settings_language_label">Мова додатку</string>
+    <string name="settings_voice_label">Голос Gemini</string>
+    <string name="settings_theme_label">Тема</string>
+    <string name="settings_server_url">Адреса сервера</string>
+    <string name="settings_save_button">Зберегти</string>
+    
+    <string name="notes_title">Ваші нотатки</string>
+    <string name="notes_empty">У вас ще немає нотаток.</string>
+    <string name="notes_create_new">Створити нотатку</string>
+    
+    <string name="common_save">Зберегти</string>
+    <string name="common_cancel">Скасувати</string>
+    <string name="common_delete">Видалити</string>
+    <string name="common_edit">Редагувати</string>
+    <string name="common_error">Помилка</string>
+    <string name="common_success">Успішно</string>
+    <string name="common_loading">Завантаження...</string>
+    <string name="common_ok">OK</string>
+    <string name="common_back">Назад</string>
+    <string name="common_close">Закрити</string>
+    <string name="common_search">Пошук</string>
+    <string name="common_confirm">Підтвердити</string>
+    <string name="common_retry">Повторити</string>
+    <string name="common_done">Готово</string>
+    <string name="common_warning">Попередження</string>
+    <string name="common_info">Інформація</string>
+    <string name="common_none">Немає</string>
+    <string name="common_all">Всі</string>
+    <string name="common_selected">Вибрано</string>
+    <string name="common_optional">Опціонально</string>
+
+    <string name="action_settings">Налаштування</string>
+    <string name="error_mic_permission">Доступу до мікрофона не надано</string>
+    <string name="error_connection_failed">Не вдалося підключитися до сервера</string>
+    <string name="error_session_expired">Сесія закінчилася</string>
+    <string name="speech_placeholder">Слухаю...</string>
+    <string name="reconnect_title">З\'єднання розірвано</string>
+    <string name="reconnect_message">З\'єднання з сервером перервано. Спробувати підключитися знову?</string>
+    <string name="reconnect_button">Підключитися знову</string>
+    <string name="reconnect_limit_reached">Перевищено ліміт спроб підключення.</string>
+    <string name="reconnect_limit_message">Не вдалося відновити з\'єднання автоматично. Хочете спробувати ще раз вручну чи завершити розмову?</string>
+
+    <string name="pref_keep_screen_awake_title">Екран завжди увімкнений</string>
+    <string name="pref_keep_screen_awake_summary">Запобігає вимкненню екрана під час розмови</string>
+    <string name="pref_auto_reconnect_title">Автореконект</string>
+    <string name="pref_auto_reconnect_summary">Автоматично відновлювати з\'єднання при помилках</string>
+
+    <string name="permission_required_title">Потрібні дозволи</string>
+    <string name="permission_required_msg">Для роботи додатку потрібен доступ до мікрофона для розмов з Gemini.</string>
+    <string name="permission_grant_button">Надати дозволи</string>
+    <string name="permission_settings_button">Налаштування</string>
+
+    <string name="marketplace_title">Маркетплейс Асистентів</string>
+    <string name="marketplace_empty">Немає доступних асистентів.</string>
+    <string name="marketplace_search_hint">Шукати асистентів...</string>
+    <string name="marketplace_install_button">Встановити</string>
+    <string name="marketplace_installed_tag">Встановлено</string>
+    <string name="marketplace_category_all">Всі</string>
+    <string name="marketplace_category_education">Освіта</string>
+    <string name="marketplace_category_productivity">Продуктивність</string>
+    <string name="marketplace_category_lifestyle">Стиль життя</string>
+    <string name="marketplace_category_health">Здоров\'я</string>
+    <string name="marketplace_category_entertainment">Розваги</string>
+    <string name="marketplace_category_tools">Інструменти</string>
+    <string name="marketplace_import_success">Асистента \"%1$s\" успішно імпортовано!</string>
+    <string name="marketplace_import_error">Помилка імпорту асистента</string>
+
+    <string name="settings_tab_session">Сесія та вигляд</string>
+    <string name="settings_tab_agents">Агенти</string>
+    <string name="settings_tab_integrations">Інтеграції</string>
+    <string name="settings_tab_system">Система</string>
+
+    <string name="settings_section_general">Загальні</string>
+    <string name="settings_section_appearance">Зовнішній вигляд</string>
+    <string name="settings_section_api">API Конфігурація</string>
+    <string name="settings_section_debug">Налагодження (Debug)</string>
+    <string name="settings_section_danger">Небезпечна зона</string>
+
+    <string name="settings_api_token_label">LibreChat API токен</string>
+    <string name="settings_api_token_placeholder">Введіть ваш API токен</string>
+    <string name="settings_api_token_desc">Токен потрібен для синхронізації бесід та нотаток</string>
+    
+    <string name="settings_model_label">Модель Gemini</string>
+    <string name="settings_theme_system">Системна</string>
+    <string name="settings_theme_light">Світла</string>
+    <string name="settings_theme_dark">Темна</string>
+    
+    <string name="settings_clear_data_title">Очистити дані додатку</string>
+    <string name="settings_clear_data_button">Очистити все</string>
+    <string name="settings_clear_data_confirm">Ви впевнені, що хочете видалити всі дані, налаштування та акаунти? Цю дію неможливо скасувати.</string>
+    
+    <string name="settings_advanced_options">Розширені опції</string>
+    <string name="settings_show_debug_info">Показувати технічну інформацію</string>
+    <string name="settings_enable_logging">Увімкнути логування у файл</string>
+
+    <string name="settings_agent_control_enabled">Control Agent (Smart Switching)</string>
+    <string name="settings_agent_control_desc">Дозволяє автоматично перемикатися між асистентами під час розмови</string>
+    
+    <string name="settings_agent_reasoning_enabled">Reasoning Agent (Deep Analysis)</string>
+    <string name="settings_agent_reasoning_desc">Дозволяє створювати складні нотатки та проводити глибоке дослідження в фоновому режимі</string>
+
+    <string name="settings_integ_telegram_label">Telegram Bot Token</string>
+    <string name="settings_integ_telegram_placeholder">Token від @BotFather</string>
+    <string name="settings_integ_telegram_chatid_label">Telegram Chat ID</string>
+    <string name="settings_integ_telegram_chatid_placeholder">Ваш ID (напр. 123456789)</string>
+    <string name="settings_integ_telegram_test_btn">Тестувати з\'єднання</string>
+    <string name="settings_integ_telegram_test_success">Повідомлення успішно відправлено!</string>
+    <string name="settings_integ_telegram_test_error">Помилка відправки: %1$s</string>
+
+    <string name="settings_integ_azure_label">Azure Health Bot Token</string>
+    <string name="settings_integ_azure_placeholder">Секретний ключ Azure</string>
+    <string name="settings_integ_azure_desc">Використовується для інструменту Symptom Checker</string>
+
+    <string name="settings_integ_assistant_label">Системний Асистент</string>
+    <string name="settings_integ_assistant_desc">Запуск розмови замість Google Assistant (утримування Power)</string>
+    <string name="settings_integ_assistant_btn">Налаштувати асистента</string>
+    <string name="settings_integ_assistant_current">Поточна бесіда: %1$s</string>
+    <string name="settings_integ_assistant_none">Не вибрано (натисніть, щоб вибрати)</string>
+
+    <string name="settings_change_pin_btn">Змінити PIN-код</string>
+    <string name="settings_pin_info">За замовчуванням: 1111</string>
+    <string name="settings_pin_title">Введіть PIN</string>
+    <string name="settings_pin_error">Невірний PIN-код</string>
+
+    <string name="prompt_edit_title">Редагувати Промпт</string>
+    <string name="prompt_edit_label">Системний промпт</string>
+    <string name="prompt_edit_placeholder">Введіть інструкції для ШІ...</string>
+
+    <string name="pin_dialog_title">Доступ захищено</string>
+    <string name="pin_dialog_subtitle">Введіть PIN-код для входу в налаштування</string>
+    <string name="pin_dialog_placeholder">PIN</string>
+    <string name="pin_dialog_info">За замовчуванням: 2222</string>
+    <string name="pin_dialog_error">Невірний PIN. Залишилося спроб: %1$d</string>
+
+    <string name="conversation_title_new">Нова бесіда</string>
+    <string name="conversation_title_edit">Редагувати бесіду</string>
+    <string name="conversation_name_label">Назва</string>
+    <string name="conversation_name_placeholder">Введіть назву (напр. Викладач англійської)</string>
+    <string name="conversation_system_prompt_label">Системний промпт (Роль та поведінка)</string>
+    <string name="conversation_system_prompt_placeholder">Опишіть, як має поводитися цей бот...</string>
+    <string name="conversation_voice_label">Голос</string>
+    <string name="conversation_model_settings_title">Параметри моделі</string>
+    <string name="conversation_model_settings_button">⚙️ Розширені налаштування</string>
+    <string name="conversation_tools_label">Доступні інструменти</string>
+    <string name="conversation_tools_button">🛠️ Вибрати інструменти (%1$s)</string>
+    <string name="conversation_tools_all">Всі</string>
+    <string name="conversation_delete_button">Видалити</string>
+    <string name="conversation_delete_confirm_title">Видалити розмову?</string>
+    <string name="conversation_delete_confirm_msg">Ви впевнені, що хочете видалити цю розмову? Цю дію неможливо скасувати.</string>
+    <string name="tool_selection_title">Виберіть доступні інструменти</string>
+    <string name="tool_selection_all">Вибрати все</string>
+    <string name="thread_config_title">Конфігурація потоку</string>
+
+    <string name="pin_enter_title">Введіть PIN-код</string>
+    <string name="pin_default_info">PIN-код за замовчуванням: 2222</string>
+    <string name="pin_invalid_error">Невірний PIN-код</string>
+    <string name="conv_list_new_offline">Нова бесіда офлайн</string>
+    <string name="conv_list_locked_parental">Заблоковано</string>
+    <string name="conv_list_loading">Завантаження потоків...</string>
+    <string name="conv_list_loading_error">Помилка завантаження бесід: %1$s</string>
+    <string name="conv_list_empty">Немає бесід.\nСтворіть нову бесіду офлайн або потік у LibreChat.</string>
+    <string name="conv_list_saving_memories">Збереження спогадів...</string>
+    <string name="conv_list_offline_badge">ОФЛАЙН</string>
+    <string name="conv_list_locked_title">Бесіда заблокована</string>
+    <string name="conv_list_locked_description">Ця бесіда заблокована, оскільки процес збереження спогадів було перервано (наприклад, через перезапуск додатка).</string>
+    <string name="conv_list_locked_options">Ви можете:</string>
+    <string name="conv_list_locked_unlock_info">Розблокувати - бесіда знову стане доступною (спогади можуть бути неповними)</string>
+    <string name="conv_list_locked_delete_info">Видалити - назавжди видалити бесіду та всі її дані</string>
+    <string name="conv_list_unlock_button">Розблокувати</string>
+    
+    <!-- Notification Permission -->
+    <string name="integ_notif_perm_title">Дозвіл на сповіщення</string>
+    <string name="integ_notif_perm_desc">Щоб нагадування працювали правильно, додатку потрібен дозвіл на показ сповіщень.</string>
+    <string name="integ_notif_perm_usage">Сповіщення використовуються для:</string>
+    <string name="integ_notif_perm_list">• Показу нагадувань у запланований час\n• Відтворення звуку нагадування\n• Роботи навіть при закритому додатку</string>
+    <string name="integ_notif_perm_grant">Надати дозвіл</string>
+
+    <!-- Telegram Instructions -->
+    <string name="integ_tg_step_1">1. Відкрийте Telegram та знайдіть @BotFather</string>
+    <string name="integ_tg_step_2">2. Надішліть команду /newbot та дотримуйтесь інструкцій</string>
+    <string name="integ_tg_step_3">3. Скопіюйте токен бота та вставте вище</string>
+    <string name="integ_tg_step_4">4. Знайдіть @userinfobot та надішліть /start, щоб отримати Chat ID</string>
+    <string name="integ_tg_step_5">5. Скопіюйте Chat ID та вставте вище</string>
+    <string name="integ_tg_step_6">6. Натисніть \'Тестувати з\'єднання\', щоб перевірити конфігурацію</string>
+
+    <!-- Assistant Instructions -->
+    <string name="integ_assist_howto_title">ℹ️ Як налаштувати:</string>
+    <string name="integ_assist_step_1">1. Виберіть розмову для запуску</string>
+    <string name="integ_assist_step_2">2. Натисніть \'Налаштувати асистента\' - відкриється екран налаштувань</string>
+    <string name="integ_assist_step_3">3. Знайдіть \'Додаток цифрового асистента за замовчуванням\' або \'Голосове введення\'</string>
+    <string name="integ_assist_step_4">4. Виберіть \'Live Bot\' як асистент за замовчуванням</string>
+    <string name="integ_assist_step_5">5. Утримуйте кнопку живлення (Power) для запуску додатку</string>
+    <string name="integ_assist_warning_title">⚠️ Важливі обмеження:</string>
+    <string name="integ_assist_warning_desc">• На пристроях Samsung може блокуватися через Bixby\n• Деякі виробники забороняють змінювати асистента\n• Функція \'Утримування кнопки Power\' може бути недоступна\n• У таких випадках запускайте додаток зазвичай з головного екрана</string>
+    
+    <!-- Model Settings Dialog -->
+    <string name="model_settings_subtitle">Розширені параметри генерації відповіді</string>
+    <string name="model_settings_temp_label">Температура (Temperature)</string>
+    <string name="model_settings_temp_desc">Контролює випадковість. Нижче = точніше, вище = творчіше</string>
+    <string name="model_settings_topp_label">Top P</string>
+    <string name="model_settings_topp_desc">Вибірка ядра. Нижче = більш сфокусовані відповіді</string>
+    <string name="model_settings_topk_label">Top K</string>
+    <string name="model_settings_topk_desc">Кількість токенів для вибору. Нижче = вища точність</string>
+    <string name="model_settings_max_tokens_label">Макс. кількість токенів (Max Tokens)</string>
+    <string name="model_settings_max_tokens_desc">Обмеження довжини відповіді. Нижче = лаконічні відповіді</string>
+    <string name="model_settings_val_range_error">%1$s має бути в межах від %2$s до %3$s</string>
+
+    <!-- Integration Names -->
+    <string name="integ_name_contacts_sms">Контакти та SMS</string>
+    <string name="integ_name_alarms">Будильники та нагадування</string>
+    <string name="integ_name_calendar">Календар</string>
+    <string name="integ_name_todo">Список справ (TODO)</string>
+    <string name="integ_name_maps">Google Карти</string>
+    <string name="integ_name_transit">Громадський транспорт</string>
+    <string name="integ_name_shopping">Список покупок</string>
+
+    <!-- Permission Names -->
+    <string name="integ_perm_contacts">Контакти</string>
+    <string name="integ_perm_calendar_read">Календар (читання)</string>
+    <string name="integ_perm_calendar_write">Календар (запис)</string>
+    <string name="integ_perm_alarms">Точні будильники</string>
+    <string name="integ_perm_notif">Сповіщення</string>
+    <string name="integ_perm_location">Локація</string>
+
+    <!-- Integration Unavailable Messages -->
+    <string name="integ_unavailable_contacts">Асистент не може шукати контакти або надсилати SMS.</string>
+    <string name="integ_unavailable_alarms">Асистент не може встановлювати будильники або створювати нагадування.</string>
+    <string name="integ_unavailable_calendar">Асистент не може перевіряти або додавати події в календарі.</string>
+    <string name="integ_unavailable_todo">Асистент не може керувати списком справ TODO.</string>
+    <string name="integ_unavailable_maps">Асистент не може запускати навігацію або шукати місця на карті.</string>
+    <string name="integ_unavailable_transit">Асистент не може перевіряти маршрути громадського транспорту.</string>
+    <string name="integ_unavailable_shopping">Асистент не може керувати списком покупок.</string>
+
+    <!-- Tool Groups -->
+    <string name="tool_group_search_title">Пошук Google (Grounding)</string>
+    <string name="tool_group_search_desc">Нативний пошук Google</string>
+    <string name="tool_group_reasoning_title">Агент мислення (Reasoning)</string>
+    <string name="tool_group_reasoning_desc">Глибокий аналіз, нотатки, Telegram, Perplexity</string>
+    <string name="tool_group_perplexity_title">Perplexity (Online)</string>
+    <string name="tool_group_perplexity_desc">Пошук в реальному часі з цитуваннями</string>
+    <string name="tool_group_progress_title">Прогрес (Done List)</string>
+    <string name="tool_group_progress_desc">Автоматичне збереження підсумків сесії</string>
+    <string name="tool_group_shopping_title">Список покупок</string>
+    <string name="tool_group_shopping_desc">Повне керування списком покупок</string>
+    <string name="tool_group_todo_title">Список справ (TODO)</string>
+    <string name="tool_group_todo_desc">Керування списком завдань</string>
+    <string name="tool_group_encyclopedia_title">Енциклопедія (Wikipedia)</string>
+    <string name="tool_group_encyclopedia_desc">Створення розгорнутих нотаток на основі Вікіпедії</string>
+    <string name="tool_group_calendar_title">Календар</string>
+    <string name="tool_group_calendar_desc">Керування календарем</string>
+    <string name="tool_group_reminders_title">Нагадування</string>
+    <string name="tool_group_reminders_desc">Керування нагадуваннями</string>
+    <string name="tool_group_alarms_title">Будильник</string>
+    <string name="tool_group_alarms_desc">Встановлення будильників</string>
+    <string name="tool_group_weather_title">Погода</string>
+    <string name="tool_group_weather_desc">Перевірка погоди</string>
+    <string name="tool_group_time_title">Час та Дата</string>
+    <string name="tool_group_time_desc">Перевірка часу та дати</string>
+    <string name="tool_group_location_title">Локація</string>
+    <string name="tool_group_location_desc">Отримання координат GPS</string>
+    <string name="tool_group_calculate_title">Калькулятор</string>
+    <string name="tool_group_calculate_desc">Математичні обчислення</string>
+    <string name="tool_group_places_title">Місця поблизу</string>
+    <string name="tool_group_places_desc">Пошук ресторанів, магазинів тощо</string>
+    <string name="tool_group_map_search_title">Пошук на карті</string>
+    <string name="tool_group_map_search_desc">Пошук адреси в Google Картах</string>
+    <string name="tool_group_navigation_title">Навігація</string>
+    <string name="tool_group_navigation_desc">Навігація через Google Карти</string>
+    <string name="tool_group_transit_title">Громадський транспорт</string>
+    <string name="tool_group_transit_desc">Пошук маршрутів сполучення</string>
+    <string name="tool_group_show_map_title">Показати на карті</string>
+    <string name="tool_group_show_map_desc">Показ точки на карті</string>
+    <string name="tool_group_media_title">Керування медіа</string>
+    <string name="tool_group_media_desc">Spotify, YouTube Music</string>
+    <string name="tool_group_contacts_title">Контакти</string>
+    <string name="tool_group_contacts_desc">Пошук у контактах</string>
+    <string name="tool_group_sms_title">Надсилання SMS</string>
+    <string name="tool_group_sms_desc">Надсилання текстових повідомлень</string>
+    <string name="tool_group_health_title">Перевірка симптомів</string>
+    <string name="tool_group_health_desc">Azure Health Bot</string>
+
+    <!-- PIN Change Dialog -->
+    <string name="pin_change_title_current">Введіть поточний PIN</string>
+    <string name="pin_change_title_new">Введіть новий PIN</string>
+    <string name="pin_change_title_confirm">Підтвердьте новий PIN</string>
+    <string name="pin_change_title_success">PIN змінено</string>
+    <string name="pin_change_error_invalid_current">Неправильний поточний PIN</string>
+    <string name="pin_change_error_invalid_new">PIN має складатися з 4 цифр</string>
+    <string name="pin_change_error_match">PIN-коди не збігаються</string>
+    <string name="pin_change_success_msg">PIN-код успішно змінено</string>
+</resources>

@@ -43,7 +43,7 @@ object Preferences {
     private const val PREF_LIBRECHAT_OCR_MODE = "librechat_ocr_mode"
     private const val PREF_APP_LANGUAGE = "app_language"
     private const val PREF_VERSION = "preferences_version"
-    private const val CURRENT_PREFS_VERSION = 3 // Increment when changing default values
+    private const val CURRENT_PREFS_VERSION = 4 // Increment when changing default values
 
     private lateinit var prefs: SharedPreferences
 
@@ -72,9 +72,9 @@ object Preferences {
                 prefs.edit().remove(PREF_TOOLS_INSTRUCTION).apply()
             }
             
-            // Migration from version 2 to 3: Add navigation tool to toolsInstruction
-            if (currentVersion < 3) {
-                // Remove old toolsInstruction to force new default with navigation
+            // Migration from version 3 to 4: Localize toolsInstruction
+            if (currentVersion < 4) {
+                // Remove old toolsInstruction to force new default (localized)
                 prefs.edit().remove(PREF_TOOLS_INSTRUCTION).apply()
             }
             

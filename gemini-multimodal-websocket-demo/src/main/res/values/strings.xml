@@ -5,7 +5,7 @@
     <string name="connection_status_reconnecting">Ponowne łączenie...</string>
     <string name="connection_status_reconnecting_with_attempt">Ponowne łączenie… próba %1$d z %2$d</string>
     <string name="connection_status_connecting">Łączenie...</string>
-    <string name="connection_status_connected">Połączono</string>
+    <string name="connection_status_connected">Połączono - rozmowa aktywna</string>
     <string name="connection_status_disconnected">Rozłączono</string>
     
     <!-- Reconnection Dialog -->
@@ -43,4 +43,516 @@
     <string name="error_microphone_start_failed">Failed to start microphone: %1$s</string>
     <string name="error_audio_playback_failed">Failed to start audio playback: %1$s</string>
     <string name="error_reconnection_max_attempts">Nie udało się połączyć po %1$d próbach. Kontynuować próby?</string>
+
+    <!-- Navigation Menu -->
+    <string name="menu_history">Historia</string>
+    <string name="menu_marketplace">Sklep</string>
+    <string name="menu_settings">Ustawienia</string>
+    <string name="menu_notes">Notatki</string>
+    <string name="menu_logout">Wyloguj</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_tab_api">Klucze API</string>
+    <string name="settings_tab_session">Sesja</string>
+    <string name="settings_tab_agents">Agenci</string>
+    <string name="settings_tab_integrations">Integracje</string>
+    <string name="settings_label_gemini_api">Klucz API Gemini</string>
+    <string name="settings_label_model">Model</string>
+    <string name="settings_label_language">Język aplikacji</string>
+    <string name="settings_button_save">Zapisz</string>
+    <string name="settings_validation_error_title">Błąd walidacji</string>
+    <string name="settings_validation_error_gemini">Brak klucza API Gemini. Wpisz klucz API w ustawieniach.</string>
+    <string name="settings_validation_loading">Sprawdzanie modelu...</string>
+
+    <!-- Marketplace -->
+    <string name="marketplace_title">Sklep asystentów</string>
+    <string name="marketplace_import">Importuj</string>
+    <string name="marketplace_importing">Importowanie...</string>
+    <string name="marketplace_success">✓ Szablon zaimportowany pomyślnie!</string>
+    <string name="marketplace_import_error">Nie udało się zaimportować szablonu</string>
+    <string name="marketplace_error">✗ Nie udało się zaimportować szablonu</string>
+    <string name="marketplace_empty">Brak dostępnych szablonów.\nWróć później po nowych asystentów.</string>
+    <string name="marketplace_config_voice">Głos</string>
+    <string name="marketplace_config_temp">Temperatura</string>
+
+    <!-- Notes -->
+    <string name="notes_title">Twoje Notatki</string>
+    <string name="notes_empty">Brak notatek. Twoje zapisane treści pojawią się tutaj.</string>
+    <string name="notes_search_placeholder">Szukaj w notatkach...</string>
+
+    <!-- Login -->
+    <string name="login_logging_in">Logowanie...</string>
+    <string name="login_title">Logowanie</string>
+    <string name="login_button">Zaloguj</string>
+
+    <!-- Common -->
+    <string name="common_ok">OK</string>
+    <string name="common_cancel">Anuluj</string>
+    <string name="common_back">Wróć</string>
+    <string name="common_error">Błąd</string>
+    <string name="common_save">Zapisz</string>
+    <string name="common_delete">Usuń</string>
+    <string name="common_rename">Zmień nazwę</string>
+    <string name="common_copy">Kopiuj</string>
+    <string name="common_success">Sukces</string>
+
+    <!-- Notes Actions -->
+    <string name="notes_delete_confirm_title">Usuń notatkę</string>
+    <string name="notes_delete_confirm_message">Czy na pewno chcesz usunąć notatkę „%1$s”?</string>
+    <string name="notes_rename_title">Zmień nazwę notatki</string>
+    <string name="notes_rename_prompt">Wprowadź nową nazwę:</string>
+    <string name="notes_copy_success">Skopiowano do schowka</string>
+    <string name="notes_copy_error">Błąd kopiowania: %1$s</string>
+    <string name="notes_read_error">Błąd odczytu notatki</string>
+    <string name="notes_rename_success">Zmieniono nazwę notatki</string>
+    <string name="notes_rename_error">Błąd zmiany nazwy</string>
+    <string name="notes_no_other_notes">Brak innych notatek</string>
+    <string name="notes_instruction">Powiedz: „Zapisz w notatkach: ...”</string>
+    <string name="notes_shopping_list">Lista zakupów</string>
+    <string name="notes_todo_list">Rzeczy do zrobienia</string>
+    <string name="notes_progress">Postępy %1$s</string>
+    <string name="notes_open_link_error">Błąd otwierania linku</string>
+
+    <!-- Settings Tabs -->
+    <string name="settings_tab_api_keys">Klucze i konta</string>
+    <string name="settings_tab_appearance">Sesja i wygląd</string>
+    <string name="settings_tab_agents_menu">Agenci</string>
+    <string name="settings_tab_integrations_menu">Integracje</string>
+
+    <!-- API Keys Tab -->
+    <string name="api_keys_section_title">Klucze API</string>
+    <string name="api_keys_gemini_label">Klucz API Gemini</string>
+    <string name="api_keys_model_label">Nazwa modelu</string>
+    <string name="api_keys_perplexity_label">Klucz API Perplexity (opcjonalny)</string>
+    <string name="api_keys_perplexity_desc">Perplexity Sonar API zapewnia wyszukiwanie w czasie rzeczywistym z automatycznymi cytowaniami. Zdobądź klucz na: https://www.perplexity.ai/settings/api</string>
+    <string name="api_keys_openrouter_label">Klucz API OpenRouter (opcjonalny)</string>
+    <string name="api_keys_openrouter_desc">OpenRouter API zapewnia dostęp do zaawansowanych modeli AI (Claude, GPT-4, etc.) dla Reasoning Agent. Zdobądź klucz na: https://openrouter.ai/keys</string>
+    <string name="api_keys_google_directions_label">Klucz API Google Directions (opcjonalny)</string>
+    <string name="api_keys_google_directions_desc">Google Directions API umożliwia wyszukiwanie tras transportu publicznego. Możesz użyć tego samego klucza co Google Places API. Zdobądź klucz na: https://console.cloud.google.com</string>
+    <string name="api_keys_picovoice_label">Klucz dostępu Picovoice (opcjonalny)</string>
+    <string name="api_keys_picovoice_desc">Uzyskaj darmowy klucz na console.picovoice.ai dla wykrywania komend głosowych</string>
+    <string name="api_keys_telegram_token_label">Token bota Telegram (opcjonalny)</string>
+    <string name="api_keys_telegram_token_desc">Uzyskaj token od @BotFather na Telegramie. Przykład: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz</string>
+    <string name="api_keys_telegram_chat_label">ID czatu Telegram (opcjonalny)</string>
+    <string name="api_keys_telegram_chat_desc">Twój ID czatu Telegram. Możesz go uzyskać od @userinfobot. Przykład: 123456789</string>
+    <string name="api_keys_azure_section">Azure Speech (wymagane dla LibreChat Audio)</string>
+    <string name="api_keys_azure_key_label">Azure API Key</string>
+    <string name="api_keys_azure_region_label">Azure Region (np. eastus)</string>
+    <string name="api_keys_azure_voice_label">Azure TTS Voice (np. en-US-AvaMultilingualNeural)</string>
+    <string name="api_keys_azure_bot_secret">Azure Health Bot Secret (Direct Line API)</string>
+    <string name="api_keys_azure_desc">Klucz i region znajdziesz w Azure Portal (Speech Service). Głos musi obsługiwać wiele języków dla najlepszego efektu.</string>
+    <string name="api_keys_import_json">Importuj z JSON</string>
+    <string name="api_keys_export_json">Eksportuj do JSON</string>
+    <string name="api_keys_import_success">✅ Zaimportowano klucze API pomyślnie!</string>
+    <string name="api_keys_export_success">✅ Wyeksportowano klucze API pomyślnie!</string>
+    <string name="api_keys_error">❌ Błąd: %1$s</string>
+
+    <!-- Kumpel-chat login -->
+    <string name="login_kumpel_chat_desc">Zaloguj się do Kumpel-chat aby synchronizować konwersacje z serwerem</string>
+    <string name="login_server_url">Adres serwera</string>
+    <string name="login_email">Email</string>
+    <string name="login_password">Hasło</string>
+    <string name="login_button_text">Zaloguj</string>
+    <string name="login_success_info">✅ Zalogowano do Kumpel-chat</string>
+    <string name="login_transcript_info">Transkrypcja rozmowy jest wysyłana bezpośrednio do LibreChat.</string>
+    <string name="login_logout_button">Wyloguj z Kumpel-chat</string>
+    <string name="login_logout_info">Wylogowanie zachowa lokalne konwersacje offline</string>
+    <string name="login_offline_mode_title">ℹ️ Tryb offline</string>
+    <string name="login_offline_mode_desc">Możesz korzystać z aplikacji bez logowania. Wszystkie konwersacje będą przechowywane lokalnie na urządzeniu.</string>
+
+    <!-- Session and Appearance Tab -->
+    <string name="settings_appearance_section">Wygląd i motyw</string>
+    <string name="settings_theme_label">Motyw aplikacji</string>
+    <string name="settings_theme_classic">Klasyczny</string>
+    <string name="settings_theme_modern">Nowoczesny</string>
+    <string name="settings_theme_glass">Szklany</string>
+    <string name="settings_session_section">Parametry sesji</string>
+    <string name="settings_screen_awake">Utrzymuj ekran włączony</string>
+    <string name="settings_auto_pause">Auto-pauza (brak aktywności)</string>
+    <string name="settings_seconds">%1$d sekund</string>
+    <string name="settings_bot_timeout">Timeout odpowiedzi bota</string>
+    <string name="settings_minutes">%1$d minut</string>
+    <string name="settings_activity_threshold">Czułość wykrywania głosu (VAD)</string>
+    <string name="settings_full_duplex">Tryb Full-Duplex (można przerywać)</string>
+    <string name="settings_parental_lock">Blokada rodzicielska PIN</string>
+    <string name="settings_change_pin">Zmień PIN</string>
+
+    <!-- Agents Tab -->
+    <string name="agents_control_title">Agent sterowania głosowego</string>
+    <string name="agents_control_switch">Włącz agenta sterowania</string>
+    <string name="agents_control_on_desc">✅ WŁĄCZONY: Agent nasłuchuje komend głosowych (\"wycisz\", \"rozłącz\", \"przełącz na...\") i wykonuje akcje systemowe w tle.</string>
+    <string name="agents_control_off_desc">❌ WYŁĄCZONY: Wszystkie komendy głosowe są przekazywane do głównego agenta Gemini Live.</string>
+    <string name="agents_how_works_title">ℹ️ Jak działa agent sterowania:</string>
+    <string name="agents_how_works_item1">Działa równolegle do głównego agenta Gemini Live (nie blokuje rozmowy)</string>
+    <string name="agents_how_works_item2">Rozpoznaje komendy: \"wycisz\", \"rozłącz\", \"przełącz na [nazwa konwersacji]\"</string>
+    <string name="agents_how_works_item3">W razie wątpliwości przekazuje kontrolę do głównego agenta (fail-safe)</string>
+    <string name="agents_how_works_item4">Obsługuje polskie i angielskie komendy</string>
+    <string name="agents_control_active">Agent sterowania jest aktywny</string>
+    <string name="agents_reasoning_title">Reasoning Agent (Agent rozumujący)</string>
+    <string name="agents_reasoning_switch">Włącz Reasoning Agent</string>
+    <string name="agents_reasoning_on_desc">✅ WŁĄCZONY: Agent rozumujący działa w tle, wykonując głębokie analizy, wyszukiwania i generując raporty.</string>
+    <string name="agents_reasoning_off_desc">❌ WYŁĄCZONY: Wszystkie zadania analityczne są przekazywane do głównego agenta Gemini Live.</string>
+    <string name="agents_reasoning_how_works_title">ℹ️ Jak działa Reasoning Agent:</string>
+    <string name="agents_reasoning_how_works_item1">Działa asynchronicznie w tle (nie blokuje rozmowy)</string>
+    <string name="agents_reasoning_how_works_item2">Wykonuje głębokie wyszukiwania przez Perplexity z cytowaniami</string>
+    <string name="agents_reasoning_how_works_item3">Zapisuje notatki, kopiuje do schowka, wysyła na Telegram</string>
+    <string name="agents_reasoning_how_works_item4">Generuje raporty po sesji na podstawie wykrytych tematów</string>
+    <string name="agents_reasoning_how_works_item5">Używa zaawansowanych modeli (Gemini, DeepSeek) przez Gemini API lub OpenRouter</string>
+    <string name="agents_reasoning_model_label">Model rozumujący</string>
+    <string name="agents_reasoning_model_desc">Model używany do głębokich analiz i rozumowania. DeepSeek V3.2 jest zalecany ze względu na wysoką jakość i niski koszt.</string>
+    <string name="agents_whisperer_label">Tryb Whisperer (automatyczne uruchamianie)</string>
+    <string name="agents_whisperer_on_desc">✅ WŁĄCZONY: Gemini Live automatycznie uruchamia Reasoning Agent gdy wykryje brak wiedzy lub potrzebę głębszej analizy.</string>
+    <string name="agents_whisperer_off_desc">❌ WYŁĄCZONY: Reasoning Agent uruchamia się tylko na wyraźne polecenie użytkownika.</string>
+    <string name="agents_whisperer_how_works_title">ℹ️ Tryb Whisperer:</string>
+    <string name="agents_whisperer_how_works_item1">Gemini Live wykrywa gdy nie ma wystarczającej wiedzy</string>
+    <string name="agents_whisperer_how_works_item2">Automatycznie uruchamia Reasoning Agent w tle (bez informowania użytkownika)</string>
+    <string name="agents_whisperer_how_works_item3">Kontynuuje rozmowę naturalnie, \"kupując czas\" na analizę</string>
+    <string name="agents_whisperer_how_works_item4">Gdy wynik jest gotowy, wstrzykuje wiedzę do rozmowy</string>
+    <string name="agents_reasoning_active">Reasoning Agent jest aktywny</string>
+    <string name="agents_api_keys_required_title">⚠️ Wymagane klucze API:</string>
+    <string name="agents_api_keys_required_item1">OpenRouter API - dostęp do modeli rozumujących (DeepSeek, Claude)</string>
+    <string name="agents_api_keys_required_item2">Perplexity API - wyszukiwanie w czasie rzeczywistym z cytowaniami</string>
+    <string name="agents_api_keys_required_footer">Skonfiguruj klucze w zakładce \"Klucze i konta\"</string>
+    <string name="agents_librechat_title">LibreChat</string>
+    <string name="agents_librechat_ocr_label">Tryb OCR (Rozpoznawanie tekstu)</string>
+    <string name="agents_librechat_ocr_on_desc">✅ WŁĄCZONY: Zdjęcia będą przetwarzane przez OCR (tekst), a nie bezpośrednio przez model wizyjny.</string>
+    <string name="agents_librechat_ocr_off_desc">❌ WYŁĄCZONY: Zdjęcia są wysyłane bezpośrednio do modelu (tryb Vision).</string>
+    <string name="agents_librechat_ocr_how_works_title">ℹ️ O trybie OCR:</string>
+    <string name="agents_librechat_ocr_how_works_item1">Używa serwerowego modułu OCR (np. Mistral OCR) do wyciągnięcia tekstu</string>
+    <string name="agents_librechat_ocr_how_works_item2">Model otrzymuje czysty tekst zamiast pikseli obrazu</string>
+    <string name="agents_librechat_ocr_how_works_item3">Przydatne przy słabym oświetleniu lub bardzo małym druku</string>
+
+    <!-- Integrations Tab -->
+    <string name="integ_pico_title">Komendy głosowe Picovoice</string>
+    <string name="integ_pico_switch">Włącz wykrywanie komend głosowych</string>
+    <string name="integ_pico_warning_title">⚠️ Ważne ostrzeżenie</string>
+    <string name="integ_pico_warning_desc">UWAGA: Przy wyłączonym ekranie Picovoice i aplikacja nie działają prawidłowo (Android zabija proces).</string>
+    <string name="integ_pico_warning_how_to">Jeżeli chcesz używać komend głosowych:</string>
+    <string name="integ_pico_warning_step1">1. Włącz \"Utrzymuj ekran włączony\" w ustawieniach</string>
+    <string name="integ_pico_warning_step2">2. Trzymaj aplikację na wierzchu (OnScreen)</string>
+    <string name="integ_pico_warning_step3">3. Nie wyłączaj ekranu podczas rozmowy</string>
+    <string name="integ_pico_warning_footer">Bez tych ustawień komendy głosowe mogą nie działać poprawnie.</string>
+    <string name="integ_pico_warning_confirm">Rozumiem, włącz</string>
+    <string name="integ_pico_on_desc">Usługa nasłuchuje komend głosowych w tle</string>
+    <string name="integ_pico_off_desc">Wykrywanie komend głosowych jest wyłączone</string>
+    <string name="integ_pico_access_label">Klucz dostępu Picovoice</string>
+    <string name="integ_pico_access_hint">Uzyskaj darmowy klucz na console.picovoice.ai</string>
+    <string name="integ_pico_sensitivity_label">Czułość wykrywania</string>
+    <string name="integ_pico_sensitivity_min">Mniej czuły (0.0)</string>
+    <string name="integ_pico_sensitivity_max">Bardzo czuły (1.0)</string>
+    <string name="integ_pico_activation_sound">Dźwięk aktywacji</string>
+    <string name="integ_pico_system_title">Systemowe komendy głosowe</string>
+    <string name="integ_pico_system_desc">Wbudowana komenda głosowa:</string>
+    <string name="integ_pico_system_alexa">Pauzuje/wznawia sesję głosową (toggle)</string>
+    <string name="integ_pico_custom_title">Własne komendy głosowe</string>
+    <string name="integ_pico_custom_empty">Brak własnych komend. Dodaj nową komendę aby uruchamiać konwersacje głosem.</string>
+    <string name="integ_pico_add_button">+ Dodaj</string>
+    <string name="integ_pico_import_success">Plik .ppn został zaimportowany pomyślnie!</string>
+    <string name="integ_pico_import_error">Nie udało się zaimportować pliku</string>
+    <string name="integ_tg_title">Konfiguracja Telegram</string>
+    <string name="integ_tg_desc">Skonfiguruj bota Telegram aby otrzymywać raporty i notatki z Reasoning Agent.</string>
+    <string name="integ_tg_token_label">Token bota Telegram</string>
+    <string name="integ_tg_token_hint">Uzyskaj token od @BotFather na Telegramie. Przykład: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz</string>
+    <string name="integ_tg_chat_label">ID czatu Telegram</string>
+    <string name="integ_tg_chat_hint">Twój ID czatu Telegram. Możesz go uzyskać od @userinfobot. Przykład: 123456789</string>
+    <string name="integ_tg_test_button">Testuj połączenie</string>
+    <string name="integ_tg_testing">Testowanie...</string>
+    <string name="integ_tg_test_success">✅ Połączenie udane! Wiadomość testowa została wysłana.</string>
+    <string name="integ_tg_test_error">❌ Błąd: %1$s</string>
+    <string name="integ_tg_how_to_title">ℹ️ Jak skonfigurować bota Telegram:</string>
+    <string name="integ_system_title">Integracje systemowe</string>
+    <string name="integ_system_desc">Włącz lub wyłącz poszczególne integracje systemowe. Wyłączone integracje nie będą dostępne dla asystenta głosowego.</string>
+    <string name="integ_status_disabled">Wyłączone</string>
+    <string name="integ_status_active">Aktywne</string>
+    <string name="integ_status_need_perms">Wymaga uprawnień</string>
+    <string name="integ_perms_required">Wymaga: %1$s</string>
+    <string name="integ_perms_missing">⚠️ Brak: %1$s</string>
+    <string name="integ_grant_perms">Przyznaj uprawnienia</string>
+    <string name="integ_assistant_title">Asystent systemowy</string>
+    <string name="integ_assistant_desc">Ustaw aplikację jako domyślnego asystenta systemowego. Po ustawieniu możesz uruchomić wybraną konwersację przytrzymując przycisk Power (zależy od urządzenia).</string>
+    <string name="integ_assistant_active">Ustawiona jako asystent</string>
+    <string name="integ_assistant_inactive">Nie ustawiona jako asystent</string>
+    <string name="integ_assistant_active_desc">Możesz uruchomić aplikację przytrzymując Power</string>
+    <string name="integ_assistant_inactive_desc">Kliknij przycisk poniżej aby otworzyć ustawienia</string>
+    <string name="integ_assistant_select_conv">Konwersacja do uruchomienia:</string>
+    <string name="integ_assistant_select_hint">Wybierz konwersację</string>
+    <string name="integ_assistant_empty">Brak dostępnych konwersacji. Zaloguj się do LibreChat i utwórz konwersację.</string>
+    <string name="integ_assistant_open_settings">Otwórz ustawienia asystenta</string>
+    <string name="integ_custom_tools_title">Własne narzędzia (Custom Tools)</string>
+    <string name="integ_custom_tools_desc">Dodaj własne narzędzia dla Gemini poprzez import JSON. Narzędzia mogą wykonywać HTTP requesty lub uruchamiać Android Intenty.</string>
+
+    <!-- Settings Validation -->
+    <string name="settings_validation_error_openrouter">Błąd walidacji klucza OpenRouter: %1$s</string>
+    <string name="settings_validation_error_perplexity">Błąd walidacji klucza Perplexity: %1$s</string>
+    <string name="settings_validation_error_generic">Błąd podczas walidacji: %1$s</string>
+    <string name="settings_validation_error_unknown">Nieznany błąd</string>
+    <string name="settings_validation_error_footer">Sprawdź poprawność wprowadzonych kluczy API i nazw modeli.</string>
+    <string name="settings_validation_reasoning_model_required">Model Reasoning Agent wymaga klucza OpenRouter API. Wpisz klucz lub zmień model na Gemini.</string>
+
+    <!-- Marketplace -->
+    <string name="marketplace_open">Otwórz</string>
+    <string name="marketplace_installed">Zainstalowano</string>
+
+    <!-- Conversation List -->
+    <string name="conv_list_offline_banner">Tryb offline: Twoje konwersacje są zapisywane lokalnie. Zaloguj się do Kumpel-chat w zakładce \"Klucze i konta\" aby synchronizować konwersacje. Aby uzyskać pełną funkcjonalność, nadaj uprawnienia w menu Integracje. Sprawdź też Market Place, gdzie znajdziesz asystentów.</string>
+    <string name="conv_list_new_offline">Nowa konwersacja offline</string>
+    <string name="conv_list_locked_parental">Zablokowane</string>
+    <string name="conv_list_loading">Ładowanie wątków...</string>
+    <string name="conv_list_loading_error">Błąd podczas ładowania konwersacji: %1$s</string>
+    <string name="conv_list_empty">Brak konwersacji.\nUtwórz nową konwersację offline lub wątek w LibreChat.</string>
+    <string name="conv_list_saving_memories">Zapisuję wspomnienia...</string>
+    <string name="conv_list_offline_badge">OFFLINE</string>
+    <string name="conv_list_locked_title">Konwersacja zablokowana</string>
+    <string name="conv_list_locked_description">Ta konwersacja jest zablokowana, ponieważ proces zapisywania wspomnień został przerwany (np. przez restart aplikacji).</string>
+    <string name="conv_list_locked_options">Możesz:</string>
+    <string name="conv_list_locked_unlock_info">Odblokować - konwersacja będzie znów dostępna (wspomnienia mogą być niekompletne)</string>
+    <string name="conv_list_locked_delete_info">Usunąć - trwale usuń konwersację i wszystkie jej dane</string>
+    <string name="conv_list_unlock_button">Odblokuj</string>
+
+    <string name="integ_pico_reimport_ppn">Reimportuj .ppn</string>
+    <string name="integ_pico_import_ppn">Importuj .ppn</string>
+    <string name="integ_pico_instructions">Instrukcje</string>
+    <string name="integ_pico_built_in">Wbudowane</string>
+    <string name="integ_pico_ready">Gotowe do użycia</string>
+    <string name="integ_pico_needs_import">Wymaga importu pliku .ppn</string>
+    <string name="integ_pico_add_dialog_title">Dodaj komendę głosową</string>
+    <string name="integ_pico_add_dialog_desc">Wprowadź nazwę komendy głosowej (np. \'asystent\', \'pomoc\'):</string>
+    <string name="integ_pico_add_dialog_placeholder">np. asystent</string>
+    
+    <string name="integ_custom_tools_installed">Zainstalowane narzędzia (%1$d):</string>
+    <string name="integ_custom_tools_import_json_title">Importuj Custom Tool</string>
+    <string name="integ_custom_tools_import_json_desc">Wklej JSON z definicją narzędzia:</string>
+    <string name="integ_custom_tools_import_json_placeholder">Wklej JSON...</string>
+    <string name="integ_custom_tools_example_title">Przykład Custom Tool</string>
+    <string name="integ_custom_tools_example_desc">Przykładowa definicja narzędzia:</string>
+    <string name="integ_custom_tools_example_button">Przykład</string>
+    
+    <!-- Service Errors -->
+    <string name="main_error_service_start">Nie udało się uruchomić usługi w tle: %1$s</string>
+
+    <!-- Tool Descriptions for System Prompts -->
+    <string name="tools_instruction_header"># KRYTYCZNE ZASADY ZACHOWANIA\n\n## STYL ODPOWIEDZI - OBOWIĄZKOWY\n\n1. **NIGDY NIE POWTARZAJ WEJŚCIA UŻYTKOWNIKA**\n   ❌ ŹLE: \"Rozumiem, że chcesz żebym sprawdził w internecie informacje o...\"\n   ❌ ŹLE: \"Więc pytasz o to, czy...\"\n   ❌ ŹLE: \"Chcesz abym to sprawdził teraz?\"\n   ✅ DOBRZE: [Po prostu wykonaj zadanie i podaj odpowiedź]\n\n2. **NIGDY NIE PYTAJ O POTWIERDZENIE**\n   ❌ ŹLE: \"Czy chcesz żebym to sprawdził?\"\n   ❌ ŹLE: \"Mam to dla Ciebie zrobić?\"\n   ❌ ŹLE: \"Chcesz abym kontynuował?\"\n   ✅ DOBRZE: [Wykonaj natychmiast, podaj wyniki]\n\n3. **BRAK ZWROTÓW GRZECZNOŚCIOWYCH / WYPEŁNIACZY**\n   ❌ ZAKAZANE: \"Czy mogę w czymś jeszcze pomóc?\"\n   ❌ ZAKAZANE: \"Daj mi znać jeśli masz pytania\"\n   ❌ ZAKAZANE: \"Mam nadzieję że to pomoże\"\n   ❌ ZAKAZANE: \"Jeśli potrzebujesz więcej informacji...\"\n   ✅ DOBRZE: [Zakończ odpowiedź po dostarczeniu treści]\n\n4. **WYKONUJ PRZY PIERWSZEJ KOMENDZIE**\n   - Użytkownik mówi coś raz = robisz to natychmiast\n   - BEZ pytań o wyjaśnienie, chyba że jest naprawdę niejasno\n   - BEZ powtarzania tego, co powiedział użytkownik, aby \"potwierdzić zrozumienie\"\n   - BEZ meta-komentarzy o tym, co zamierzasz zrobić\n\n5. **ZWIĘZŁE ODPOWIEDZI**\n   - Odpowiadaj bezpośrednio faktami\n   - Bez zbędnych wstępów\n   - Bez podsumowań tego, co właśnie powiedziałeś\n   - Bez \"Podsumowując...\" lub \"Podsumowując...\"\n   - Krótkie zdania dla wyjścia głosowego\n\n## ZAKAZANE WZORCE\n\nTe frazy są ZAKAZANE w Twoich odpowiedziach:\n- \"Rozumiem, że chcesz...\"\n- \"Więc pytasz o...\"\n- \"Czy chcesz żebym...\"\n- \"Mam to zrobić teraz?\"\n- \"Czy mogę w czymś jeszcze pomóc?\"\n- \"Daj mi znać jeśli...\"\n- \"Mam nadzieję że...\"\n- \"Podsumowując...\"\n- \"Jak wspomniałeś...\"\n- \"Jak mówiłeś...\"\n\n---\n\n# KRYTYCZNE ZASADY UŻYWANIA NARZĘDZI\n\n## TWOJE BEZPOŚREDNIE NARZĘDZIA (Wywołuj je bezpośrednio):</string>
+    <string name="reasoning_agent_footer">### ⚠️ KRYTYCZNE OSTRZEŻENIE - PRZECZYTAJ UWAŻNIE ⚠️\n\n**NIE POSIADASZ TYCH NARZĘDZI:**\n- ❌ `create_note` - NIE ISTNIEJE\n- ❌ `save_note` - NIE ISTNIEJE\n- ❌ `copy_to_clipboard` - NIE ISTNIEJE\n- ❌ `send_telegram` - NIE ISTNIEJE\n- ❌ `search_perplexity` - NIE ISTNIEJE\n\n**JEŚLI UŻYTKOWNIK PROSI O ZAPISANIE/KOPIOWANIE/WYSŁANIE:**\n✅ MUSISZ wywołać `start_reasoning_task` - to jedyny sposób!\n❌ NIE MOŻESZ robić tego bezpośrednio!\n❌ NIE UDAWAJ, że to zrobiłeś!\n❌ NIE MÓW \"Zapisałem\" lub \"Przygotowałem\" - delegujesz, nie wykonujesz!\n\n**POPRAWNA REAKCJA:**\nUżytkownik: \"Zapisz to w notatkach\"\n→ Call: start_reasoning_task(\"Create note: [content]\", \"NORMAL\")\n→ Powiedz: \"Zapisuję to dla Ciebie...\" (czas teraźniejszy ciągły!)\n→ Kontynuuj rozmowę\n\n**BŁĘDNA REAKCJA (HALUCYNACJA):**\nUżytkownik: \"Zapisz to w notatkach\"\n→ Powiedz: \"Przygotowałem notatkę...\" (BRAK WYWOŁANIA NARZĘDZIA = KŁAMSTWO!)\n\n### OBOWIĄZKOWE ZASADY DELEGOWANIA:\n\n**KRYTYCZNE: NIE MOŻESZ tworzyć notatek bezpośrednio! MUSISZ użyć start_reasoning_task!**\n\n**Gdy użytkownik prosi o ZAPISANIE/ZAPAMIĘTANIE czegoś:**\n```\nUżytkownik: \"Zapisz to w notatkach\"\nUżytkownik: \"Zapamiętaj to\"\nUżytkownik: \"Stwórz notatkę\"\n\n→ NATYCHMIAST wywołaj: start_reasoning_task(\"Create note with content: [streszcz co zapisać]\", \"NORMAL\")\n→ Następnie powiedz: \"Zapisuję to dla Ciebie...\" (NIE \"Zapisałem\" - zaczynasz proces!)\n→ Kontynuuj rozmowę naturalnie\n\nKRYTYCZNE: NIE MÓW \"Przygotowałem notatkę\" ani \"Zapisałem\" - delegujesz, nie robisz tego sam!\nMów: \"Zapisuję...\" lub \"Tworzę notatkę...\" (czas teraźniejszy, nie przeszły!)\n```\n\n**Gdy użytkownik prosi o SKOPIOWANIE czegoś:**\n```\nUżytkownik: \"Skopiuj to\"\n\n→ NATYCHMIAST wywołaj: start_reasoning_task(\"Copy to clipboard: [content]\", \"NORMAL\")\n→ Następnie powiedz: \"Kopiuję...\" i kontynuuj rozmowę\n```\n\n**Gdy użytkownik prosi o WYŚLANIE na Telegram:**\n```\nUżytkownik: \"Wyślij mi to na Telegram\"\n\n→ NATYCHMIAST wywołaj: start_reasoning_task(\"Send to Telegram: [content]\", \"NORMAL\")\n→ Następnie powiedz: \"Wysyłam na Telegram...\" i kontynuuj rozmowę\n```\n\n**Gdy użytkownik zadaje ZŁOŻONE pytania badawcze:**\n```\nUżytkownik: \"Dlaczego Polska nie weszła do strefy euro?\"\nUżytkownik: \"Co się działo w tym tygodniu w polityce?\"\nUżytkownik: \"Wyjaśnij szczegółowo jak działa X\"\n\n→ NATYCHMIAST wywołaj: start_reasoning_task(\"Research: [topic]\", \"HIGH\")\n→ Następnie powiedz: \"Sprawdzam to dla Ciebie...\" i kontynuuj rozmowę\n```\n\n### WZORZEC FIRE-AND-FORGET:\n\n1. Wywołaj start_reasoning_task NATYCHMIAST (nie pytaj o zgodę)\n2. KONTYNUUJ rozmowę naturalnie\n3. Agent Rozumujący pracuje w tle\n4. Wyniki zostaną wstrzyknięte, gdy będą gotowe\n5. Możesz krótko potwierdzić akcję: \"Zapisuję...\", \"Sprawdzam...\", \"Wysyłam...\"\n\n### PRZYKŁADY POPRAWNEGO ZACHOWANIA:\n\n✅ DOBRZE:\n```\nUżytkownik: \"Zapisz to w notatkach: kupić mleko\"\nAsystent: [Wywołuje start_reasoning_task(\"Create note: kupić mleko\", \"NORMAL\")]\nAsystent: \"Zapisuję to dla Ciebie. Czy jest coś jeszcze?\"\n```\n\n✅ DOBRZE:\n```\nUżytkownik: \"Zrób notatkę z tego co powiedziałem\"\nAsystent: [Wywołuje start_reasoning_task(\"Create note from conversation: [summary]\", \"NORMAL\")]\nAsystent: \"Tworzę notatkę z naszej rozmowy...\"\n```\n\n❌ ŹLE - HALUCYNACJA:\n```\nUżytkownik: \"Zapisz to w notatkach: kupić mleko\"\nAsystent: \"Przygotowałem notatkę z treścią: kupić mleko\"\n[Brak wywołania narzędzia - to HALUCYNACJA! NIE MOŻESZ tworzyć notatek bezpośrednio!]\n```\n\n❌ ŹLE - CZAS PRZESZŁY:\n```\nUżytkownik: \"Zapisz to w notatkach: kupić mleko\"\nAsystent: [Prawidłowo wywołuje start_reasoning_task]\nAsystent: \"Zapisałem to w notatkach\"\n[ŹLE! ROZPOCZĄŁEŚ proces, ale go nie UKOŃCZYŁEŚ! Mów \"Zapisuję...\" a nie \"Zapisałem\"!]\n```\n\n❌ ŹLE - PYTANIE O ZGODĘ:\n```\nUżytkownik: \"Zapisz to w notatkach: kupić mleko\"\nAsystent: \"Czy chcesz żebym zapisał to w notatkach?\"\n[ŹLE! Użytkownik już Cię o to poprosił! Po prostu to ZRÓB!]\n```\n\n### OBOWIĄZKOWE ZACHOWANIE:\n\n- **NIE HALUCYNUJ** - Jeśli nie możesz czegoś zrobić bezpośrednio, użyj start_reasoning_task\n- **NIE PYTAJ O ZGODĘ** - Po prostu wykonaj narzędzie natychmiast\n- **NIE WYJAŚNIAJ** - Po prostu to zrób i krótko potwierdź\n- **NIE CZEKAJ** - Wzorzec fire-and-forget, kontynuuj rozmowę\n- **NIE UDAWAJ** - Jeśli wywołujesz start_reasoning_task, mów \"Zapisuję...\" a nie \"Zapisałem\"\n\n### SZYBKA ŚCIĄGA:\n\n| Prośba Użytkownika | Twoja Akcja |\n|--------------------|-------------|\n| \"Zapisz to\" | start_reasoning_task(\"Create note: [content]\", \"NORMAL\") |\n| \"Skopiuj to\" | start_reasoning_task(\"Copy to clipboard: [content]\", \"NORMAL\") |\n| \"Wyślij na Telegram\" | start_reasoning_task(\"Send to Telegram: [content]\", \"NORMAL\") |\n| \"Co nowego w internecie?\" | google_search() |\n| \"Zbadaj temat X\" | start_reasoning_task(\"Research: X\", \"HIGH\") |\n| \"Nawiguj do X\" | start_navigation(destination=\"X\", mode=\"driving\") |\n| \"Włącz muzykę\" | control_media(action=\"play\", query=\"\", app=\"spotify\") |\n\nPAMIĘTAJ: Możesz tworzyć notatki, kopiować do schowka, wysyłać na Telegram lub przeprowadzać głęboki research TYLKO poprzez start_reasoning_task. Te akcje NIE są dostępne bezpośrednio dla Ciebie!\n</string>
+    <string name="tool_desc_google_search">1. **google_search()** - NATIVE Google Search Grounding\n   - Używaj do: informacji w czasie rzeczywistym, wiadomości, aktualnych wydarzeń i sprawdzania faktów.\n   - To Twoja natywna funkcja dostępu do sieci. Używaj jej CZĘSTO dla wszelkich aktualnych informacji.\n   - Przykład: \"Co się dzisiaj wydarzyło?\" → google_search()</string>
+    <string name="tool_desc_get_weather">2. **get_weather(location, units)** - Pobierz prognozę pogody\n   - Używaj do: zapytań o pogodę\n   - Przykład: \"Jaka pogoda?\" → get_weather(location=\"current\", units=\"metric\")</string>
+    <string name="tool_desc_get_current_time">3. **get_current_time(timezone)** - Pobierz aktualną datę i godzinę\n   - Używaj do: zapytań o czas\n   - Przykład: \"Która godzina?\" → get_current_time(timezone=\"auto\")</string>
+    <string name="tool_desc_get_location">4. **get_location(include_address)** - Pobierz lokalizację GPS użytkownika\n   - Używaj do: zapytań o lokalizację\n   - Przykład: \"Gdzie jestem?\" → get_location(include_address=true)</string>
+    <string name="tool_desc_calculate">5. **calculate(expression)** - Wykonaj obliczenia\n   - Używaj do: operacji matematycznych\n   - Przykład: \"Ile to 2+2?\" → calculate(expression=\"2+2\")</string>
+    <string name="tool_desc_control_media">6. **control_media(action, query, app)** - Steruj odtwarzaniem mediów\n   - Używaj do: sterowania muzyką i mediami\n   - Przykład: \"Włącz Spotify\" → control_media(action=\"play\", query=\"\", app=\"spotify\")</string>
+    <string name="tool_desc_search_nearby">7. **search_nearby(query, radius, max_results)** - Znajdź miejsca w pobliżu\n   - Używaj do: szukania miejsc w okolicy\n   - Przykład: \"Gdzie jest apteka?\" → search_nearby(query=\"apteka\", radius=1000, max_results=5)</string>
+    <string name="tool_desc_start_navigation">8. **start_navigation(destination, mode)** - Uruchom nawigację Google Maps\n   - Używaj do: próśb o nawigację\n   - Tryby: \"driving\" (domyślny), \"walking\", \"bicycling\", \"transit\"\n   - Przykład: \"Nawiguj do Warszawy\" → start_navigation(destination=\"Warszawa\", mode=\"driving\")</string>
+    <string name="tool_desc_start_reasoning_task">9. **start_reasoning_task(task_description, priority)** - Oddeleguj zadanie do asynchronicznego Agenta Rozumującego\n   - Parametry:\n     * task_description: Opis zadania do wykonania\n     * priority: \"LOW\", \"NORMAL\", lub \"HIGH\"</string>
+    <string name="tool_desc_search_contacts">10. **search_contacts(query)** - Znajdź osoby w kontaktach\n    - Używaj do: pobierania danych kontaktowych\n    - Przykład: \"Znajdź numer do Marka\" → search_contacts(query=\"Marek\")</string>
+    <string name="tool_desc_send_sms">11. **send_sms(contact_name, phone_number, message)** - Wysyłaj wiadomości SMS\n    - **ZASADY SMS**:\n      * Używaj nazw kontaktów jeśli to możliwe.\n      * **NIE czytaj numerów telefonów na głos.** Używaj tylko imion/nazw.\n    - Przykład: \"Napisz do Kasi że będę spóźniony\" → send_sms(contact_name=\"Kasia\", message=\"Będę spóźniony\")</string>
+    <string name="tool_desc_set_alarm">12. **set_alarm(hour, minutes, days, label)** - Ustawiaj alarmy systemowe\n    - Dni: 1=Nd, 2=Pn... 7=Sb\n    - Przykład: \"Budzik na 7 w dni robocze\" → set_alarm(hour=7, minutes=0, days=[2,3,4,5,6], label=\"Praca\")</string>
+    <string name="tool_desc_create_reminder">13. **create_reminder(title, date, time)** / **list_reminders()** / **delete_reminder(id)**\n    - Używaj do: jednorazowych przypomnień\n    - Przykład: \"Przypomnij mi jutro o 15 kupić kwiaty\" → create_reminder(title=\"Kupić kwiaty\", date=\"2025-12-23\", time=\"15:00\")</string>
+    <string name="tool_desc_get_calendar_events">14. **get_calendar_events(date)** / **create_calendar_event(...)** / **delete_calendar_event(id)**\n    - Używaj do: zarządzania kalendarzem\n    - Przykład: \"Co mam w kalendarzu na jutro?\" → get_calendar_events(date=\"2025-12-23\")</string>
+    <string name="tool_desc_get_todo_tasks">15. **get_todo_tasks(date)** / **add_todo_task(title, due_date, priority)** / **complete_todo_task(id)**\n    - Używaj do: list zadań to-do\n    - Przykład: \"Dodaj kupić mleko do listy zadań\" → add_todo_task(title=\"Kupić mleko\")</string>
+    <string name="tool_desc_get_shopping_list">16. **get_shopping_list()** / **add_to_shopping_list(items)** / **remove_from_shopping_list(id)**\n    - Używaj do: list zakupów.\n    - **WAŻNE**: Kategoryzuj produkty w formacie \'nazwa | kategoria\'. Przykład: Nabiał, Owoce, Chemia.\n    - Przykład: \"Dopisz jajka i 2 kg mąki\" → add_to_shopping_list(items=[\"jajka | Nabiał\", \"2 kg mąki | Produkty Sypkie\"])</string>
+    <string name="tool_desc_find_transit_route">17. **find_transit_route(origin, destination, arrival_time, departure_time)**\n    - Używaj do: tras komunikacji miejskiej\n    - Przykład: \"Jak dojadę autobusem do centrum?\" → find_transit_route(origin=\"current\", destination=\"Centrum\")</string>
+    <string name="tool_desc_symptom_checker">18. **symptom_checker(userTextEn, conversationId, watermark)** - Specjalistyczny Triage Medyczny\n    - Używaj do: sprawdzania symptomów, porad medycznych (Azure Health Bot).\n    - **WAŻNE**: MUSISZ przetłumaczyć całe zapytanie użytkownika na angielski PRZED wywołaniem tego narzędzia. Parametr `userTextEn` MUSI być po angielsku.\n    - Przykład: \"Mam temperaturę i kaszel\" → symptom_checker(userTextEn=\"I have a fever and a cough\")</string>
+    <string name="tool_desc_search_on_map">19. **search_on_map(query)** / **show_on_map(location)**\n    - Używaj do: przeglądania miejsc na mapie bez uruchamiania nawigacji\n    - Przykład: \"Pokaż mi gdzie jest najbliższa biblioteka\" → search_on_map(query=\"biblioteka\")</string>
+    <string name="tool_desc_ania_process_recipe">20. **ania_process_recipe(query, url, should_add_shopping_list)** - Automatyzacja Kulinarna (Ania Gotuje)\n    - Używaj do: pobierania i formatowania przepisów z aniagotuje.pl.\n    - Przykład: \"Zrób mi ten sernik i dodaj do zakupów\" → ania_process_recipe(query=\"sernik\", should_add_shopping_list=true)</string>
+    <string name="tool_desc_encyclopedia_lookup">21. **encyclopedia_lookup(query, exhaustive_note)** - Badania Encyklopedyczne (Wikipedia)\n    - Używaj do: pobierania szczegółowych informacji z Wikipedii i tworzenia sformatowanych notatek w języku użytkownika.\n    - Przykład: \"Zrób mi o tym notatkę encyklopedyczną\" → encyclopedia_lookup(query=\"Mikołaj Kopernik\", exhaustive_note=true)</string>
+    <!-- Azure Diagnostics -->
+    <string name="azure_diagnostics_title">Narzędzia diagnostyczne Azure</string>
+    <string name="azure_stt_test_button">Testuj STT (Mów)</string>
+    <string name="azure_stt_stop_button">Stop STT</string>
+    <string name="azure_tts_test_button">Testuj TTS (Głos)</string>
+    <string name="azure_tts_test_message">To jest test syntezy mowy Azure. Jeśli to słyszysz, konfiguracja jest poprawna.</string>
+    <string name="azure_test_result_label">Wynik: %1$s</string>
+    <string name="val_error_azure_api">Klucz API Azure jest wymagany</string>
+    <string name="val_error_azure_region">Region Azure jest wymagany</string>
+
+    <!-- Settings: Session -->
+    <string name="settings_seconds_short">10s</string>
+    <string name="settings_seconds_long">120s (2 min)</string>
+    <string name="settings_auto_pause_desc">Czas bezczynności użytkownika po którym sesja jest pauzowana (bot mówiący nie liczy się jako aktywność)</string>
+    <string name="settings_minutes_short">1 min</string>
+    <string name="settings_minutes_long">15 min</string>
+    <string name="settings_bot_timeout_desc">Czas bez odpowiedzi od bota po którym sesja jest pauzowana (zabezpiecza przed głośnymi dźwiękami w tle)</string>
+    <string name="settings_sensitivity_high">Bardzo czuły (0.01)</string>
+    <string name="settings_sensitivity_low">Mało czuły (0.10)</string>
+    <string name="settings_activity_threshold_desc">Próg poziomu dźwięku dla wykrywania aktywności użytkownika (nie wpływa na głośność nagrania)</string>
+    <string name="settings_full_duplex_on_desc">✅ FULL-DUPLEX: Możesz przerywać bota w dowolnym momencie. Mikrofon nagrywa cały czas.</string>
+    <string name="settings_half_duplex_on_desc">ℹ️ HALF-DUPLEX: Bot kończy swoje wypowiedzi bez przerywania. Mikrofon jest wyłączany gdy bot mówi.</string>
+    <string name="settings_audio_mode_diff_title">ℹ️ Różnice między trybami:</string>
+    <string name="settings_half_duplex_expl">• Half-Duplex: Mikrofon wyłącza się gdy bot mówi. Nie możesz przerywać bota, ale jego odpowiedzi są stabilne i bez echo.</string>
+    <string name="settings_full_duplex_expl">• Full-Duplex: Mikrofon działa cały czas. Możesz przerywać bota w trakcie wypowiedzi, co pozwala na bardziej naturalną rozmowę.</string>
+
+    <!-- Settings: Appearance & Security -->
+    <string name="settings_theme_choose">Wybierz motyw</string>
+    <string name="settings_theme_desc">Kolory, kształty i efekty</string>
+    <string name="settings_skin_legacy_title">Wybór skórki (stary system)</string>
+    <string name="settings_skin_default">Domyślny</string>
+    <string name="settings_skin_dark_blue">Ciemny Niebieski</string>
+    <string name="settings_skin_warm_orange">Ciepły Pomarańczowy</string>
+    <string name="settings_skin_soon">Wkrótce</string>
+    <string name="settings_security_title">Bezpieczeństwo</string>
+    <string name="settings_parental_lock_on_desc">Zablokowano tworzenie nowych konwersacji, bota pomocy i ustawienia konwersacji</string>
+    <string name="settings_parental_lock_off_desc">Wyłączono blokadę - wszystkie funkcje dostępne</string>
+
+    <!-- Settings: Agents -->
+    <string name="agents_reasoning_model_gemini_recommended">Gemini 3 Flash Preview (Zalecany)</string>
+    <string name="agents_reasoning_model_deepseek_v3">DeepSeek V3.2 (OpenRouter)</string>
+    <string name="agents_reasoning_model_deepseek_r1">DeepSeek R1 (OpenRouter)</string>
+    <string name="agents_reasoning_model_gemini_flash">Gemini 2.5 Flash (OpenRouter)</string>
+
+    <!-- Integrations -->
+    <string name="integ_tg_test_message">🤖 Test połączenia z Reasoning Agent\n\nJeśli widzisz tę wiadomość, konfiguracja jest poprawna!</string>
+
+    <!-- PIN Dialog -->
+    <string name="pin_dialog_title">Wprowadź PIN</string>
+    <string name="pin_dialog_desc">Dostęp do ustawień jest zabezpieczony PINem.</string>
+    <string name="pin_dialog_desc_setup">Ustaw PIN, aby zabezpieczyć ustawienia.</string>
+    <string name="pin_dialog_set_title">Ustaw PIN</string>
+    <string name="pin_dialog_confirm_title">Potwierdź PIN</string>
+    <string name="pin_dialog_wrong_pin">Nieprawidłowy PIN</string>
+    <string name="pin_dialog_mismatch">PINy nie są identyczne</string>
+    <string name="pin_enter_title">Wprowadź PIN</string>
+    <string name="pin_default_info">Domyślny PIN to 2222</string>
+    <string name="pin_invalid_error">Nieprawidłowy PIN</string>
+    <string name="settings_validation_error_openrouter_missing">Model Reasoning Agent wymaga klucza OpenRouter API. Wpisz klucz lub zmień model na Gemini.</string>
+    <string name="settings_validation_unknown_error">Nieznany błąd</string>
+    <string name="settings_validation_check_keys">Sprawdź poprawność wprowadzonych kluczy API i nazw modeli.</string>
+
+    <!-- PIN Change Dialog -->
+    <string name="pin_change_title_current">Wprowadź obecny PIN</string>
+    <string name="pin_change_title_new">Wprowadź nowy PIN</string>
+    <string name="pin_change_title_confirm">Potwierdź nowy PIN</string>
+    <string name="pin_change_title_success">PIN zmieniony</string>
+    <string name="pin_change_error_invalid_current">Nieprawidłowy obecny PIN</string>
+    <string name="pin_change_error_invalid_new">PIN musi składać się z 4 cyfr</string>
+    <string name="pin_change_error_match">PINy nie pasują</string>
+    <string name="pin_change_success_msg">PIN został pomyślnie zmieniony</string>
+
+    <!-- Offline Conversation Dialog -->
+    <string name="conversation_title_edit">Edytuj konwersację</string>
+    <string name="conversation_title_new">Nowa konwersacja offline</string>
+    <string name="conversation_name_label">Nazwa konwersacji</string>
+    <string name="conversation_name_placeholder">np. Nauka angielskiego</string>
+    <string name="conversation_system_prompt_label">Prompt systemowy (opcjonalny)</string>
+    <string name="conversation_system_prompt_placeholder">Wpisz instrukcje dla asystenta...\nnp. Jesteś nauczycielem angielskiego.</string>
+    <string name="conversation_voice_label">Głos</string>
+    <string name="conversation_model_settings_title">Ustawienia Modelu</string>
+    <string name="conversation_model_settings_button">⚙️ Zaawansowane Ustawienia Modelu</string>
+    <string name="conversation_tools_label">Dostępne Narzędzia</string>
+    <string name="conversation_tools_button">🛠️ Wybierz Narzędzia (%1$s)</string>
+    <string name="conversation_tools_all">Wszystkie</string>
+    <string name="conversation_delete_button">Usuń</string>
+    <string name="conversation_delete_confirm_title">Usuń konwersację?</string>
+    <string name="conversation_delete_confirm_msg">Czy na pewno chcesz usunąć tę konwersację? Tej operacji nie można cofnąć.</string>
+    <string name="tool_selection_title">Wybierz dostępne narzędzia</string>
+    <string name="tool_selection_all">Zaznacz wszystkie</string>
+    <string name="thread_config_title">Konfiguracja wątku</string>
+    <!-- Notification Permission -->
+    <string name="integ_notif_perm_title">Uprawnienie do powiadomień</string>
+    <string name="integ_notif_perm_desc">Aby przypomnienia mogły działać poprawnie, aplikacja potrzebuje uprawnienia do wyświetlania powiadomień.</string>
+    <string name="integ_notif_perm_usage">Powiadomienia są używane do:</string>
+    <string name="integ_notif_perm_list">• Wyświetlania przypomnień o zaplanowanej godzinie\n• Odtwarzania dźwięku przypomnienia\n• Działania nawet gdy aplikacja jest zamknięta</string>
+    <string name="integ_notif_perm_grant">Przyznaj uprawnienie</string>
+
+    <!-- Telegram Instructions -->
+    <string name="integ_tg_step_1">1. Otwórz Telegram i wyszukaj @BotFather</string>
+    <string name="integ_tg_step_2">2. Wyślij komendę /newbot i postępuj zgodnie z instrukcjami</string>
+    <string name="integ_tg_step_3">3. Skopiuj token bota i wklej powyżej</string>
+    <string name="integ_tg_step_4">4. Wyszukaj @userinfobot i wyślij /start aby uzyskać swój Chat ID</string>
+    <string name="integ_tg_step_5">5. Skopiuj Chat ID i wklej powyżej</string>
+    <string name="integ_tg_step_6">6. Kliknij \'Testuj połączenie\' aby sprawdzić konfigurację</string>
+
+    <!-- Assistant Instructions -->
+    <string name="integ_assist_howto_title">ℹ️ Jak to skonfigurować:</string>
+    <string name="integ_assist_step_1">1. Wybierz konwersację, która ma się uruchomić</string>
+    <string name="integ_assist_step_2">2. Kliknij \'Ustaw jako asystenta\' - otworzy się ekran ustawień</string>
+    <string name="integ_assist_step_3">3. W ustawieniach znajdź \'Aplikacja asystenta\' lub \'Assist &amp; voice input\'</string>
+    <string name="integ_assist_step_4">4. Wybierz \'Kumpel Chat\' jako domyślnego asystenta</string>
+    <string name="integ_assist_step_5">5. Przytrzymaj przycisk Power aby uruchomić aplikację</string>
+    <string name="integ_assist_warning_title">⚠️ Ważne ograniczenia:</string>
+    <string name="integ_assist_warning_desc">• Na urządzeniach Samsung może być zablokowane przez Bixby\n• Niektóre producenci nie pozwalają zmienić domyślnego asystenta\n• Funkcja \'przytrzymaj Power\' może być niedostępna\n• W takim przypadku uruchamiaj aplikację normalnie z ekranu głównego</string>
+    <!-- Model Settings Dialog -->
+    <string name="model_settings_subtitle">Zaawansowane parametry generowania odpowiedzi</string>
+    <string name="model_settings_temp_label">Temperatura</string>
+    <string name="model_settings_temp_desc">Kontroluje losowość. Niższe = precyzyjne, wyższe = kreatywne</string>
+    <string name="model_settings_topp_label">Top P</string>
+    <string name="model_settings_topp_desc">Nucleus sampling. Niższe = bardziej skupione odpowiedzi</string>
+    <string name="model_settings_topk_label">Top K</string>
+    <string name="model_settings_topk_desc">Liczba tokenów do wyboru. Niższe = większa precyzja</string>
+    <string name="model_settings_max_tokens_label">Max Output Tokens</string>
+    <string name="model_settings_max_tokens_desc">Maksymalna długość odpowiedzi. Niższe = zwięzłe odpowiedzi</string>
+    <string name="model_settings_val_range_error">%1$s musi być między %2$s a %3$s</string>
+
+    <!-- Integration Names -->
+    <string name="integ_name_contacts_sms">Kontakty i SMS</string>
+    <string name="integ_name_alarms">Alarmy i przypomnienia</string>
+    <string name="integ_name_calendar">Kalendarz</string>
+    <string name="integ_name_todo">Lista zadań TODO</string>
+    <string name="integ_name_maps">Google Maps</string>
+    <string name="integ_name_transit">Transport publiczny</string>
+    <string name="integ_name_shopping">Lista zakupów</string>
+
+    <!-- Permission Names -->
+    <string name="integ_perm_contacts">Kontakty</string>
+    <string name="integ_perm_calendar_read">Kalendarz (odczyt)</string>
+    <string name="integ_perm_calendar_write">Kalendarz (zapis)</string>
+    <string name="integ_perm_alarms">Dokładne alarmy</string>
+    <string name="integ_perm_notif">Powiadomienia</string>
+    <string name="integ_perm_location">Lokalizacja</string>
+
+    <!-- Integration Unavailable Messages -->
+    <string name="integ_unavailable_contacts">Asystent nie może wyszukiwać kontaktów ani wysyłać SMS-ów.</string>
+    <string name="integ_unavailable_alarms">Asystent nie może ustawiać alarmów ani tworzyć przypomnień.</string>
+    <string name="integ_unavailable_calendar">Asystent nie może sprawdzać ani dodawać wydarzeń w kalendarzu.</string>
+    <string name="integ_unavailable_todo">Asystent nie może zarządzać listą zadań TODO.</string>
+    <string name="integ_unavailable_maps">Asystent nie może uruchamiać nawigacji ani wyszukiwać miejsc na mapie.</string>
+    <string name="integ_unavailable_transit">Asystent nie może sprawdzać połączeń transportu publicznego.</string>
+    <string name="integ_unavailable_shopping">Asystent nie może zarządzać listą zakupów.</string>
+
+    <!-- Tool Groups -->
+    <string name="tool_group_search_title">Google Search Grounding</string>
+    <string name="tool_group_search_desc">Natywne wyszukiwanie Google</string>
+    <string name="tool_group_reasoning_title">Reasoning Agent (Myślenie)</string>
+    <string name="tool_group_reasoning_desc">Głęboka analiza, notatki, Telegram, Perplexity</string>
+    <string name="tool_group_perplexity_title">Perplexity (Online)</string>
+    <string name="tool_group_perplexity_desc">Wyszukiwanie online z cytowaniami</string>
+    <string name="tool_group_progress_title">Postępy (Done List)</string>
+    <string name="tool_group_progress_desc">Automatyczne zapisywanie podsumowań sesji</string>
+    <string name="tool_group_shopping_title">Lista Zakupów</string>
+    <string name="tool_group_shopping_desc">Pełna obsługa listy zakupów</string>
+    <string name="tool_group_todo_title">Lista Zadań (TODO)</string>
+    <string name="tool_group_todo_desc">Zarządzanie listą zadań</string>
+    <string name="tool_group_encyclopedia_title">Encyklopedia (Wikipedia)</string>
+    <string name="tool_group_encyclopedia_desc">Tworzenie bogatych notatek na podstawie Wikipedii</string>
+    <string name="tool_group_calendar_title">Kalendarz</string>
+    <string name="tool_group_calendar_desc">Obsługa kalendarza</string>
+    <string name="tool_group_reminders_title">Przypomnienia</string>
+    <string name="tool_group_reminders_desc">Obsługa przypomnień</string>
+    <string name="tool_group_alarms_title">Budzik</string>
+    <string name="tool_group_alarms_desc">Ustawianie budzików</string>
+    <string name="tool_group_weather_title">Pogoda</string>
+    <string name="tool_group_weather_desc">Sprawdzanie pogody</string>
+    <string name="tool_group_time_title">Czas i Data</string>
+    <string name="tool_group_time_desc">Sprawdzanie czasu i daty</string>
+    <string name="tool_group_location_title">Lokalizacja</string>
+    <string name="tool_group_location_desc">Pobieranie lokalizacji GPS</string>
+    <string name="tool_group_calculate_title">Kalkulator</string>
+    <string name="tool_group_calculate_desc">Obliczenia matematyczne</string>
+    <string name="tool_group_places_title">Miejsca w pobliżu</string>
+    <string name="tool_group_places_desc">Szukanie restauracji, sklepów itp.</string>
+    <string name="tool_group_map_search_title">Szukaj na mapie</string>
+    <string name="tool_group_map_search_desc">Szukanie adresu w Google Maps</string>
+    <string name="tool_group_navigation_title">Nawigacja</string>
+    <string name="tool_group_navigation_desc">Nawigacja Google Maps</string>
+    <string name="tool_group_transit_title">Komunikacja miejska</string>
+    <string name="tool_group_transit_desc">Szukanie połączeń</string>
+    <string name="tool_group_show_map_title">Pokaż na mapie</string>
+    <string name="tool_group_show_map_desc">Pokazywanie punktu na mapie</string>
+    <string name="tool_group_media_title">Sterowanie Mediami</string>
+    <string name="tool_group_media_desc">Spotify, YouTube Music</string>
+    <string name="tool_group_contacts_title">Kontakty</string>
+    <string name="tool_group_contacts_desc">Szukanie w kontaktach</string>
+    <string name="tool_group_sms_title">Wysyłanie SMS</string>
+    <string name="tool_group_sms_desc">Wysyłanie wiadomości tekstowych</string>
+    <string name="tool_group_health_title">Sprawdzanie Objawów</string>
+    <string name="tool_group_health_desc">Azure Health Bot</string>
 </resources>

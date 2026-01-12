@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -130,7 +131,7 @@ fun ConversationListScreen(
             }
         } else {
             val err = result.exceptionOrNull() as? LibreChatError
-                ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
+                ?: LibreChatError.NetworkError(context.getString(R.string.conv_list_loading_error))
             
             if (err is LibreChatError.TokenExpired) {
                 val autoLoginResult = authManager.autoLogin()
@@ -326,7 +327,7 @@ fun ConversationListScreen(
                             fontSize = 20.sp
                         )
                         Text(
-                            text = "Tryb offline: Twoje konwersacje są zapisywane lokalnie. Zaloguj się do Kumpel-chat w zakładce \"Klucze i konta\" aby synchronizować konwersacje. Aby uzyskać pełną funkcjonalność, nadaj uprawnienia w menu Integracje. Sprawdź też Market Place, gdzie znajdziesz asystentów.",
+                            text = stringResource(id = R.string.conv_list_offline_banner),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.W400,
                             color = Color(0xFF1976D2),
@@ -383,7 +384,7 @@ fun ConversationListScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isParentalLockEnabled) "Zablokowane" else "Nowa konwersacja offline",
+                        text = if (isParentalLockEnabled) stringResource(id = R.string.conv_list_locked_parental) else stringResource(id = R.string.conv_list_new_offline),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
@@ -409,7 +410,7 @@ fun ConversationListScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Ładowanie wątków...",
+                                text = stringResource(id = R.string.conv_list_loading),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.W400,
                                 color = Color.Gray,
@@ -439,7 +440,7 @@ fun ConversationListScreen(
                                         librechatThreads = result.getOrNull() ?: emptyList()
                                     } else {
                                         val err = result.exceptionOrNull() as? LibreChatError
-                                            ?: LibreChatError.NetworkError("Nieznany błąd podczas ładowania wątków")
+                                            ?: LibreChatError.NetworkError(context.getString(R.string.conv_list_loading_error))
                                         
                                         if (err is LibreChatError.TokenExpired) {
                                             val autoLoginResult = authManager.autoLogin()
@@ -477,7 +478,7 @@ fun ConversationListScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Brak konwersacji.\nUtwórz nową konwersację offline lub wątek w LibreChat.",
+                            text = stringResource(id = R.string.conv_list_empty),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,
@@ -687,7 +688,7 @@ private fun ConversationButton(
             }
             
             Text(
-                text = if (isLocked) "Zapisuję wspomnienia..." else conversation.title,
+                text = if (isLocked) stringResource(id = R.string.conv_list_saving_memories) else conversation.title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.W600,
                 color = if (isLocked) Color.Gray else Color.Black,
@@ -699,7 +700,7 @@ private fun ConversationButton(
             // Type indicator (only show when not locked)
             if (!isLocked && isOffline) {
                 Text(
-                    text = "OFFLINE",
+                    text = stringResource(id = R.string.conv_list_offline_badge),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.W700,
                     color = Color(0xFFFF9800),
@@ -731,7 +732,7 @@ private fun LockedConversationDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "🔒 Konwersacja zablokowana",
+                stringResource(id = R.string.conv_list_locked_title),
                 style = TextStyles.base,
                 fontWeight = FontWeight.W700
             )
@@ -739,21 +740,21 @@ private fun LockedConversationDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Ta konwersacja jest zablokowana, ponieważ proces zapisywania wspomnień został przerwany (np. przez restart aplikacji).",
+                    stringResource(id = R.string.conv_list_locked_description),
                     style = TextStyles.base
                 )
                 Text(
-                    "Możesz:",
+                    stringResource(id = R.string.conv_list_locked_options),
                     style = TextStyles.base,
                     fontWeight = FontWeight.W600
                 )
                 Text(
-                    "• Odblokować - konwersacja będzie znów dostępna (wspomnienia mogą być niekompletne)",
+                    "• " + stringResource(id = R.string.conv_list_locked_unlock_info),
                     style = TextStyles.base,
                     fontSize = 14.sp
                 )
                 Text(
-                    "• Usunąć - trwale usuń konwersację i wszystkie jej dane",
+                    "• " + stringResource(id = R.string.conv_list_locked_delete_info),
                     style = TextStyles.base,
                     fontSize = 14.sp
                 )
@@ -763,7 +764,7 @@ private fun LockedConversationDialog(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onUnlock) {
                     Text(
-                        "Odblokuj",
+                        stringResource(id = R.string.conv_list_unlock_button),
                         color = Colors.buttonNormal,
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
@@ -771,7 +772,7 @@ private fun LockedConversationDialog(
                 }
                 TextButton(onClick = onDelete) {
                     Text(
-                        "Usuń",
+                        stringResource(id = R.string.common_delete),
                         color = Color(0xFFFF5252),
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
@@ -782,7 +783,7 @@ private fun LockedConversationDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(
-                    "Anuluj",
+                    stringResource(id = R.string.common_cancel),
                     color = Color.Gray,
                     style = TextStyles.base,
                     fontWeight = FontWeight.W600

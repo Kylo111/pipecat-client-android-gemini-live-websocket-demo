@@ -1,6 +1,9 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.LanguageConstants
 import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
+import androidx.compose.ui.res.stringResource
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.compose.foundation.background
@@ -68,6 +71,8 @@ fun SessionAndAppearanceTab(
     onFullDuplexModeChange: (Boolean) -> Unit,
     parentalLockEnabled: Boolean,
     onParentalLockChange: (Boolean) -> Unit,
+    appLanguage: String,
+    onAppLanguageChange: (String) -> Unit,
     onChangePIN: () -> Unit,
     onThemeSelection: () -> Unit
 ) {
@@ -82,10 +87,10 @@ fun SessionAndAppearanceTab(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Session Management Section
-        SettingsSection(title = "Zarządzanie sesją") {
+        SettingsSection(title = stringResource(id = R.string.settings_tab_session)) {
             // Keep Screen Awake Toggle
             SettingsToggle(
-                label = "Utrzymuj ekran włączony",
+                label = stringResource(id = R.string.settings_screen_awake),
                 checked = keepScreenAwake,
                 onCheckedChange = onKeepScreenAwakeChange
             )
@@ -100,14 +105,14 @@ fun SessionAndAppearanceTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Automatyczne pauzowanie po",
+                        text = stringResource(id = R.string.settings_auto_pause),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
                         style = TextStyles.base
                     )
                     Text(
-                        text = "${autoPauseTimeout}s",
+                        text = stringResource(id = R.string.settings_seconds, autoPauseTimeout),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -135,14 +140,14 @@ fun SessionAndAppearanceTab(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "10s",
+                        text = stringResource(id = R.string.settings_seconds_short),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
                         style = TextStyles.base
                     )
                     Text(
-                        text = "120s (2 min)",
+                        text = stringResource(id = R.string.settings_seconds_long),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -153,7 +158,7 @@ fun SessionAndAppearanceTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Czas bezczynności użytkownika po którym sesja jest pauzowana (bot mówiący nie liczy się jako aktywność)",
+                    text = stringResource(id = R.string.settings_auto_pause_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -172,14 +177,14 @@ fun SessionAndAppearanceTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Timeout braku odpowiedzi bota",
+                        text = stringResource(id = R.string.settings_bot_timeout),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
                         style = TextStyles.base
                     )
                     Text(
-                        text = "${botResponseTimeout}min",
+                        text = stringResource(id = R.string.settings_minutes, botResponseTimeout),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -207,14 +212,14 @@ fun SessionAndAppearanceTab(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "1 min",
+                        text = stringResource(id = R.string.settings_minutes_short),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
                         style = TextStyles.base
                     )
                     Text(
-                        text = "15 min",
+                        text = stringResource(id = R.string.settings_minutes_long),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -225,7 +230,7 @@ fun SessionAndAppearanceTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Czas bez odpowiedzi od bota po którym sesja jest pauzowana (zabezpiecza przed głośnymi dźwiękami w tle)",
+                    text = stringResource(id = R.string.settings_bot_timeout_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -244,7 +249,7 @@ fun SessionAndAppearanceTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Czułość wykrywania aktywności",
+                        text = stringResource(id = R.string.settings_activity_threshold),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
@@ -279,14 +284,14 @@ fun SessionAndAppearanceTab(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Bardzo czuły (0.01)",
+                        text = stringResource(id = R.string.settings_sensitivity_high),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
                         style = TextStyles.base
                     )
                     Text(
-                        text = "Mało czuły (0.10)",
+                        text = stringResource(id = R.string.settings_sensitivity_low),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -297,7 +302,7 @@ fun SessionAndAppearanceTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Próg poziomu dźwięku dla wykrywania aktywności użytkownika (nie wpływa na głośność nagrania)",
+                    text = stringResource(id = R.string.settings_activity_threshold_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -308,9 +313,9 @@ fun SessionAndAppearanceTab(
         }
 
         // Audio Mode Section
-        SettingsSection(title = "Tryb audio") {
+        SettingsSection(title = stringResource(id = R.string.settings_tab_appearance)) { // Fixed title here too
             SettingsToggle(
-                label = "Full-Duplex",
+                label = stringResource(id = R.string.settings_full_duplex),
                 checked = fullDuplexMode,
                 onCheckedChange = onFullDuplexModeChange
             )
@@ -319,9 +324,9 @@ fun SessionAndAppearanceTab(
             
             Text(
                 text = if (fullDuplexMode) {
-                    "✅ FULL-DUPLEX: Możesz przerywać bota w dowolnym momencie. Mikrofon nagrywa cały czas."
+                    stringResource(id = R.string.settings_full_duplex_on_desc)
                 } else {
-                    "ℹ️ HALF-DUPLEX: Bot kończy swoje wypowiedzi bez przerywania. Mikrofon jest wyłączany gdy bot mówi."
+                    stringResource(id = R.string.settings_half_duplex_on_desc)
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W400,
@@ -340,7 +345,7 @@ fun SessionAndAppearanceTab(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "ℹ️ Różnice między trybami:",
+                    text = stringResource(id = R.string.settings_audio_mode_diff_title),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -350,7 +355,7 @@ fun SessionAndAppearanceTab(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "• Half-Duplex: Mikrofon wyłącza się gdy bot mówi. Nie możesz przerywać bota, ale jego odpowiedzi są stabilne i bez echo.",
+                    text = stringResource(id = R.string.settings_half_duplex_expl),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -361,7 +366,7 @@ fun SessionAndAppearanceTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Full-Duplex: Mikrofon działa cały czas. Możesz przerywać bota w trakcie wypowiedzi, co pozwala na bardziej naturalną rozmowę.",
+                    text = stringResource(id = R.string.settings_full_duplex_expl),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -372,7 +377,7 @@ fun SessionAndAppearanceTab(
         }
 
         // Visual Preferences Section
-        SettingsSection(title = "Preferencje wizualne") {
+        SettingsSection(title = stringResource(id = R.string.settings_appearance_section)) {
             // Theme Selection Button
             Box(
                 modifier = Modifier
@@ -404,14 +409,14 @@ fun SessionAndAppearanceTab(
                         )
                         Column {
                             Text(
-                                text = "Wybierz motyw",
+                                text = stringResource(id = R.string.settings_theme_choose),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.W600,
                                 color = Colors.textPrimary,
                                 style = TextStyles.base
                             )
                             Text(
-                                text = "Kolory, kształty i efekty",
+                                text = stringResource(id = R.string.settings_theme_desc),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.W400,
                                 color = Colors.textSecondary,
@@ -431,7 +436,7 @@ fun SessionAndAppearanceTab(
             
             // Skin Selection (legacy - kept for compatibility)
             Text(
-                text = "Wybór skórki (stary system)",
+                text = stringResource(id = R.string.settings_skin_legacy_title),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W600,
                 color = Color.Black,
@@ -463,9 +468,9 @@ fun SessionAndAppearanceTab(
                     ) {
                         Text(
                             text = when (selectedSkin) {
-                                "DEFAULT" -> "Domyślny"
-                                "DARK_BLUE" -> "Ciemny Niebieski"
-                                "WARM_ORANGE" -> "Ciepły Pomarańczowy"
+                                "DEFAULT" -> stringResource(id = R.string.settings_skin_default)
+                                "DARK_BLUE" -> stringResource(id = R.string.settings_skin_dark_blue)
+                                "WARM_ORANGE" -> stringResource(id = R.string.settings_skin_warm_orange)
                                 else -> selectedSkin
                             },
                             fontSize = 14.sp,
@@ -476,7 +481,7 @@ fun SessionAndAppearanceTab(
 
                         if (selectedSkin != "DEFAULT") {
                             Text(
-                                text = "Wkrótce",
+                                text = stringResource(id = R.string.settings_skin_soon),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.W600,
                                 color = Colors.buttonNormal,
@@ -500,9 +505,9 @@ fun SessionAndAppearanceTab(
                         .background(Color.White)
                 ) {
                     listOf(
-                        "DEFAULT" to "Domyślny",
-                        "DARK_BLUE" to "Ciemny Niebieski",
-                        "WARM_ORANGE" to "Ciepły Pomarańczowy"
+                        "DEFAULT" to stringResource(id = R.string.settings_skin_default),
+                        "DARK_BLUE" to stringResource(id = R.string.settings_skin_dark_blue),
+                        "WARM_ORANGE" to stringResource(id = R.string.settings_skin_warm_orange)
                     ).forEach { (value, label) ->
                         DropdownMenuItem(
                             text = {
@@ -526,10 +531,10 @@ fun SessionAndAppearanceTab(
         }
 
         // Security Section
-        SettingsSection(title = "Bezpieczeństwo") {
+        SettingsSection(title = stringResource(id = R.string.settings_security_title)) {
             // Parental Lock Toggle
             SettingsToggle(
-                label = "Blokada przed dziećmi",
+                label = stringResource(id = R.string.settings_parental_lock),
                 checked = parentalLockEnabled,
                 onCheckedChange = onParentalLockChange
             )
@@ -538,9 +543,9 @@ fun SessionAndAppearanceTab(
             
             Text(
                 text = if (parentalLockEnabled) {
-                    "Zablokowano tworzenie nowych konwersacji, bota pomocy i ustawienia konwersacji"
+                    stringResource(id = R.string.settings_parental_lock_on_desc)
                 } else {
-                    "Wyłączono blokadę - wszystkie funkcje dostępne"
+                    stringResource(id = R.string.settings_parental_lock_off_desc)
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W400,
@@ -567,7 +572,7 @@ fun SessionAndAppearanceTab(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Zmień PIN",
+                    text = stringResource(id = R.string.settings_change_pin),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W600,
                     color = Colors.buttonNormal,
@@ -575,6 +580,76 @@ fun SessionAndAppearanceTab(
                 )
             }
         }
+
+        // Language Section
+        SettingsSection(title = stringResource(id = R.string.settings_label_language)) {
+            var showLanguageDropdown by remember { mutableStateOf(false) }
+            
+            Box {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .border(
+                            width = 1.dp,
+                            color = Colors.textFieldBorder,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White)
+                        .clickable { showLanguageDropdown = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = LanguageConstants.getDisplayName(appLanguage),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W400,
+                            color = Color.Black,
+                            style = TextStyles.base
+                        )
+                        
+                        Text(
+                            text = "▼",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showLanguageDropdown,
+                    onDismissRequest = { showLanguageDropdown = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White)
+                ) {
+                    LanguageConstants.SUPPORTED_LANGUAGES.forEach { code ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = LanguageConstants.getDisplayName(code),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.W400,
+                                    color = Color.Black,
+                                    style = TextStyles.base
+                                )
+                            },
+                            onClick = {
+                                onAppLanguageChange(code)
+                                showLanguageDropdown = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
     }
 }
 

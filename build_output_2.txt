@@ -5,24 +5,22 @@
 > Task :gemini-multimodal-websocket-demo:generateDebugBuildConfig UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:checkDebugAarMetadata UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:generateDebugResValues UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mapDebugSourceSetPaths UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:generateDebugResources UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:mergeDebugResources UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:packageDebugResources UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:parseDebugLocalResources UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mapDebugSourceSetPaths
+> Task :gemini-multimodal-websocket-demo:generateDebugResources
+> Task :gemini-multimodal-websocket-demo:packageDebugResources
 > Task :gemini-multimodal-websocket-demo:createDebugCompatibleScreenManifests UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:extractDeepLinksDebug UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugMainManifest UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugManifest UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:processDebugManifestForPackage UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:processDebugResources UP-TO-DATE
-> Task :gemini-multimodal-websocket-demo:kspDebugKotlin UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:mergeDebugResources
 > Task :gemini-multimodal-websocket-demo:javaPreCompileDebug UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:mergeDebugShaders UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:compileDebugShaders NO-SOURCE
 > Task :gemini-multimodal-websocket-demo:generateDebugAssets UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:mergeDebugAssets UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:compressDebugAssets UP-TO-DATE
+> Task :gemini-multimodal-websocket-demo:parseDebugLocalResources
 > Task :gemini-multimodal-websocket-demo:checkDebugDuplicateClasses UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:desugarDebugFileDependencies UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:mergeDebugStartupProfile UP-TO-DATE
@@ -34,31 +32,29 @@
 > Task :gemini-multimodal-websocket-demo:validateSigningDebug UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:writeDebugAppMetadata UP-TO-DATE
 > Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions UP-TO-DATE
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_add_to_shopping_list without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_add_todo_task without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_complete_todo_task without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_create_calendar_event without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_delete_calendar_event without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_delete_reminder without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_list_reminders without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_remove_from_shopping_list without required default value.
+warn: removing resource ai.pipecat.gemini_multimodal_websocket_demo:string/tool_desc_show_on_map without required default value.
+
+> Task :gemini-multimodal-websocket-demo:processDebugResources
+> Task :gemini-multimodal-websocket-demo:kspDebugKotlin
 
 > Task :gemini-multimodal-websocket-demo:compileDebugKotlin FAILED
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:119:53 Argument type mismatch: actual type is 'kotlinx.serialization.json.JsonObject', but 'kotlin.collections.Map<kotlin.String, kotlin.String>' was expected.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:202:32 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:267:39 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:273:20 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:273:42 Unresolved reference 'opt'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:346:24 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:416:24 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:438:28 Overload resolution ambiguity between candidates:
-fun <T> Array<out T>.isNotEmpty(): Boolean
-fun BooleanArray.isNotEmpty(): Boolean
-fun ByteArray.isNotEmpty(): Boolean
-fun CharArray.isNotEmpty(): Boolean
-fun DoubleArray.isNotEmpty(): Boolean
-fun FloatArray.isNotEmpty(): Boolean
-fun IntArray.isNotEmpty(): Boolean
-fun LongArray.isNotEmpty(): Boolean
-fun ShortArray.isNotEmpty(): Boolean
-fun <T> Collection<T>.isNotEmpty(): Boolean
-fun <K, V> Map<out K, V>.isNotEmpty(): Boolean
-fun CharSequence.isNotEmpty(): Boolean
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:481:31 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:509:40 Unresolved reference 'JSONObject'.
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/tools/ToolExecutor.kt:1002:24 Unresolved reference 'JSONObject'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/ApiKeysAndAccountsTab.kt:155:32 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/ApiKeysAndAccountsTab.kt:157:32 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/ApiKeysAndAccountsTab.kt:185:32 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/ApiKeysAndAccountsTab.kt:187:32 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/MarketplaceScreen.kt:124:47 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/NewsBanner.kt:66:59 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/NewsBanner.kt:76:61 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/usecases/ImportAssistantUseCase.kt:44:48 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/usecases/ImportAssistantUseCase.kt:45:62 Argument type mismatch: actual type is 'kotlin.String?', but 'kotlin.String' was expected.
 
 FAILURE: Build failed with an exception.
 
@@ -73,5 +69,5 @@ Execution failed for task ':gemini-multimodal-websocket-demo:compileDebugKotlin'
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 1s
-31 actionable tasks: 1 executed, 30 up-to-date
+BUILD FAILED in 5s
+31 actionable tasks: 8 executed, 23 up-to-date

@@ -1,0 +1,531 @@
+<resources>
+    <string name="app_name">Live_Bot</string>
+    
+    <!-- Connection Status -->
+    <string name="connection_status_reconnecting">Reconnecting...</string>
+    <string name="connection_status_reconnecting_with_attempt">Reconnecting… attempt %1$d of %2$d</string>
+    <string name="connection_status_connecting">Connecting...</string>
+    <string name="connection_status_connected">Connected - conversation active</string>
+    <string name="connection_status_disconnected">Disconnected</string>
+    
+    <!-- Reconnection Dialog -->
+    <string name="reconnection_dialog_title">Connection Problem</string>
+    <string name="reconnection_dialog_message">Failed to connect after 5 attempts. Continue trying?</string>
+    <string name="reconnection_dialog_continue">Continue</string>
+    <string name="reconnection_dialog_end">End Conversation</string>
+    
+    <!-- Transcript Sync -->
+    <string name="transcript_sync_in_progress">Saving transcript… attempt %1$d</string>
+    <string name="transcript_sync_success">Transcript saved successfully</string>
+    <string name="transcript_sync_error">Transcript sync error: %1$s</string>
+    <string name="transcript_sync_blocking_message">Saving transcript. Please wait…</string>
+    <string name="transcript_sync_cancel_warning">Are you sure you want to cancel? Transcript may be lost.</string>
+    <string name="transcript_sync_cancel_confirm">Cancel</string>
+    <string name="transcript_sync_cancel_dismiss">Continue Saving</string>
+    
+    <!-- Error Messages -->
+    <string name="error_api_key_required">API Key is required</string>
+    <string name="error_connection_lost">Connection lost: %1$s</string>
+    <string name="error_critical">Critical error: %1$s</string>
+    <string name="error_unknown">Unknown error: %1$s</string>
+    <string name="error_network_timeout">Connection timed out</string>
+    <string name="error_dns_failure">Could not find server</string>
+    <string name="error_connection_refused">Server unavailable</string>
+    <string name="error_ssl_error">SSL Certificate error</string>
+    <string name="error_image_too_large">Image too large</string>
+    <string name="error_image_too_large_memory">Image too large - out of memory</string>
+    <string name="error_image_processing_failed">Failed to process image</string>
+    <string name="error_image_processing_failed_with_message">Failed to process image: %1$s</string>
+    <string name="error_image_processing_timeout">Image processing timeout (30s)</string>
+    <string name="error_image_send_failed">Failed to send image: %1$s</string>
+    <string name="error_image_send_connection_problem">connection problem</string>
+    <string name="error_image_queued_for_retry">Image will be sent after reconnection</string>
+    <string name="error_microphone_start_failed">Failed to start microphone: %1$s</string>
+    <string name="error_audio_playback_failed">Failed to start audio playback: %1$s</string>
+    <string name="error_reconnection_max_attempts">Failed to connect after %1$d attempts. Continue trying?</string>
+
+    <!-- Navigation Menu -->
+    <string name="menu_history">History</string>
+    <string name="menu_marketplace">Store</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_notes">Notes</string>
+    <string name="menu_logout">Logout</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_tab_api">API Keys</string>
+    <string name="settings_tab_session">Session</string>
+    <string name="settings_tab_agents">Agents</string>
+    <string name="settings_tab_integrations">Integrations</string>
+    <string name="settings_label_gemini_api">Gemini API Key</string>
+    <string name="settings_label_model">Model</string>
+    <string name="settings_label_language">App Language</string>
+    <string name="settings_button_save">Save</string>
+    <string name="settings_validation_error_title">Validation Error</string>
+    <string name="settings_validation_error_gemini">Gemini API Key missing. Please provide it in settings.</string>
+    <string name="settings_validation_loading">Validating model...</string>
+
+    <!-- Marketplace -->
+    <string name="marketplace_title">Assistant Store</string>
+    <string name="marketplace_import">Import</string>
+    <string name="marketplace_importing">Importing...</string>
+    <string name="marketplace_success">Template imported successfully!</string>
+    <string name="marketplace_import_error">Failed to import template</string>
+    <string name="marketplace_error">✗ Failed to import template</string>
+    <string name="marketplace_empty">No templates available.\nCheck back later for new assistants.</string>
+    <string name="marketplace_config_voice">Voice</string>
+    <string name="marketplace_config_temp">Temperature</string>
+    <string name="marketplace_open">Open</string>
+    <string name="marketplace_installed">Installed</string>
+
+    <!-- Notes -->
+    <string name="notes_title">Your Notes</string>
+    <string name="notes_empty">No notes yet. Your saved content will appear here.</string>
+    <string name="notes_search_placeholder">Search notes...</string>
+
+    <!-- Login -->
+    <string name="login_logging_in">Logging in...</string>
+    <string name="login_title">Login</string>
+    <string name="login_button">Login</string>
+
+    <!-- Common -->
+    <string name="common_ok">OK</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_back">Back</string>
+    <string name="common_error">Error</string>
+    <string name="common_save">Save</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_rename">Rename</string>
+    <string name="common_copy">Copy</string>
+    <string name="common_success">Success</string>
+
+    <!-- Notes Actions -->
+    <string name="notes_delete_confirm_title">Delete Note</string>
+    <string name="notes_delete_confirm_message">Are you sure you want to delete note \"%1$s\"?</string>
+    <string name="notes_rename_title">Rename Note</string>
+    <string name="notes_rename_prompt">Enter new name:</string>
+    <string name="notes_copy_success">Copied to clipboard</string>
+    <string name="notes_copy_error">Copy error: %1$s</string>
+    <string name="notes_read_error">Error reading note</string>
+    <string name="notes_rename_success">Note renamed</string>
+    <string name="notes_rename_error">Error renaming note</string>
+    <string name="notes_no_other_notes">No other notes</string>
+    <string name="notes_instruction">Say: \"Save to notes: ...\"</string>
+    <string name="notes_shopping_list">Shopping List</string>
+    <string name="notes_todo_list">To-Do List</string>
+    <string name="notes_progress">Progress %1$s</string>
+    <string name="notes_open_link_error">Cannot open link</string>
+
+    <!-- Settings Tabs -->
+    <string name="settings_tab_api_keys">Keys and accounts</string>
+    <string name="settings_tab_appearance">Session and appearance</string>
+    <string name="settings_tab_agents_menu">Agents</string>
+    <string name="settings_tab_integrations_menu">Integrations</string>
+
+    <!-- API Keys Tab -->
+    <string name="api_keys_section_title">API Keys</string>
+    <string name="api_keys_gemini_label">Gemini API Key</string>
+    <string name="api_keys_model_label">Model Name</string>
+    <string name="api_keys_perplexity_label">Perplexity API Key (optional)</string>
+    <string name="api_keys_perplexity_desc">Perplexity Sonar API provides real-time search with automatic citations. Get key at: https://www.perplexity.ai/settings/api</string>
+    <string name="api_keys_openrouter_label">OpenRouter API Key (optional)</string>
+    <string name="api_keys_openrouter_desc">OpenRouter API provides access to advanced AI models (Claude, GPT-4, etc.) for Reasoning Agent. Get key at: https://openrouter.ai/keys</string>
+    <string name="api_keys_google_directions_label">Google Directions API Key (optional)</string>
+    <string name="api_keys_google_directions_desc">Google Directions API enables searching for public transit routes. You can use the same key as Google Places API. Get key at: https://console.cloud.google.com</string>
+    <string name="api_keys_picovoice_label">Picovoice Access Key (optional)</string>
+    <string name="api_keys_picovoice_desc">Get a free key at console.picovoice.ai for wake word detection</string>
+    <string name="api_keys_telegram_token_label">Telegram Bot Token (optional)</string>
+    <string name="api_keys_telegram_token_desc">Get token from @BotFather on Telegram. Example: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz</string>
+    <string name="api_keys_telegram_chat_label">Telegram Chat ID (optional)</string>
+    <string name="api_keys_telegram_chat_desc">Your Telegram Chat ID. You can get it from @userinfobot. Example: 123456789</string>
+    <string name="api_keys_azure_section">Azure Speech (required for LibreChat Audio)</string>
+    <string name="api_keys_azure_key_label">Azure API Key</string>
+    <string name="api_keys_azure_region_label">Azure Region (e.g. eastus)</string>
+    <string name="api_keys_azure_voice_label">Azure TTS Voice (e.g. en-US-AvaMultilingualNeural)</string>
+    <string name="api_keys_azure_bot_secret">Azure Health Bot Secret (Direct Line API)</string>
+    <string name="api_keys_azure_desc">Key and region can be found in Azure Portal (Speech Service). Voice must support multiple languages for best results.</string>
+    <string name="api_keys_import_json">Import from JSON</string>
+    <string name="api_keys_export_json">Export to JSON</string>
+    <string name="api_keys_import_success">✅ API keys imported successfully!</string>
+    <string name="api_keys_export_success">✅ API keys exported successfully!</string>
+    <string name="api_keys_error">❌ Error: %1$s</string>
+
+    <!-- Kumpel-chat login -->
+    <string name="login_kumpel_chat_desc">Log in to Kumpel-chat to sync conversations with the server</string>
+    <string name="login_server_url">Server Address</string>
+    <string name="login_email">Email</string>
+    <string name="login_password">Password</string>
+    <string name="login_button_text">Login</string>
+    <string name="login_success_info">✅ Logged in to Kumpel-chat</string>
+    <string name="login_transcript_info">Conversation transcript is sent directly to LibreChat.</string>
+    <string name="login_logout_button">Logout from Kumpel-chat</string>
+    <string name="login_logout_info">Logging out will keep local offline conversations</string>
+    <string name="login_offline_mode_title">ℹ️ Offline mode</string>
+    <string name="login_offline_mode_desc">You can use the app without logging in. All conversations will be stored locally on the device.</string>
+
+    <!-- Session and Appearance Tab -->
+    <string name="settings_appearance_section">Appearance and theme</string>
+    <string name="settings_theme_label">App theme</string>
+    <string name="settings_theme_classic">Classic</string>
+    <string name="settings_theme_modern">Modern</string>
+    <string name="settings_theme_glass">Glass</string>
+    <string name="settings_session_section">Session parameters</string>
+    <string name="settings_screen_awake">Keep screen awake</string>
+    <string name="settings_auto_pause">Auto-pause (inactivity)</string>
+    <string name="settings_seconds">%1$d seconds</string>
+    <string name="settings_bot_timeout">Bot response timeout</string>
+    <string name="settings_minutes">%1$d minutes</string>
+    <string name="settings_activity_threshold">Voice activity detection sensitivity (VAD)</string>
+    <string name="settings_full_duplex">Full-Duplex mode (interruptible)</string>
+    <string name="settings_parental_lock">Parental lock PIN</string>
+    <string name="settings_change_pin">Change PIN</string>
+
+    <!-- Agents Tab -->
+    <string name="agents_control_title">Voice Control Agent</string>
+    <string name="agents_control_switch">Enable control agent</string>
+    <string name="agents_control_on_desc">✅ ENABLED: Agent listens for voice commands (\"mute\", \"disconnect\", \"switch to...\") and performs system actions in the background.</string>
+    <string name="agents_control_off_desc">❌ DISABLED: All voice commands are passed to the main Gemini Live agent.</string>
+    <string name="agents_how_works_title">ℹ️ How the control agent works:</string>
+    <string name="agents_how_works_item1">Runs parallel to the main Gemini Live agent (doesn\'t block conversation)</string>
+    <string name="agents_how_works_item2">Recognizes commands: \"mute\", \"disconnect\", \"switch to [conversation name]\"</string>
+    <string name="agents_how_works_item3">In case of doubt, passes control back to the main agent (fail-safe)</string>
+    <string name="agents_how_works_item4">Supports Polish and English commands</string>
+    <string name="agents_control_active">Control agent is active</string>
+    <string name="agents_reasoning_title">Reasoning Agent</string>
+    <string name="agents_reasoning_switch">Enable Reasoning Agent</string>
+    <string name="agents_reasoning_on_desc">✅ ENABLED: Reasoning agent runs in the background, performing deep analyses, searches, and generating reports.</string>
+    <string name="agents_reasoning_off_desc">❌ DISABLED: All analytical tasks are passed to the main Gemini Live agent.</string>
+    <string name="agents_reasoning_how_works_title">ℹ️ How the Reasoning Agent works:</string>
+    <string name="agents_reasoning_how_works_item1">Runs asynchronously in the background (doesn\'t block conversation)</string>
+    <string name="agents_reasoning_how_works_item2">Performs deep searches via Perplexity with citations</string>
+    <string name="agents_reasoning_how_works_item3">Saves notes, copies to clipboard, sends to Telegram</string>
+    <string name="agents_reasoning_how_works_item4">Generates post-session reports based on detected topics</string>
+    <string name="agents_reasoning_how_works_item5">Uses advanced models (Gemini, DeepSeek) via Gemini API or OpenRouter</string>
+    <string name="agents_reasoning_model_label">Reasoning model</string>
+    <string name="agents_reasoning_model_desc">Model used for deep analysis and reasoning. DeepSeek V3.2 is recommended for high quality and low cost.</string>
+    <string name="agents_whisperer_label">Whisperer Mode (auto-start)</string>
+    <string name="agents_whisperer_on_desc">✅ ENABLED: Gemini Live automatically starts Reasoning Agent when it detects lack of knowledge or need for deeper analysis.</string>
+    <string name="agents_whisperer_off_desc">❌ DISABLED: Reasoning Agent only starts on explicit user command.</string>
+    <string name="agents_whisperer_how_works_title">ℹ️ Whisperer Mode:</string>
+    <string name="agents_whisperer_how_works_item1">Gemini Live detects when it doesn\'t have enough knowledge</string>
+    <string name="agents_whisperer_how_works_item2">Automatically starts Reasoning Agent in the background (without notifying user)</string>
+    <string name="agents_whisperer_how_works_item3">Continues conversation naturally, \"buying time\" for analysis</string>
+    <string name="agents_whisperer_how_works_item4">When result is ready, injects knowledge into the conversation</string>
+    <string name="agents_reasoning_active">Reasoning Agent is active</string>
+    <string name="agents_api_keys_required_title">⚠️ Required API Keys:</string>
+    <string name="agents_api_keys_required_item1">OpenRouter API - access to reasoning models (DeepSeek, Claude)</string>
+    <string name="agents_api_keys_required_item2">Perplexity API - real-time search with citations</string>
+    <string name="agents_api_keys_required_footer">Configure keys in the \"Keys and accounts\" tab</string>
+    <string name="agents_librechat_title">LibreChat</string>
+    <string name="agents_librechat_ocr_label">OCR Mode (Text Recognition)</string>
+    <string name="agents_librechat_ocr_on_desc">✅ ENABLED: Photos will be processed via OCR (text), not directly by the vision model.</string>
+    <string name="agents_librechat_ocr_off_desc">❌ DISABLED: Photos are sent directly to the model (Vision mode).</string>
+    <string name="agents_librechat_ocr_how_works_title">ℹ️ About OCR Mode:</string>
+    <string name="agents_librechat_ocr_how_works_item1">Uses server-side OCR module (e.g., Mistral OCR) to extract text</string>
+    <string name="agents_librechat_ocr_how_works_item2">Model receives clean text instead of image pixels</string>
+    <string name="agents_librechat_ocr_how_works_item3">Useful in low light or very small print</string>
+
+    <!-- Integrations Tab -->
+    <string name="integ_pico_title">Picovoice Voice Commands</string>
+    <string name="integ_pico_switch">Enable voice command detection</string>
+    <string name="integ_pico_warning_title">⚠️ Important Warning</string>
+    <string name="integ_pico_warning_desc">WARNING: When the screen is off, Picovoice and the app do not work correctly (Android kills the process).</string>
+    <string name="integ_pico_warning_how_to">If you want to use voice commands:</string>
+    <string name="integ_pico_warning_step1">1. Enable \"Keep screen awake\" in settings</string>
+    <string name="integ_pico_warning_step2">2. Keep the app in the foreground (OnScreen)</string>
+    <string name="integ_pico_warning_step3">3. Do not turn off the screen during conversation</string>
+    <string name="integ_pico_warning_footer">Without these settings, voice commands may not work correctly.</string>
+    <string name="integ_pico_warning_confirm">I understand, enable</string>
+    <string name="integ_pico_on_desc">Service is listening for voice commands in the background</string>
+    <string name="integ_pico_off_desc">Voice command detection is disabled</string>
+    <string name="integ_pico_access_label">Picovoice Access Key</string>
+    <string name="integ_pico_access_hint">Get a free key at console.picovoice.ai</string>
+    <string name="integ_pico_sensitivity_label">Detection Sensitivity</string>
+    <string name="integ_pico_sensitivity_min">Less sensitive (0.0)</string>
+    <string name="integ_pico_sensitivity_max">Very sensitive (1.0)</string>
+    <string name="integ_pico_activation_sound">Activation Sound</string>
+    <string name="integ_pico_system_title">System Voice Commands</string>
+    <string name="integ_pico_system_desc">Built-in voice command:</string>
+    <string name="integ_pico_system_alexa">Pause/resume voice session (toggle)</string>
+    <string name="integ_pico_custom_title">Custom Voice Commands</string>
+    <string name="integ_pico_custom_empty">No custom commands. Add a new command to start conversations by voice.</string>
+    <string name="integ_pico_add_button">+ Add</string>
+    <string name="integ_pico_import_success">.ppn file imported successfully!</string>
+    <string name="integ_pico_import_error">Failed to import file</string>
+    <string name="integ_tg_title">Telegram Configuration</string>
+    <string name="integ_tg_desc">Configure Telegram bot to receive reports and notes from Reasoning Agent.</string>
+    <string name="integ_tg_token_label">Telegram Bot Token</string>
+    <string name="integ_tg_token_hint">Get token from @BotFather on Telegram. Example: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz</string>
+    <string name="integ_tg_chat_label">Telegram Chat ID</string>
+    <string name="integ_tg_chat_hint">Your Telegram Chat ID. You can get it from @userinfobot. Example: 123456789</string>
+    <string name="integ_tg_test_button">Test connection</string>
+    <string name="integ_tg_testing">Testing...</string>
+    <string name="integ_tg_test_success">✅ Connection successful! Test message sent.</string>
+    <string name="integ_tg_test_error">❌ Error: %1$s</string>
+    <string name="integ_tg_how_to_title">ℹ️ How to configure Telegram bot:</string>
+    <string name="integ_system_title">System Integrations</string>
+    <string name="integ_system_desc">Enable or disable individual system integrations. Disabled integrations will not be available to the voice assistant.</string>
+    <string name="integ_status_disabled">Disabled</string>
+    <string name="integ_status_active">Active</string>
+    <string name="integ_status_need_perms">Requires permissions</string>
+    <string name="integ_perms_required">Requires: %1$s</string>
+    <string name="integ_perms_missing">⚠️ Missing: %1$s</string>
+    <string name="integ_grant_perms">Grant permissions</string>
+    <string name="integ_assistant_title">System Assistant</string>
+    <string name="integ_assistant_desc">Set the app as the default system assistant. Once set, you can launch chosen conversation by holding Power button (depends on device).</string>
+    <string name="integ_assistant_active">Set as assistant</string>
+    <string name="integ_assistant_inactive">Not set as assistant</string>
+    <string name="integ_assistant_active_desc">You can launch app by holding Power button</string>
+    <string name="integ_assistant_inactive_desc">Click the button below to open settings</string>
+    <string name="integ_assistant_select_conv">Conversation to launch:</string>
+    <string name="integ_assistant_select_hint">Select conversation</string>
+    <string name="integ_assistant_empty">No conversations available. Log in to LibreChat and create a conversation.</string>
+    <string name="integ_assistant_open_settings">Open assistant settings</string>
+    <string name="integ_custom_tools_title">Custom Tools</string>
+    <string name="integ_custom_tools_desc">Add custom tools for Gemini via JSON import. Tools can perform HTTP requests or launch Android Intents.</string>
+
+    <!-- Settings Validation -->
+    <string name="settings_validation_error_openrouter">OpenRouter API key validation error: %1$s</string>
+    <string name="settings_validation_error_perplexity">Perplexity API key validation error: %1$s</string>
+    <string name="settings_validation_error_generic">Validation error: %1$s</string>
+    <string name="settings_validation_error_unknown">Unknown error</string>
+    <string name="settings_validation_error_footer">Check API keys and model names correctness.</string>
+    <string name="settings_validation_reasoning_model_required">Reasoning Agent model requires OpenRouter API key. Enter key or change model to Gemini.</string>
+
+    <!-- Conversation List -->
+    <string name="conv_list_offline_banner">Offline mode: Your conversations are saved locally. Log in to Kumpel-chat in the \"Keys and accounts\" tab to sync conversations. For full functionality, grant permissions in the Integrations menu. Also check the Marketplace for assistants.</string>
+    <string name="conv_list_new_offline">New offline conversation</string>
+    <string name="conv_list_locked_parental">Locked</string>
+    <string name="conv_list_loading">Loading threads...</string>
+    <string name="conv_list_loading_error">Error loading conversations: %1$s</string>
+    <string name="conv_list_empty">No conversations.\nCreate a new offline conversation or a LibreChat thread.</string>
+    <string name="conv_list_saving_memories">Saving memories...</string>
+    <string name="conv_list_offline_badge">OFFLINE</string>
+    <string name="conv_list_locked_title">Conversation locked</string>
+    <string name="conv_list_locked_description">This conversation is locked because the memory saving process was interrupted (e.g., by an app restart).</string>
+    <string name="conv_list_locked_options">You can:</string>
+    <string name="conv_list_locked_unlock_info">Unlock - conversation will be available again (memories may be incomplete)</string>
+    <string name="conv_list_locked_delete_info">Delete - permanently delete conversation and all its data</string>
+    <string name="conv_list_unlock_button">Unlock</string>
+
+    <string name="integ_pico_reimport_ppn">Reimport .ppn</string>
+    <string name="integ_pico_import_ppn">Import .ppn</string>
+    <string name="integ_pico_instructions">Instructions</string>
+    <string name="integ_pico_built_in">Built-in</string>
+    <string name="integ_pico_ready">Ready to use</string>
+    <string name="integ_pico_needs_import">Requires .ppn file import</string>
+    <string name="integ_pico_add_dialog_title">Add voice command</string>
+    <string name="integ_pico_add_dialog_desc">Enter voice command name (e.g. \'assistant\', \'help\'):</string>
+    <string name="integ_pico_add_dialog_placeholder">e.g. assistant</string>
+    
+    <string name="integ_custom_tools_installed">Installed tools (%1$d):</string>
+    <string name="integ_custom_tools_import_json_title">Import Custom Tool</string>
+    <string name="integ_custom_tools_import_json_desc">Paste JSON with tool definition:</string>
+    <string name="integ_custom_tools_import_json_placeholder">Paste JSON...</string>
+    <string name="integ_custom_tools_example_title">Custom Tool Example</string>
+    <string name="integ_custom_tools_example_desc">Example tool definition:</string>
+    <string name="integ_custom_tools_example_button">Example</string>
+
+    <!-- Service Errors -->
+    <string name="main_error_service_start">Failed to start background service: %1$s</string>
+    <!-- Azure Diagnostics -->
+    <string name="azure_diagnostics_title">Azure Diagnostic Tools</string>
+    <string name="azure_stt_test_button">Test STT (Speak)</string>
+    <string name="azure_stt_stop_button">Stop STT</string>
+    <string name="azure_tts_test_button">Test TTS (Voice)</string>
+    <string name="azure_tts_test_message">This is an Azure speech synthesis test. If you can hear this, the configuration is correct.</string>
+    <string name="azure_test_result_label">Result: %1$s</string>
+    <string name="val_error_azure_api">Azure API Key is required</string>
+    <string name="val_error_azure_region">Azure Region is required</string>
+
+    <!-- Settings: Session -->
+    <string name="settings_seconds_short">10s</string>
+    <string name="settings_seconds_long">120s (2 min)</string>
+    <string name="settings_auto_pause_desc">User inactivity time after which the session is paused (talking bot does not count as activity)</string>
+    <string name="settings_minutes_short">1 min</string>
+    <string name="settings_minutes_long">15 min</string>
+    <string name="settings_bot_timeout_desc">Time without bot response after which the session is paused (protects against loud background noises)</string>
+    <string name="settings_sensitivity_high">Very sensitive (0.01)</string>
+    <string name="settings_sensitivity_low">Low sensitivity (0.10)</string>
+    <string name="settings_activity_threshold_desc">Sound level threshold for user activity detection (does not affect recording volume)</string>
+    <string name="settings_full_duplex_on_desc">✅ FULL-DUPLEX: You can interrupt the bot at any time. The microphone records all the time.</string>
+    <string name="settings_half_duplex_on_desc">ℹ️ HALF-DUPLEX: The bot finishes its statements without interruption. The microphone is turned off when the bot speaks.</string>
+    <string name="settings_audio_mode_diff_title">ℹ️ Differences between modes:</string>
+    <string name="settings_half_duplex_expl">• Half-Duplex: The microphone turns off when the bot speaks. You cannot interrupt the bot, but its responses are stable and echo-free.</string>
+    <string name="settings_full_duplex_expl">• Full-Duplex: The microphone works all the time. You can interrupt the bot while speaking, allowing for a more natural conversation.</string>
+
+    <!-- Settings: Appearance & Security -->
+    <string name="settings_theme_choose">Choose theme</string>
+    <string name="settings_theme_desc">Colors, shapes and effects</string>
+    <string name="settings_skin_legacy_title">Skin selection (legacy system)</string>
+    <string name="settings_skin_default">Default</string>
+    <string name="settings_skin_dark_blue">Dark Blue</string>
+    <string name="settings_skin_warm_orange">Warm Orange</string>
+    <string name="settings_skin_soon">Coming soon</string>
+    <string name="settings_security_title">Security</string>
+    <string name="settings_parental_lock_on_desc">New conversation creation, help bot, and conversation settings are locked</string>
+    <string name="settings_parental_lock_off_desc">Lock disabled - all functions available</string>
+
+    <!-- Settings: Agents -->
+    <string name="agents_reasoning_model_gemini_recommended">Gemini 3 Flash Preview (Recommended)</string>
+    <string name="agents_reasoning_model_deepseek_v3">DeepSeek V3.2 (OpenRouter)</string>
+    <string name="agents_reasoning_model_deepseek_r1">DeepSeek R1 (OpenRouter)</string>
+    <string name="agents_reasoning_model_gemini_flash">Gemini 2.5 Flash (OpenRouter)</string>
+
+    <!-- Integrations -->
+    <string name="integ_tg_test_message">🤖 Reasoning Agent connection test\n\nIf you see this message, the configuration is correct!</string>
+
+    <!-- PIN Dialog -->
+    <string name="pin_dialog_title">Enter PIN</string>
+    <string name="pin_dialog_desc">Access to settings is PIN protected.</string>
+    <string name="pin_dialog_desc_setup">Set up a PIN to secure settings.</string>
+    <string name="pin_dialog_set_title">Set PIN</string>
+    <string name="pin_dialog_confirm_title">Confirm PIN</string>
+    <string name="pin_dialog_wrong_pin">Incorrect PIN</string>
+    <string name="pin_dialog_mismatch">PINs do not match</string>
+    <string name="pin_enter_title">Enter PIN</string>
+    <string name="pin_default_info">Default PIN is 2222</string>
+    <string name="pin_invalid_error">Incorrect PIN</string>
+    <string name="settings_validation_error_openrouter_missing">Reasoning Agent model requires OpenRouter API key. Enter key or switch to Gemini.</string>
+    <string name="settings_validation_unknown_error">Unknown error</string>
+    <string name="settings_validation_check_keys">Check the API keys and model names entered.</string>
+
+    <!-- Offline Conversation Dialog -->
+    <string name="conversation_title_edit">Edit conversation</string>
+    <string name="conversation_title_new">New offline conversation</string>
+    <string name="conversation_name_label">Conversation name</string>
+    <string name="conversation_name_placeholder">e.g. English learning</string>
+    <string name="conversation_system_prompt_label">System prompt (optional)</string>
+    <string name="conversation_system_prompt_placeholder">Enter instructions for the assistant...\ne.g. You are an English teacher.</string>
+    <string name="conversation_voice_label">Voice</string>
+    <string name="conversation_model_settings_title">Model Settings</string>
+    <string name="conversation_model_settings_button">⚙️ Advanced Model Settings</string>
+    <string name="conversation_tools_label">Available Tools</string>
+    <string name="conversation_tools_button">🛠️ Select Tools (%1$s)</string>
+    <string name="conversation_tools_all">All</string>
+    <string name="conversation_delete_button">Delete</string>
+    <string name="conversation_delete_confirm_title">Delete conversation?</string>
+    <string name="conversation_delete_confirm_msg">Are you sure you want to delete this conversation? This operation cannot be undone.</string>
+    <string name="tool_selection_title">Select available tools</string>
+    <string name="tool_selection_all">Select all</string>
+    <string name="thread_config_title">Thread Configuration</string>
+    <!-- Notification Permission -->
+    <string name="integ_notif_perm_title">Notification Permission</string>
+    <string name="integ_notif_perm_desc">To ensure reminders work correctly, the app needs permission to display notifications.</string>
+    <string name="integ_notif_perm_usage">Notifications are used for:</string>
+    <string name="integ_notif_perm_list">• Displaying reminders at scheduled times\n• Playing reminder sounds\n• Working even when the app is closed</string>
+    <string name="integ_notif_perm_grant">Grant Permission</string>
+
+    <!-- Telegram Instructions -->
+    <string name="integ_tg_step_1">1. Open Telegram and search for @BotFather</string>
+    <string name="integ_tg_step_2">2. Send /newbot command and follow instructions</string>
+    <string name="integ_tg_step_3">3. Copy the bot token and paste above</string>
+    <string name="integ_tg_step_4">4. Search for @userinfobot and send /start to get your Chat ID</string>
+    <string name="integ_tg_step_5">5. Copy Chat ID and paste above</string>
+    <string name="integ_tg_step_6">6. Click \'Test connection\' to check configuration</string>
+
+    <!-- Assistant Instructions -->
+    <string name="integ_assist_howto_title">ℹ️ How to configure:</string>
+    <string name="integ_assist_step_1">1. Select conversation to launch</string>
+    <string name="integ_assist_step_2">2. Click \'Set as assistant\' - settings screen will open</string>
+    <string name="integ_assist_step_3">3. Find \'Default digital assistant app\' or \'Assist &amp; voice input\'</string>
+    <string name="integ_assist_step_4">4. Select \'Live Bot\' as default assistant</string>
+    <string name="integ_assist_step_5">5. Hold Power button to launch the app</string>
+    <string name="integ_assist_warning_title">⚠️ Important limitations:</string>
+    <string name="integ_assist_warning_desc">• On Samsung devices might be blocked by Bixby\n• Some manufacturers prevent changing default assistant\n• \'Hold Power\' function might be unavailable\n• In such cases, launch app normally from home screen</string>
+    <!-- Model Settings Dialog -->
+    <string name="model_settings_subtitle">Advanced response generation parameters</string>
+    <string name="model_settings_temp_label">Temperature</string>
+    <string name="model_settings_temp_desc">Controls randomness. Lower = precise, higher = creative</string>
+    <string name="model_settings_topp_label">Top P</string>
+    <string name="model_settings_topp_desc">Nucleus sampling. Lower = more focused responses</string>
+    <string name="model_settings_topk_label">Top K</string>
+    <string name="model_settings_topk_desc">Number of tokens to choose from. Lower = higher precision</string>
+    <string name="model_settings_max_tokens_label">Max Output Tokens</string>
+    <string name="model_settings_max_tokens_desc">Maximum response length. Lower = concise responses</string>
+    <string name="model_settings_val_range_error">%1$s must be between %2$s and %3$s</string>
+
+    <!-- Integration Names -->
+    <string name="integ_name_contacts_sms">Contacts &amp; SMS</string>
+    <string name="integ_name_alarms">Alarms &amp; reminders</string>
+    <string name="integ_name_calendar">Calendar</string>
+    <string name="integ_name_todo">TODO List</string>
+    <string name="integ_name_maps">Google Maps</string>
+    <string name="integ_name_transit">Public Transit</string>
+    <string name="integ_name_shopping">Shopping List</string>
+
+    <!-- Permission Names -->
+    <string name="integ_perm_contacts">Contacts</string>
+    <string name="integ_perm_calendar_read">Calendar (read)</string>
+    <string name="integ_perm_calendar_write">Calendar (write)</string>
+    <string name="integ_perm_alarms">Exact alarms</string>
+    <string name="integ_perm_notif">Notifications</string>
+    <string name="integ_perm_location">Location</string>
+
+    <!-- Integration Unavailable Messages -->
+    <string name="integ_unavailable_contacts">Assistant cannot search contacts or send SMS.</string>
+    <string name="integ_unavailable_alarms">Assistant cannot set alarms or create reminders.</string>
+    <string name="integ_unavailable_calendar">Assistant cannot check or add calendar events.</string>
+    <string name="integ_unavailable_todo">Assistant cannot manage TODO list.</string>
+    <string name="integ_unavailable_maps">Assistant cannot start navigation or search places on map.</string>
+    <string name="integ_unavailable_transit">Assistant cannot check public transit routes.</string>
+    <string name="integ_unavailable_shopping">Assistant cannot manage shopping list.</string>
+
+    <!-- Tool Groups -->
+    <string name="tool_group_search_title">Google Search Grounding</string>
+    <string name="tool_group_search_desc">Native Google Search</string>
+    <string name="tool_group_reasoning_title">Reasoning Agent</string>
+    <string name="tool_group_reasoning_desc">Deep analysis, notes, Telegram, Perplexity</string>
+    <string name="tool_group_perplexity_title">Perplexity (Online)</string>
+    <string name="tool_group_perplexity_desc">Online search with citations</string>
+    <string name="tool_group_progress_title">Progress (Done List)</string>
+    <string name="tool_group_progress_desc">Automatic session summary saving</string>
+    <string name="tool_group_shopping_title">Shopping List</string>
+    <string name="tool_group_shopping_desc">Full shopping list support</string>
+    <string name="tool_group_todo_title">TODO List</string>
+    <string name="tool_group_todo_desc">Task list management</string>
+    <string name="tool_group_encyclopedia_title">Encyclopedia (Wikipedia)</string>
+    <string name="tool_group_encyclopedia_desc">Creating rich notes based on Wikipedia</string>
+    <string name="tool_group_calendar_title">Calendar</string>
+    <string name="tool_group_calendar_desc">Calendar management</string>
+    <string name="tool_group_reminders_title">Reminders</string>
+    <string name="tool_group_reminders_desc">Reminder management</string>
+    <string name="tool_group_alarms_title">Alarm Clock</string>
+    <string name="tool_group_alarms_desc">Setting alarms</string>
+    <string name="tool_group_weather_title">Weather</string>
+    <string name="tool_group_weather_desc">Checking weather</string>
+    <string name="tool_group_time_title">Time &amp; Date</string>
+    <string name="tool_group_time_desc">Checking time and date</string>
+    <string name="tool_group_location_title">Location</string>
+    <string name="tool_group_location_desc">Getting GPS location</string>
+    <string name="tool_group_calculate_title">Calculator</string>
+    <string name="tool_group_calculate_desc">Mathematical calculations</string>
+    <string name="tool_group_places_title">Nearby Places</string>
+    <string name="tool_group_places_desc">Searching for restaurants, shops etc.</string>
+    <string name="tool_group_map_search_title">Search on Map</string>
+    <string name="tool_group_map_search_desc">Searching address in Google Maps</string>
+    <string name="tool_group_navigation_title">Navigation</string>
+    <string name="tool_group_navigation_desc">Google Maps Navigation</string>
+    <string name="tool_group_transit_title">Public Transit</string>
+    <string name="tool_group_transit_desc">Searching routes</string>
+    <string name="tool_group_show_map_title">Show on Map</string>
+    <string name="tool_group_show_map_desc">Showing point on map</string>
+    <string name="tool_group_media_title">Media Control</string>
+    <string name="tool_group_media_desc">Spotify, YouTube Music</string>
+    <string name="tool_group_contacts_title">Contacts</string>
+    <string name="tool_group_contacts_desc">Searching contacts</string>
+    <string name="tool_group_sms_title">Sending SMS</string>
+    <string name="tool_group_sms_desc">Sending text messages</string>
+    <string name="tool_group_health_title">Symptom Checker</string>
+    <string name="tool_group_health_desc">Azure Health Bot</string>
+
+    <!-- PIN Change Dialog -->
+    <string name="pin_change_title_current">Enter current PIN</string>
+    <string name="pin_change_title_new">Enter new PIN</string>
+    <string name="pin_change_title_confirm">Confirm new PIN</string>
+    <string name="pin_change_title_success">PIN changed</string>
+    <string name="pin_change_error_invalid_current">Invalid current PIN</string>
+    <string name="pin_change_error_invalid_new">PIN must be 4 digits</string>
+    <string name="pin_change_error_match">PINs do not match</string>
+    <string name="pin_change_success_msg">PIN has been successfully changed</string>
+</resources>

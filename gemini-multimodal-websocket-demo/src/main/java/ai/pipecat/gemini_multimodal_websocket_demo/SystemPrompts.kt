@@ -8,6 +8,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.models.NotesConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.TelegramConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ClipboardConfig
 import ai.pipecat.gemini_multimodal_websocket_demo.models.WhispererModeConfig
+import android.content.Context
+import ai.pipecat.gemini_multimodal_websocket_demo.R
 
 /**
  * Centralized configuration for all system prompts and default models used in the application.
@@ -519,13 +521,23 @@ REMEMBER: You can ONLY create notes, copy to clipboard, send to Telegram, or do 
     /**
      * toolsInstruction function - dynamically generates tool rules based on allowed tools.
      * 
+     * @param context Android context for localization. If null, uses default hardcoded strings.
      * @param allowedTools List of allowed tool names. If null, all tools are included (default).
      */
-    fun getToolsInstruction(allowedTools: List<String>? = null): String {
+    fun getToolsInstruction(context: Context?, allowedTools: List<String>? = null): String {
         val sb = StringBuilder()
         
-        // Add Header
-        sb.append(TOOLS_INSTRUCTION_HEADER)
+        // Add Header (Localized if context provided)
+        val header = if (context != null) {
+            try {
+                context.getString(R.string.tools_instruction_header)
+            } catch (e: Exception) {
+                TOOLS_INSTRUCTION_HEADER
+            }
+        } else {
+            TOOLS_INSTRUCTION_HEADER
+        }
+        sb.append(header)
         sb.append("\n")
         
         // Add Tool Descriptions
@@ -536,7 +548,7 @@ REMEMBER: You can ONLY create notes, copy to clipboard, send to Telegram, or do 
         if (allowedTools == null) {
             // Add ALL tools (sorted by key for consistency)
             TOOL_DESCRIPTIONS.keys.sorted().forEach { key ->
-                val block = TOOL_DESCRIPTIONS[key]!!
+                val block = if (context != null) getLocalizedToolDescription(context, key) else TOOL_DESCRIPTIONS[key]!!
                 if (!addedBlocks.contains(block)) {
                     blocksToAdd.add(block)
                     addedBlocks.add(block)
@@ -549,8 +561,8 @@ REMEMBER: You can ONLY create notes, copy to clipboard, send to Telegram, or do 
                 // Check if it's a primary tool or mapped secondary tool
                 val primaryTool = TOOL_MAPPING[toolName] ?: toolName
                 
-                val block = TOOL_DESCRIPTIONS[primaryTool]
-                if (block != null && !addedBlocks.contains(block)) {
+                val block = if (context != null) getLocalizedToolDescription(context, primaryTool) else TOOL_DESCRIPTIONS[primaryTool] ?: ""
+                if (block.isNotBlank() && !addedBlocks.contains(block)) {
                     blocksToAdd.add(block)
                     addedBlocks.add(block)
                 }
@@ -559,20 +571,52 @@ REMEMBER: You can ONLY create notes, copy to clipboard, send to Telegram, or do 
         
         blocksToAdd.forEach { sb.append(it).append("\n\n") }
         
-        // Add Footer ONLY if reasoning agent is allowed
+        // Add Footer ONLY if reasoning agent is allowed (Localized if context provided)
         val reasoningAllowed = allowedTools == null || allowedTools.contains("start_reasoning_task")
         if (reasoningAllowed) {
-            sb.append(REASONING_AGENT_FOOTER)
+            val footer = if (context != null) {
+                try {
+                    context.getString(R.string.reasoning_agent_footer)
+                } catch (e: Exception) {
+                    REASONING_AGENT_FOOTER
+                }
+            } else {
+                REASONING_AGENT_FOOTER
+            }
+            sb.append(footer)
         }
         
         return sb.toString()
     }
 
     /**
+     * Get localized tool description from strings.xml or fallback to default map.
+     */
+    private fun getLocalizedToolDescription(context: Context, toolName: String): String {
+        // Try to get from resources
+        val resId = context.resources.getIdentifier("tool_desc_$toolName", "string", context.packageName)
+        if (resId != 0) {
+            try {
+                return context.getString(resId)
+            } catch (e: Exception) {
+                // Fallback to static map
+            }
+        }
+        
+        // Fallback to static map
+        return TOOL_DESCRIPTIONS[toolName] ?: ""
+    }
+
+    /**
      * Tools instruction for Gemini Live.
      * Maintains backward compatibility by returning the full instruction set.
      */
-    val toolsInstruction: String get() = getToolsInstruction(null)
+    val toolsInstruction: String get() = getToolsInstruction(null, null)
+    
+    /**
+     * Tools instruction for Gemini Live (Localized).
+     */
+    fun getToolsInstructionLegacy(context: Context): String = getToolsInstruction(context, null)
     
     /**
      * Summary prompt for LibreChat conversations.
@@ -751,7 +795,7 @@ CRITICAL: Be precise and factual. Only include information explicitly stated or 
      * 2. Audio quality robustness (Telephony/Bluetooth artifacts)
      */
     const val DEFAULT_SYSTEM_PROMPT: String = """
-You are an advanced, helpful AI assistant capable of fluent conversation in Polish, English, and Ukrainian.
+You are an advanced, helpful AI assistant capable of fluent conversation in Polish, English, German, French, Spanish and Ukrainian.
 
 AUDIO QUALITY IMPORTANT NOTICE:
 You are receiving raw audio input from a variety of mobile devices, including Bluetooth headsets and speakerphones.
@@ -762,12 +806,10 @@ You are receiving raw audio input from a variety of mobile devices, including Bl
 
 LANGUAGE HANDLING:
 - You are a POLYGLOT assistant.
-- The user may switch between Polish, English, and Ukrainian at any time.
+- The user may switch between Polish, English, German, French, Spanish and Ukrainian at any time.
 - AUTOMATICALLY DETECT the language the user is speaking in the current turn.
 - ALWAYS respond in the SAME language the user just spoke.
-- If the user speaks Polish, answer in Polish.
-- If the user speaks English, answer in English.
-- If the user speaks Ukrainian, answer in Ukrainian.
+- Keep your instructions and persona consistent across language switches.
 - Do not let audio noise mislead you into changing languages. Use context to anchor the language.
 
 Your goal is to provide helpful, natural, and accurate responses, ignoring technical audio limitations.

@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.R
+import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.NewsAnnouncement
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
 import androidx.compose.foundation.background
@@ -36,6 +37,7 @@ fun NewsBanner(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val lang = Preferences.appLanguage.value ?: "pl"
     val backgroundColor = when (announcement.color.lowercase()) {
         "warning" -> Color(0xFFFFA726) // Orange
         "error" -> Color(0xFFEF5350) // Red
@@ -61,7 +63,7 @@ fun NewsBanner(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = announcement.title,
+                    text = announcement.getLocalizedTitle(lang),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.White,
@@ -71,7 +73,7 @@ fun NewsBanner(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = announcement.message,
+                    text = announcement.getLocalizedMessage(lang),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.White,

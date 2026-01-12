@@ -11,8 +11,13 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.LanguageConstants
+import ai.pipecat.gemini_multimodal_websocket_demo.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.material3.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,6 +88,7 @@ fun SettingsScreen(
     var fullDuplexMode by remember { mutableStateOf(Preferences.fullDuplexMode.value) }
     var libreChatOcrMode by remember { mutableStateOf(Preferences.libreChatOcrMode.value) }
     var directLineSecret by remember { mutableStateOf(Preferences.directLineSecret.value ?: "") }
+    var appLanguage by remember { mutableStateOf(Preferences.appLanguage.value ?: "pl") }
     
     // Azure Speech settings
     var azureApiKey by remember { mutableStateOf(Preferences.azureApiKey.value ?: "") }
@@ -168,6 +174,7 @@ fun SettingsScreen(
         Preferences.azureRegion.value = azureRegion
         Preferences.azureTtsVoice.value = azureTtsVoice
         Preferences.directLineSecret.value = directLineSecret
+        Preferences.appLanguage.value = appLanguage
     }
     
     // Validate and save settings function with callback
@@ -179,7 +186,7 @@ fun SettingsScreen(
             try {
                 // 1. Validate Gemini API key (always required for main functionality)
                 if (geminiApiKey.isBlank()) {
-                    validationError = "Brak klucza API Gemini. Wpisz klucz API w ustawieniach."
+                    validationError = context.getString(R.string.settings_validation_error_gemini)
                     showValidationErrorDialog = true
                     isValidatingKeys = false
                     return@launch
@@ -200,13 +207,13 @@ fun SettingsScreen(
                     if (openRouterResult.isFailure) {
                         val errorMsg = openRouterResult.exceptionOrNull()?.message ?: "Unknown error"
                         Log.e("SettingsScreen", "OpenRouter validation failed: $errorMsg")
-                        validationError = "Błąd walidacji klucza OpenRouter: $errorMsg"
+                        validationError = context.getString(R.string.settings_validation_error_openrouter, errorMsg)
                         showValidationErrorDialog = true
                         isValidatingKeys = false
                         return@launch
                     }
                 } else if (usesOpenRouter && openRouterApiKey.isBlank()) {
-                    validationError = "Model Reasoning Agent wymaga klucza OpenRouter API. Wpisz klucz lub zmień model na Gemini."
+                    validationError = context.getString(R.string.settings_validation_error_openrouter_missing)
                     showValidationErrorDialog = true
                     isValidatingKeys = false
                     return@launch
@@ -217,7 +224,7 @@ fun SettingsScreen(
                     val perplexityClient = ai.pipecat.gemini_multimodal_websocket_demo.agents.PerplexityClient(context)
                     val perplexityResult = perplexityClient.validateApiKey(perplexityApiKey)
                     if (perplexityResult.isFailure) {
-                        validationError = "Błąd walidacji klucza Perplexity: ${perplexityResult.exceptionOrNull()?.message}"
+                        validationError = context.getString(R.string.settings_validation_error_perplexity, perplexityResult.exceptionOrNull()?.message)
                         showValidationErrorDialog = true
                         isValidatingKeys = false
                         return@launch
@@ -230,7 +237,7 @@ fun SettingsScreen(
                 onSuccess()
                 
             } catch (e: Exception) {
-                validationError = "Błąd podczas walidacji: ${e.message}"
+                validationError = context.getString(R.string.settings_validation_error_generic, e.message)
                 showValidationErrorDialog = true
                 isValidatingKeys = false
             }
@@ -254,7 +261,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Ustawienia",
+                    text = stringResource(id = R.string.settings_title),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -361,6 +368,8 @@ fun SettingsScreen(
                             },
                             parentalLockEnabled = parentalLockEnabled,
                             onParentalLockChange = { parentalLockEnabled = it },
+                            appLanguage = appLanguage,
+                            onAppLanguageChange = { appLanguage = it },
                             onChangePIN = { showChangePINDialog = true },
                             onThemeSelection = {
                                 validateAndSaveSettings {
@@ -472,7 +481,7 @@ fun SettingsScreen(
                 onDismissRequest = { showValidationErrorDialog = false },
                 title = {
                     Text(
-                        text = "❌ Błąd walidacji",
+                        text = "❌ " + stringResource(id = R.string.settings_validation_error_title),
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
                     )
@@ -480,12 +489,12 @@ fun SettingsScreen(
                 text = {
                     Column {
                         Text(
-                            text = validationError ?: "Nieznany błąd",
+                            text = validationError ?: stringResource(id = R.string.settings_validation_unknown_error),
                             style = TextStyles.base
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Sprawdź poprawność wprowadzonych kluczy API i nazw modeli.",
+                            text = stringResource(id = R.string.settings_validation_check_keys),
                             style = TextStyles.base,
                             fontSize = 12.sp,
                             color = Color.Gray
@@ -499,7 +508,7 @@ fun SettingsScreen(
                             containerColor = Colors.buttonNormal
                         )
                     ) {
-                        Text("OK", style = TextStyles.base)
+                        Text(stringResource(id = R.string.common_ok), style = TextStyles.base)
                     }
                 }
             )
@@ -519,7 +528,7 @@ fun SettingsScreen(
                 ) {
                     CircularProgressIndicator(color = Colors.buttonNormal)
                     Text(
-                        text = "Sprawdzanie modelu...",
+                        text = stringResource(id = R.string.settings_validation_loading),
                         style = TextStyles.base,
                         color = Color.White,
                         fontWeight = FontWeight.W600

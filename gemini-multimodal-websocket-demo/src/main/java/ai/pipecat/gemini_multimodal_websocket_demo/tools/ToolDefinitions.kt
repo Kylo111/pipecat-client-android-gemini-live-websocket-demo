@@ -79,50 +79,50 @@ object ToolDefinitions {
     // Data class for tool groups in UI
     data class ToolGroup(
         val groupName: String, // Unique ID for the group
-        val friendlyName: String, // Display name
-        val description: String, // Description
+        val titleResId: Int, // Display name resource ID
+        val descResId: Int, // Description resource ID
         val tools: List<String> // List of tool names in this group
     )
 
     // Defined groups for UI selection
     val TOOL_GROUPS = listOf(
         // System
-        ToolGroup("google_search", "Google Search Grounding", "Natywne wyszukiwanie Google", listOf("google_search")),
-        ToolGroup("reasoning", "Reasoning Agent (Myślenie)", "Głęboka analiza, notatki, Telegram, Perplexity", listOf("start_reasoning_task")),
-        ToolGroup("search_perplexity", "Perplexity (Online)", "Wyszukiwanie online z cytowaniami (Sonar API)", listOf("search_perplexity")),
-        ToolGroup("progress", "Postępy (Done List)", "Automatyczne zapisywanie podsumowań sesji", listOf("create_done_item")),
+        ToolGroup("google_search", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_search_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_search_desc, listOf("google_search")),
+        ToolGroup("reasoning", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_reasoning_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_reasoning_desc, listOf("start_reasoning_task")),
+        ToolGroup("search_perplexity", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_perplexity_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_perplexity_desc, listOf("search_perplexity")),
+        ToolGroup("progress", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_progress_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_progress_desc, listOf("create_done_item")),
         
         // Groups
-        ToolGroup("shopping_list", "Lista Zakupów", "Pełna obsługa listy zakupów: przeglądanie, dodawanie, usuwanie, oznaczanie", 
+        ToolGroup("shopping_list", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_shopping_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_shopping_desc, 
             listOf("get_shopping_list", "add_to_shopping_list", "remove_from_shopping_list", "mark_item_purchased", "clear_purchased_items")),
             
-        ToolGroup("todo_list", "Lista Zadań (TODO)", "Zarządzanie listą zadań: dodawanie, usuwanie, oznaczanie jako zrobione",
+        ToolGroup("todo_list", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_todo_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_todo_desc,
             listOf("get_todo_tasks", "add_todo_task", "complete_todo_task", "delete_todo_task")),
             
-        ToolGroup("encyclopedia", "Encyklopedia (Wikipedia)", "Tworzenie bogatych notatek na dowolny temat na podstawie Wikipedii",
+        ToolGroup("encyclopedia", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_encyclopedia_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_encyclopedia_desc,
             listOf("encyclopedia_lookup")),
             
-        ToolGroup("calendar", "Kalendarz", "Obsługa kalendarza: odczyt wydarzeń, tworzenie, usuwanie",
+        ToolGroup("calendar", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_calendar_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_calendar_desc,
             listOf("get_calendar_events", "create_calendar_event", "delete_calendar_event")),
             
-        ToolGroup("reminders", "Przypomnienia", "Obsługa przypomnień: tworzenie, listowanie, usuwanie",
+        ToolGroup("reminders", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_reminders_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_reminders_desc,
             listOf("create_reminder", "list_reminders", "delete_reminder")),
             
         // Single Tools
-        ToolGroup("alarms", "Budzik", "Ustawianie budzików", listOf("set_alarm")),
-        ToolGroup("weather", "Pogoda", "Sprawdzanie pogody", listOf("get_weather")),
-        ToolGroup("time", "Czas i Data", "Sprawdzanie czasu i daty", listOf("get_current_time")),
-        ToolGroup("location", "Lokalizacja", "Pobieranie lokalizacji GPS", listOf("get_location")),
-        ToolGroup("calculate", "Kalkulator", "Obliczenia matematyczne", listOf("calculate")),
-        ToolGroup("places", "Miejsca w pobliżu", "Szukanie restauracji, sklepów itp.", listOf("search_nearby")),
-        ToolGroup("map_search", "Szukaj na mapie", "Szukanie adresu w Google Maps", listOf("search_on_map")),
-        ToolGroup("navigation", "Nawigacja", "Nawigacja Google Maps", listOf("start_navigation")),
-        ToolGroup("transit", "Komunikacja miejska", "Szukanie połączeń", listOf("find_transit_route")),
-        ToolGroup("show_map", "Pokaż na mapie", "Pokazywanie punktu na mapie", listOf("show_on_map")),
-        ToolGroup("media", "Sterowanie Mediami", "Spotify, YouTube Music", listOf("control_media")),
-        ToolGroup("contacts", "Kontakty", "Szukanie w kontaktach", listOf("search_contacts")),
-        ToolGroup("sms", "Wysyłanie SMS", "Wysyłanie wiadomości tekstowych", listOf("send_sms")),
-        ToolGroup("health", "Sprawdzanie Objawów", "Azure Health Bot", listOf("symptom_checker"))
+        ToolGroup("alarms", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_alarms_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_alarms_desc, listOf("set_alarm")),
+        ToolGroup("weather", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_weather_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_weather_desc, listOf("get_weather")),
+        ToolGroup("time", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_time_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_time_desc, listOf("get_current_time")),
+        ToolGroup("location", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_location_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_location_desc, listOf("get_location")),
+        ToolGroup("calculate", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_calculate_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_calculate_desc, listOf("calculate")),
+        ToolGroup("places", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_places_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_places_desc, listOf("search_nearby")),
+        ToolGroup("map_search", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_map_search_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_map_search_desc, listOf("search_on_map")),
+        ToolGroup("navigation", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_navigation_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_navigation_desc, listOf("start_navigation")),
+        ToolGroup("transit", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_transit_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_transit_desc, listOf("find_transit_route")),
+        ToolGroup("show_map", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_show_map_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_show_map_desc, listOf("show_on_map")),
+        ToolGroup("media", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_media_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_media_desc, listOf("control_media")),
+        ToolGroup("contacts", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_contacts_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_contacts_desc, listOf("search_contacts")),
+        ToolGroup("sms", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_sms_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_sms_desc, listOf("send_sms")),
+        ToolGroup("health", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_desc, listOf("symptom_checker"))
     )
 
 

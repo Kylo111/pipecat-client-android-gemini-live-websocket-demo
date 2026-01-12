@@ -58,6 +58,8 @@ fun ModelSettingsDialog(
     var topK by remember { mutableIntStateOf(currentSettings.topK) }
     var maxOutputTokens by remember { mutableIntStateOf(currentSettings.maxOutputTokens) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -75,7 +77,7 @@ fun ModelSettingsDialog(
             ) {
                 // Title
                 Text(
-                    text = "Ustawienia Modelu",
+                    text = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.conversation_model_settings_title),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -85,7 +87,7 @@ fun ModelSettingsDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Zaawansowane parametry generowania odpowiedzi",
+                    text = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_subtitle),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -96,36 +98,36 @@ fun ModelSettingsDialog(
                 
                 // Temperature slider
                 ParameterSlider(
-                    label = "Temperature",
+                    label = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_temp_label),
                     value = temperature,
                     onValueChange = { temperature = it },
                     valueRange = 0.0f..2.0f,
                     steps = 19,
-                    description = "Kontroluje losowość. Niższe = precyzyjne, wyższe = kreatywne"
+                    description = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_temp_desc)
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Top P slider
                 ParameterSlider(
-                    label = "Top P",
+                    label = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_topp_label),
                     value = topP,
                     onValueChange = { topP = it },
                     valueRange = 0.5f..1.0f,
                     steps = 49,
-                    description = "Nucleus sampling. Niższe = bardziej skupione odpowiedzi"
+                    description = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_topp_desc)
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Top K slider
                 ParameterSlider(
-                    label = "Top K",
+                    label = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_topk_label),
                     value = topK.toFloat(),
                     onValueChange = { topK = it.toInt() },
                     valueRange = 10f..100f,
                     steps = 89,
-                    description = "Liczba tokenów do wyboru. Niższe = większa precyzja",
+                    description = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_topk_desc),
                     formatValue = { it.toInt().toString() }
                 )
                 
@@ -133,12 +135,12 @@ fun ModelSettingsDialog(
                 
                 // Max Output Tokens slider
                 ParameterSlider(
-                    label = "Max Output Tokens",
+                    label = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_max_tokens_label),
                     value = maxOutputTokens.toFloat(),
                     onValueChange = { maxOutputTokens = it.toInt() },
                     valueRange = 256f..4096f,
                     steps = 15,
-                    description = "Maksymalna długość odpowiedzi. Niższe = zwięzłe odpowiedzi",
+                    description = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_max_tokens_desc),
                     formatValue = { it.toInt().toString() }
                 )
                 
@@ -177,7 +179,7 @@ fun ModelSettingsDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Anuluj",
+                            text = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.common_cancel),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
                             color = Colors.buttonNormal,
@@ -195,19 +197,31 @@ fun ModelSettingsDialog(
                             .clickable {
                                 // Validate settings ranges
                                 if (temperature < 0.0f || temperature > 2.0f) {
-                                    validationError = "Temperature musi być między 0.0 a 2.0"
+                                    validationError = context.getString(
+                                        ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_val_range_error,
+                                        "Temperature", "0.0", "2.0"
+                                    )
                                     return@clickable
                                 }
                                 if (topP < 0.5f || topP > 1.0f) {
-                                    validationError = "Top P musi być między 0.5 a 1.0"
+                                    validationError = context.getString(
+                                        ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_val_range_error,
+                                        "Top P", "0.5", "1.0"
+                                    )
                                     return@clickable
                                 }
                                 if (topK < 10 || topK > 100) {
-                                    validationError = "Top K musi być między 10 a 100"
+                                    validationError = context.getString(
+                                        ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_val_range_error,
+                                        "Top K", "10", "100"
+                                    )
                                     return@clickable
                                 }
                                 if (maxOutputTokens < 256 || maxOutputTokens > 4096) {
-                                    validationError = "Max Output Tokens musi być między 256 a 4096"
+                                    validationError = context.getString(
+                                        ai.pipecat.gemini_multimodal_websocket_demo.R.string.model_settings_val_range_error,
+                                        "Max Output Tokens", "256", "4096"
+                                    )
                                     return@clickable
                                 }
                                 
@@ -223,7 +237,7 @@ fun ModelSettingsDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Zapisz",
+                            text = androidx.compose.ui.res.stringResource(ai.pipecat.gemini_multimodal_websocket_demo.R.string.common_save),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,

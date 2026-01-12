@@ -54,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.res.stringResource
+import ai.pipecat.gemini_multimodal_websocket_demo.R
 import kotlinx.coroutines.launch
 
 /**
@@ -97,7 +99,7 @@ fun ThreadConfigDialog(
             ) {
                 // Title
                 Text(
-                    text = "Konfiguracja wątku",
+                    text = stringResource(R.string.thread_config_title),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -119,7 +121,7 @@ fun ThreadConfigDialog(
                 
                 // Voice selection dropdown
                 Text(
-                    text = "Głos",
+                    text = stringResource(R.string.conversation_voice_label),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -216,7 +218,7 @@ fun ThreadConfigDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Anuluj",
+                            text = stringResource(R.string.common_cancel),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
                             color = Colors.buttonNormal,
@@ -242,7 +244,7 @@ fun ThreadConfigDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Zapisz",
+                            text = stringResource(R.string.common_save),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,

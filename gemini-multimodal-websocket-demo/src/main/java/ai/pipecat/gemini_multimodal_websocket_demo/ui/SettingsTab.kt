@@ -1,5 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+
 /**
  * Enum representing the different tabs in the Settings screen
  * 
@@ -9,12 +11,12 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
  * 3. Agents (Agenci)
  * 4. Integrations (Integracje)
  * 
- * @property title The display title for the tab (in Polish)
+ * @property titleResId The string resource ID for the tab title
  * @property icon The emoji icon for the tab
  */
-enum class SettingsTab(val title: String, val icon: String) {
-    API_KEYS_AND_ACCOUNTS("Klucze i konta", "🔑"),
-    SESSION("Sesja i wygląd", "⚙️"),
-    AGENTS("Agenci", "🤖"),
-    INTEGRATIONS("Integracje", "🔗")
+enum class SettingsTab(val titleResId: Int, val icon: String) {
+    API_KEYS_AND_ACCOUNTS(R.string.settings_tab_api_keys, "🔑"),
+    SESSION(R.string.settings_tab_appearance, "⚙️"),
+    AGENTS(R.string.settings_tab_agents_menu, "🤖"),
+    INTEGRATIONS(R.string.settings_tab_integrations_menu, "🔗")
 }

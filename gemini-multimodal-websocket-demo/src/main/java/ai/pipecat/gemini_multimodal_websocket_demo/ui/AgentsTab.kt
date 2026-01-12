@@ -4,6 +4,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -66,9 +68,9 @@ fun AgentsTab(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Control Agent Section
-        SettingsSection(title = "Agent sterowania głosowego") {
+        SettingsSection(title = stringResource(id = R.string.agents_control_title)) {
             SettingsToggle(
-                label = "Włącz agenta sterowania",
+                label = stringResource(id = R.string.agents_control_switch),
                 checked = controlAgentEnabled,
                 onCheckedChange = onControlAgentEnabledChange
             )
@@ -77,9 +79,9 @@ fun AgentsTab(
             
             Text(
                 text = if (controlAgentEnabled) {
-                    "✅ WŁĄCZONY: Agent nasłuchuje komend głosowych (\"wycisz\", \"rozłącz\", \"przełącz na...\") i wykonuje akcje systemowe w tle."
+                    stringResource(id = R.string.agents_control_on_desc)
                 } else {
-                    "❌ WYŁĄCZONY: Wszystkie komendy głosowe są przekazywane do głównego agenta Gemini Live."
+                    stringResource(id = R.string.agents_control_off_desc)
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W400,
@@ -98,7 +100,7 @@ fun AgentsTab(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "ℹ️ Jak działa agent sterowania:",
+                    text = stringResource(id = R.string.agents_how_works_title),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -108,7 +110,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "• Działa równolegle do głównego agenta Gemini Live (nie blokuje rozmowy)",
+                    text = "• " + stringResource(id = R.string.agents_how_works_item1),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -119,7 +121,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Rozpoznaje komendy: \"wycisz\", \"rozłącz\", \"przełącz na [nazwa konwersacji]\"",
+                    text = "• " + stringResource(id = R.string.agents_how_works_item2),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -130,7 +132,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• W razie wątpliwości przekazuje kontrolę do głównego agenta (fail-safe)",
+                    text = "• " + stringResource(id = R.string.agents_how_works_item3),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -141,7 +143,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Obsługuje polskie i angielskie komendy",
+                    text = "• " + stringResource(id = R.string.agents_how_works_item4),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -169,7 +171,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.width(8.dp))
                     
                     Text(
-                        text = "Agent sterowania jest aktywny",
+                        text = stringResource(id = R.string.agents_control_active),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         color = Color(0xFF2E7D32),
@@ -180,9 +182,9 @@ fun AgentsTab(
         }
 
         // Reasoning Agent Section
-        SettingsSection(title = "Reasoning Agent (Agent rozumujący)") {
+        SettingsSection(title = stringResource(id = R.string.agents_reasoning_title)) {
             SettingsToggle(
-                label = "Włącz Reasoning Agent",
+                label = stringResource(id = R.string.agents_reasoning_switch),
                 checked = reasoningAgentEnabled,
                 onCheckedChange = onReasoningAgentEnabledChange
             )
@@ -191,9 +193,9 @@ fun AgentsTab(
             
             Text(
                 text = if (reasoningAgentEnabled) {
-                    "✅ WŁĄCZONY: Agent rozumujący działa w tle, wykonując głębokie analizy, wyszukiwania i generując raporty."
+                    stringResource(id = R.string.agents_reasoning_on_desc)
                 } else {
-                    "❌ WYŁĄCZONY: Wszystkie zadania analityczne są przekazywane do głównego agenta Gemini Live."
+                    stringResource(id = R.string.agents_reasoning_off_desc)
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W400,
@@ -212,7 +214,7 @@ fun AgentsTab(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "ℹ️ Jak działa Reasoning Agent:",
+                    text = stringResource(id = R.string.agents_reasoning_how_works_title),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -222,7 +224,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "• Działa asynchronicznie w tle (nie blokuje rozmowy)",
+                    text = "• " + stringResource(id = R.string.agents_reasoning_how_works_item1),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -233,7 +235,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Wykonuje głębokie wyszukiwania przez Perplexity z cytowaniami",
+                    text = "• " + stringResource(id = R.string.agents_reasoning_how_works_item2),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -244,7 +246,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Zapisuje notatki, kopiuje do schowka, wysyła na Telegram",
+                    text = "• " + stringResource(id = R.string.agents_reasoning_how_works_item3),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -255,7 +257,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Generuje raporty po sesji na podstawie wykrytych tematów",
+                    text = "• " + stringResource(id = R.string.agents_reasoning_how_works_item4),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -266,7 +268,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Używa zaawansowanych modeli (Gemini, DeepSeek) przez Gemini API lub OpenRouter",
+                    text = "• " + stringResource(id = R.string.agents_reasoning_how_works_item5),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -283,7 +285,7 @@ fun AgentsTab(
                 
                 Column {
                     Text(
-                        text = "Model rozumujący",
+                        text = stringResource(id = R.string.agents_reasoning_model_label),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
@@ -315,10 +317,10 @@ fun AgentsTab(
                             ) {
                                 Text(
                                     text = when (reasoningModel) {
-                                        SystemPrompts.DEFAULT_REASONING_MODEL -> "Gemini 3 Flash Preview (Zalecany)"
-                                        "deepseek/deepseek-v3.2" -> "DeepSeek V3.2"
-                                        "deepseek/deepseek-r1-0528" -> "DeepSeek R1"
-                                        "google/gemini-2.5-flash" -> "Gemini 2.5 Flash (OpenRouter)"
+                                        SystemPrompts.DEFAULT_REASONING_MODEL -> stringResource(id = R.string.agents_reasoning_model_gemini_recommended)
+                                        "deepseek/deepseek-v3.2" -> stringResource(id = R.string.agents_reasoning_model_deepseek_v3)
+                                        "deepseek/deepseek-r1-0528" -> stringResource(id = R.string.agents_reasoning_model_deepseek_r1)
+                                        "google/gemini-2.5-flash" -> stringResource(id = R.string.agents_reasoning_model_gemini_flash)
                                         else -> reasoningModel
                                     },
                                     fontSize = 14.sp,
@@ -343,10 +345,10 @@ fun AgentsTab(
                                 .background(Color.White)
                         ) {
                             listOf(
-                                SystemPrompts.DEFAULT_REASONING_MODEL to "Gemini 3 Flash Preview (Zalecany)",
-                                "deepseek/deepseek-v3.2" to "DeepSeek V3.2 (OpenRouter)",
-                                "deepseek/deepseek-r1-0528" to "DeepSeek R1 (OpenRouter)",
-                                "google/gemini-2.5-flash" to "Gemini 2.5 Flash (OpenRouter)"
+                                SystemPrompts.DEFAULT_REASONING_MODEL to stringResource(id = R.string.agents_reasoning_model_gemini_recommended),
+                                "deepseek/deepseek-v3.2" to stringResource(id = R.string.agents_reasoning_model_deepseek_v3),
+                                "deepseek/deepseek-r1-0528" to stringResource(id = R.string.agents_reasoning_model_deepseek_r1),
+                                "google/gemini-2.5-flash" to stringResource(id = R.string.agents_reasoning_model_gemini_flash)
                             ).forEach { (value, label) ->
                                 DropdownMenuItem(
                                     text = {
@@ -370,7 +372,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "Model używany do głębokich analiz i rozumowania. DeepSeek V3.2 jest zalecany ze względu na wysoką jakość i niski koszt.",
+                        text = stringResource(id = R.string.agents_reasoning_model_desc),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -383,7 +385,7 @@ fun AgentsTab(
                 
                 // Whisperer Mode toggle
                 SettingsToggle(
-                    label = "Tryb Whisperer (automatyczne uruchamianie)",
+                    label = stringResource(id = R.string.agents_whisperer_label),
                     checked = whispererMode,
                     onCheckedChange = onWhispererModeChange
                 )
@@ -392,9 +394,9 @@ fun AgentsTab(
                 
                 Text(
                     text = if (whispererMode) {
-                        "✅ WŁĄCZONY: Gemini Live automatycznie uruchamia Reasoning Agent gdy wykryje brak wiedzy lub potrzebę głębszej analizy."
+                        stringResource(id = R.string.agents_whisperer_on_desc)
                     } else {
-                        "❌ WYŁĄCZONY: Reasoning Agent uruchamia się tylko na wyraźne polecenie użytkownika."
+                        stringResource(id = R.string.agents_whisperer_off_desc)
                     },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W400,
@@ -412,7 +414,7 @@ fun AgentsTab(
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "ℹ️ Tryb Whisperer:",
+                        text = stringResource(id = R.string.agents_whisperer_how_works_title),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
@@ -422,7 +424,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "• Gemini Live wykrywa gdy nie ma wystarczającej wiedzy",
+                        text = "• " + stringResource(id = R.string.agents_whisperer_how_works_item1),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.DarkGray,
@@ -433,7 +435,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "• Automatycznie uruchamia Reasoning Agent w tle (bez informowania użytkownika)",
+                        text = "• " + stringResource(id = R.string.agents_whisperer_how_works_item2),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.DarkGray,
@@ -444,7 +446,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "• Kontynuuje rozmowę naturalnie, \"kupując czas\" na analizę",
+                        text = "• " + stringResource(id = R.string.agents_whisperer_how_works_item3),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.DarkGray,
@@ -455,7 +457,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "• Gdy wynik jest gotowy, wstrzykuje wiedzę do rozmowy",
+                        text = "• " + stringResource(id = R.string.agents_whisperer_how_works_item4),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.DarkGray,
@@ -482,7 +484,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.width(8.dp))
                     
                     Text(
-                        text = "Reasoning Agent jest aktywny",
+                        text = stringResource(id = R.string.agents_reasoning_active),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         color = Color(0xFF2E7D32),
@@ -500,7 +502,7 @@ fun AgentsTab(
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "⚠️ Wymagane klucze API:",
+                        text = stringResource(id = R.string.agents_api_keys_required_title),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         color = Color(0xFF856404),
@@ -510,7 +512,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "• OpenRouter API - dostęp do modeli rozumujących (DeepSeek, Claude)",
+                        text = "• " + stringResource(id = R.string.agents_api_keys_required_item1),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color(0xFF856404),
@@ -521,7 +523,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "• Perplexity API - wyszukiwanie w czasie rzeczywistym z cytowaniami",
+                        text = "• " + stringResource(id = R.string.agents_api_keys_required_item2),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color(0xFF856404),
@@ -532,7 +534,7 @@ fun AgentsTab(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "Skonfiguruj klucze w zakładce \"Klucze i konta\"",
+                        text = stringResource(id = R.string.agents_api_keys_required_footer),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W600,
                         color = Color(0xFF856404),
@@ -544,9 +546,9 @@ fun AgentsTab(
         }
 
         // LibreChat Section
-        SettingsSection(title = "LibreChat") {
+        SettingsSection(title = stringResource(id = R.string.agents_librechat_title)) {
             SettingsToggle(
-                label = "Tryb OCR (Rozpoznawanie tekstu)",
+                label = stringResource(id = R.string.agents_librechat_ocr_label),
                 checked = libreChatOcrMode,
                 onCheckedChange = onLibreChatOcrModeChange
             )
@@ -555,9 +557,9 @@ fun AgentsTab(
             
             Text(
                 text = if (libreChatOcrMode) {
-                    "✅ WŁĄCZONY: Zdjęcia będą przetwarzane przez OCR (tekst), a nie bezpośrednio przez model wizyjny."
+                    stringResource(id = R.string.agents_librechat_ocr_on_desc)
                 } else {
-                    "❌ WYŁĄCZONY: Zdjęcia są wysyłane bezpośrednio do modelu (tryb Vision)."
+                    stringResource(id = R.string.agents_librechat_ocr_off_desc)
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W400,
@@ -575,7 +577,7 @@ fun AgentsTab(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "ℹ️ O trybie OCR:",
+                    text = stringResource(id = R.string.agents_librechat_ocr_how_works_title),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -585,7 +587,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "• Używa serwerowego modułu OCR (np. Mistral OCR) do wyciągnięcia tekstu",
+                    text = "• " + stringResource(id = R.string.agents_librechat_ocr_how_works_item1),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -596,7 +598,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Model otrzymuje czysty tekst zamiast pikseli obrazu",
+                    text = "• " + stringResource(id = R.string.agents_librechat_ocr_how_works_item2),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,
@@ -607,7 +609,7 @@ fun AgentsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "• Przydatne przy słabym oświetleniu lub bardzo małym druku",
+                    text = "• " + stringResource(id = R.string.agents_librechat_ocr_how_works_item3),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.DarkGray,

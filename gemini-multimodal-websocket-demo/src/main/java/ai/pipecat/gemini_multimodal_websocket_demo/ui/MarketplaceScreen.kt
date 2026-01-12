@@ -1,6 +1,7 @@
 package ai.pipecat.gemini_multimodal_websocket_demo.ui
 
 import ai.pipecat.gemini_multimodal_websocket_demo.R
+import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.data.repository.ConfigurationRepository
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationTemplate
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
@@ -25,6 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 /**
@@ -33,16 +36,6 @@ import kotlinx.coroutines.launch
  * This screen shows a catalog of pre-configured conversation templates that users
  * can browse and import into their personal workspace. Each template is displayed
  * as a card with icon, title, description, and configuration details.
- * 
- * Requirements validated:
- * - 1.1: Displays all available conversation templates
- * - 1.2: Shows template metadata (title, description, voice, temperature)
- * - 1.3: Displays empty state message when no templates available
- * - 1.4: Organizes templates in scrollable list format
- * - 1.5: Shows description with maximum of 3 lines
- * - 8.1: Distinct visual styling from personal conversations
- * - 8.4: Clear "Import" action buttons
- * - 8.5: Elevated card styling with padding
  */
 @Composable
 fun MarketplaceScreen(
@@ -51,8 +44,10 @@ fun MarketplaceScreen(
     onBack: () -> Unit,
     onImportSuccess: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val templates = remember { configRepository.getMarketplaceTemplates() }
+    val appLanguage = Preferences.appLanguage.value
     
     var importingTemplateId by remember { mutableStateOf<String?>(null) }
     var showSuccessMessage by remember { mutableStateOf(false) }
@@ -77,14 +72,14 @@ fun MarketplaceScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         painter = painterResource(id = R.drawable.chevron_down),
-                        contentDescription = "Back",
+                        contentDescription = stringResource(id = R.string.common_back),
                         tint = Colors.buttonNormal,
                         modifier = Modifier.size(32.dp)
                     )
                 }
                 
                 Text(
-                    text = "Sklep asystentów",
+                    text = stringResource(id = R.string.marketplace_title),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.W700,
                     color = Colors.textPrimary,
@@ -106,7 +101,7 @@ fun MarketplaceScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Brak dostępnych szablonów.\nWróć później po nowych asystentów.",
+                            text = stringResource(id = R.string.marketplace_empty),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,
@@ -126,6 +121,7 @@ fun MarketplaceScreen(
                         items(templates) { template ->
                             MarketplaceTemplateCard(
                                 template = template,
+                                appLanguage = appLanguage ?: "pl",
                                 isImporting = importingTemplateId == template.id,
                                 onImportClick = {
                                     importingTemplateId = template.id
@@ -140,7 +136,7 @@ fun MarketplaceScreen(
                                             onImportSuccess()
                                         } else {
                                             showErrorMessage = result.exceptionOrNull()?.message 
-                                                ?: "Nie udało się zaimportować szablonu"
+                                                ?: context.getString(R.string.marketplace_import_error)
                                         }
                                     }
                                 }
@@ -171,7 +167,7 @@ fun MarketplaceScreen(
                     shadowElevation = 4.dp
                 ) {
                     Text(
-                        text = "✓ Szablon zaimportowany pomyślnie!",
+                        text = stringResource(id = R.string.marketplace_success),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
@@ -217,21 +213,11 @@ fun MarketplaceScreen(
 
 /**
  * Card component displaying a single marketplace template.
- * 
- * Shows the template's icon, title, description (max 3 lines), voice option,
- * temperature setting, and an import button. Uses elevated card styling to
- * distinguish from flat conversation list items.
- * 
- * Requirements validated:
- * - 1.2: Shows title, description, voiceId, and temperature
- * - 1.5: Description limited to 3 lines
- * - 8.3: Displays icon based on iconIdentifier
- * - 8.4: Provides clear "Import" button
- * - 8.5: Elevated card styling with padding
  */
 @Composable
 private fun MarketplaceTemplateCard(
     template: ConversationTemplate,
+    appLanguage: String,
     isImporting: Boolean,
     onImportClick: () -> Unit
 ) {
@@ -269,7 +255,7 @@ private fun MarketplaceTemplateCard(
                 
                 // Title
                 Text(
-                    text = template.title,
+                    text = template.getLocalizedTitle(appLanguage),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.W700,
                     color = Colors.textPrimary,
@@ -282,7 +268,7 @@ private fun MarketplaceTemplateCard(
             
             // Description (max 3 lines)
             Text(
-                text = template.description,
+                text = template.getLocalizedDescription(appLanguage),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W400,
                 color = Colors.textSecondary,
@@ -301,13 +287,13 @@ private fun MarketplaceTemplateCard(
             ) {
                 // Voice ID
                 ConfigDetailChip(
-                    label = "Głos",
+                    label = stringResource(id = R.string.marketplace_config_voice),
                     value = template.voiceId ?: "Puck"
                 )
                 
                 // Temperature
                 ConfigDetailChip(
-                    label = "Temperatura",
+                    label = stringResource(id = R.string.marketplace_config_temp),
                     value = String.format("%.1f", template.temperature)
                 )
             }
@@ -327,29 +313,13 @@ private fun MarketplaceTemplateCard(
                     disabledContainerColor = Color.Gray
                 )
             ) {
-                if (isImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Importowanie...",
+                        text = stringResource(id = if (isImporting) R.string.marketplace_importing else R.string.marketplace_import),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
                         style = TextStyles.base
                     )
-                } else {
-                    Text(
-                        text = "Importuj",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.W600,
-                        color = Color.White,
-                        style = TextStyles.base
-                    )
-                }
             }
         }
     }

@@ -5,6 +5,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.Preferences
 import ai.pipecat.gemini_multimodal_websocket_demo.models.CustomWakeWord
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import androidx.compose.ui.res.stringResource
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -185,11 +187,11 @@ private fun PicovoiceSettingsPanel(
                 isLoading = false
                 
                 if (result.isSuccess) {
-                    successMessage = "Plik .ppn został zaimportowany pomyślnie!"
+                    successMessage = context.getString(R.string.integ_pico_import_success)
                     showSuccessDialog = true
                     customWakeWords = PicovoiceManager.getCustomWakeWords()
                 } else {
-                    errorMessage = result.exceptionOrNull()?.message ?: "Nie udało się zaimportować pliku"
+                    errorMessage = result.exceptionOrNull()?.message ?: context.getString(R.string.integ_pico_import_error)
                     showErrorDialog = true
                 }
             }
@@ -197,17 +199,17 @@ private fun PicovoiceSettingsPanel(
         wakeWordToImport = null
     }
     
-    SettingsSection(title = "Komendy głosowe Picovoice") {
+    SettingsSection(title = stringResource(id = R.string.integ_pico_title)) {
         // Enable/Disable toggle with warning
         var showPicovoiceWarning by remember { mutableStateOf(false) }
         
         SettingsToggle(
-            label = "Włącz wykrywanie komend głosowych",
+            label = stringResource(id = R.string.integ_pico_switch),
             checked = isEnabled,
             onCheckedChange = { enabled ->
                 if (enabled) {
                     if (accessKeyValue.isBlank()) {
-                        errorMessage = "Najpierw wprowadź klucz dostępu Picovoice"
+                        errorMessage = context.getString(R.string.api_keys_picovoice_label)
                         showErrorDialog = true
                     } else {
                         // Show warning dialog before enabling
@@ -226,7 +228,7 @@ private fun PicovoiceSettingsPanel(
                 onDismissRequest = { showPicovoiceWarning = false },
                 title = {
                     Text(
-                        text = "⚠️ Ważne ostrzeżenie",
+                        text = stringResource(id = R.string.integ_pico_warning_title),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.W700,
                         color = Colors.buttonWarning,
@@ -236,7 +238,7 @@ private fun PicovoiceSettingsPanel(
                 text = {
                     Column {
                         Text(
-                            text = "UWAGA: Przy wyłączonym ekranie Picovoice i aplikacja nie działają prawidłowo (Android zabija proces).",
+                            text = stringResource(id = R.string.integ_pico_warning_desc),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.Black,
@@ -247,7 +249,7 @@ private fun PicovoiceSettingsPanel(
                         Spacer(modifier = Modifier.height(12.dp))
                         
                         Text(
-                            text = "Jeżeli chcesz używać komend głosowych:",
+                            text = stringResource(id = R.string.integ_pico_warning_how_to),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.Black,
@@ -257,7 +259,9 @@ private fun PicovoiceSettingsPanel(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            text = "1. Włącz \"Utrzymuj ekran włączony\" w ustawieniach\n2. Trzymaj aplikację na wierzchu (OnScreen)\n3. Nie wyłączaj ekranu podczas rozmowy",
+                            text = "${stringResource(id = R.string.integ_pico_warning_step1)}\n" + 
+                                   "${stringResource(id = R.string.integ_pico_warning_step2)}\n" + 
+                                   stringResource(id = R.string.integ_pico_warning_step3),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Black,
@@ -268,7 +272,7 @@ private fun PicovoiceSettingsPanel(
                         Spacer(modifier = Modifier.height(12.dp))
                         
                         Text(
-                            text = "Bez tych ustawień komendy głosowe mogą nie działać poprawnie.",
+                            text = stringResource(id = R.string.integ_pico_warning_footer),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Gray,
@@ -288,7 +292,7 @@ private fun PicovoiceSettingsPanel(
                             containerColor = Colors.buttonNormal
                         )
                     ) {
-                        Text("Rozumiem, włącz", style = TextStyles.base)
+                        Text(stringResource(id = R.string.integ_pico_warning_confirm), style = TextStyles.base)
                     }
                 },
                 dismissButton = {
@@ -298,7 +302,7 @@ private fun PicovoiceSettingsPanel(
                             containerColor = Color.LightGray
                         )
                     ) {
-                        Text("Anuluj", style = TextStyles.base, color = Color.Black)
+                        Text(stringResource(id = R.string.common_cancel), style = TextStyles.base, color = Color.Black)
                     }
                 },
                 containerColor = Color.White,
@@ -310,9 +314,9 @@ private fun PicovoiceSettingsPanel(
         
         Text(
             text = if (isEnabled) {
-                "Usługa nasłuchuje komend głosowych w tle"
+                stringResource(id = R.string.integ_pico_on_desc)
             } else {
-                "Wykrywanie komend głosowych jest wyłączone"
+                stringResource(id = R.string.integ_pico_off_desc)
             },
             fontSize = 12.sp,
             fontWeight = FontWeight.W400,
@@ -325,7 +329,7 @@ private fun PicovoiceSettingsPanel(
         
         // Access Key
         SettingsTextField(
-            label = "Klucz dostępu Picovoice",
+            label = stringResource(id = R.string.integ_pico_access_label),
             value = accessKeyValue,
             onValueChange = { 
                 onAccessKeyChange(it)
@@ -337,7 +341,7 @@ private fun PicovoiceSettingsPanel(
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
-            text = "Uzyskaj darmowy klucz na console.picovoice.ai",
+            text = stringResource(id = R.string.integ_pico_access_hint),
             fontSize = 11.sp,
             fontWeight = FontWeight.W400,
             color = Color.Gray,
@@ -354,7 +358,7 @@ private fun PicovoiceSettingsPanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Czułość wykrywania",
+                    text = stringResource(id = R.string.integ_pico_sensitivity_label),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -392,14 +396,14 @@ private fun PicovoiceSettingsPanel(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Mniej czuły (0.0)",
+                    text = stringResource(id = R.string.integ_pico_sensitivity_min),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
                     style = TextStyles.base
                 )
                 Text(
-                    text = "Bardzo czuły (1.0)",
+                    text = stringResource(id = R.string.integ_pico_sensitivity_max),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -412,7 +416,7 @@ private fun PicovoiceSettingsPanel(
         
         // Activation sound toggle
         SettingsToggle(
-            label = "Dźwięk aktywacji",
+            label = stringResource(id = R.string.integ_pico_activation_sound),
             checked = activationSoundValue,
             onCheckedChange = { 
                 onActivationSoundChange(it)
@@ -424,7 +428,7 @@ private fun PicovoiceSettingsPanel(
         
         // System wake words section
         Text(
-            text = "Systemowe komendy głosowe",
+            text = stringResource(id = R.string.integ_pico_system_title),
             fontSize = 14.sp,
             fontWeight = FontWeight.W700,
             color = Color.Black,
@@ -434,7 +438,7 @@ private fun PicovoiceSettingsPanel(
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Wbudowana komenda głosowa:",
+            text = stringResource(id = R.string.integ_pico_system_desc),
             fontSize = 12.sp,
             fontWeight = FontWeight.W400,
             color = Color.Gray,
@@ -446,7 +450,7 @@ private fun PicovoiceSettingsPanel(
         // System wake word - ALEXA
         SystemWakeWordItem(
             name = "ALEXA",
-            description = "Pauzuje/wznawia sesję głosową (toggle)"
+            description = stringResource(id = R.string.integ_pico_system_alexa)
         )
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -458,7 +462,7 @@ private fun PicovoiceSettingsPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Własne komendy głosowe",
+                text = stringResource(id = R.string.integ_pico_custom_title),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W700,
                 color = Color.Black,
@@ -474,7 +478,7 @@ private fun PicovoiceSettingsPanel(
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "+ Dodaj",
+                    text = stringResource(id = R.string.integ_pico_add_button),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
@@ -487,7 +491,7 @@ private fun PicovoiceSettingsPanel(
         
         if (customWakeWords.isEmpty()) {
             Text(
-                text = "Brak własnych komend. Dodaj nową komendę aby uruchamiać konwersacje głosem.",
+                text = stringResource(id = R.string.integ_pico_custom_empty),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.Gray,
@@ -544,7 +548,7 @@ private fun PicovoiceSettingsPanel(
             onDismissRequest = { showErrorDialog = false },
             title = {
                 Text(
-                    text = "Błąd",
+                    text = stringResource(id = R.string.common_error),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -567,7 +571,7 @@ private fun PicovoiceSettingsPanel(
                         containerColor = Colors.buttonWarning
                     )
                 ) {
-                    Text("OK", style = TextStyles.base)
+                    Text(stringResource(id = R.string.common_ok), style = TextStyles.base)
                 }
             },
             containerColor = Color.White,
@@ -581,7 +585,7 @@ private fun PicovoiceSettingsPanel(
             onDismissRequest = { showSuccessDialog = false },
             title = {
                 Text(
-                    text = "Sukces",
+                    text = stringResource(id = R.string.common_success),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -604,7 +608,7 @@ private fun PicovoiceSettingsPanel(
                         containerColor = Colors.buttonNormal
                     )
                 ) {
-                    Text("OK", style = TextStyles.base)
+                    Text(stringResource(id = R.string.common_ok), style = TextStyles.base)
                 }
             },
             containerColor = Color.White,
@@ -643,9 +647,9 @@ private fun TelegramConfigurationPanel(
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(telegramTestResult) }
     
-    SettingsSection(title = "Konfiguracja Telegram") {
+    SettingsSection(title = stringResource(id = R.string.integ_tg_title)) {
         Text(
-            text = "Skonfiguruj bota Telegram aby otrzymywać raporty i notatki z Reasoning Agent.",
+            text = stringResource(id = R.string.integ_tg_desc),
             fontSize = 12.sp,
             fontWeight = FontWeight.W400,
             color = Color.Gray,
@@ -658,7 +662,7 @@ private fun TelegramConfigurationPanel(
         // Telegram Bot Token
         Column {
             SettingsTextField(
-                label = "Token bota Telegram",
+                label = stringResource(id = R.string.integ_tg_token_label),
                 value = telegramBotToken,
                 onValueChange = onTelegramBotTokenChange,
                 isPassword = true
@@ -667,7 +671,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "Uzyskaj token od @BotFather na Telegramie. Przykład: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+                text = stringResource(id = R.string.integ_tg_token_hint),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.Gray,
@@ -681,7 +685,7 @@ private fun TelegramConfigurationPanel(
         // Telegram Chat ID
         Column {
             SettingsTextField(
-                label = "ID czatu Telegram",
+                label = stringResource(id = R.string.integ_tg_chat_label),
                 value = telegramChatId,
                 onValueChange = onTelegramChatIdChange
             )
@@ -689,7 +693,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "Twój ID czatu Telegram. Możesz go uzyskać od @userinfobot. Przykład: 123456789",
+                text = stringResource(id = R.string.integ_tg_chat_hint),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.Gray,
@@ -715,19 +719,21 @@ private fun TelegramConfigurationPanel(
                         coroutineScope.launch {
                             try {
                                 val telegramService = ai.pipecat.gemini_multimodal_websocket_demo.agents.TelegramService(context)
+                                // Use context.getString() instead of stringResource because we are in a coroutine, not composable
+                                val msgContent = context.getString(R.string.integ_tg_test_message)
                                 val result = telegramService.sendMessage(
-                                    content = "🤖 Test połączenia z Reasoning Agent\n\nJeśli widzisz tę wiadomość, konfiguracja jest poprawna!",
+                                    content = msgContent,
                                     botToken = telegramBotToken,
                                     chatId = telegramChatId
                                 )
                                 
                                 testResult = if (result.success) {
-                                    "✅ Połączenie udane! Wiadomość testowa została wysłana."
+                                    context.getString(R.string.integ_tg_test_success)
                                 } else {
-                                    "❌ Błąd: ${result.message}"
+                                    context.getString(R.string.integ_tg_test_error, result.message)
                                 }
                             } catch (e: Exception) {
-                                testResult = "❌ Błąd: ${e.message}"
+                                testResult = context.getString(R.string.integ_tg_test_error, e.message ?: "")
                             } finally {
                                 isTesting = false
                             }
@@ -746,7 +752,7 @@ private fun TelegramConfigurationPanel(
                             strokeWidth = 2.dp
                         )
                         Text(
-                            text = "Testowanie...",
+                            text = stringResource(id = R.string.integ_tg_testing),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,
@@ -755,7 +761,7 @@ private fun TelegramConfigurationPanel(
                     }
                 } else {
                     Text(
-                        text = "Testuj połączenie",
+                        text = stringResource(id = R.string.integ_tg_test_button),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.White,
@@ -788,7 +794,7 @@ private fun TelegramConfigurationPanel(
                 .padding(12.dp)
         ) {
             Text(
-                text = "ℹ️ Jak skonfigurować bota Telegram:",
+                text = stringResource(id = R.string.integ_tg_how_to_title),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W600,
                 color = Color.Black,
@@ -798,7 +804,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "1. Otwórz Telegram i wyszukaj @BotFather",
+                text = stringResource(R.string.integ_tg_step_1),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -809,7 +815,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "2. Wyślij komendę /newbot i postępuj zgodnie z instrukcjami",
+                text = stringResource(R.string.integ_tg_step_2),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -820,7 +826,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "3. Skopiuj token bota i wklej powyżej",
+                text = stringResource(R.string.integ_tg_step_3),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -831,7 +837,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "4. Wyszukaj @userinfobot i wyślij /start aby uzyskać swój Chat ID",
+                text = stringResource(R.string.integ_tg_step_4),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -842,7 +848,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "5. Skopiuj Chat ID i wklej powyżej",
+                text = stringResource(R.string.integ_tg_step_5),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -853,7 +859,7 @@ private fun TelegramConfigurationPanel(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "6. Kliknij 'Testuj połączenie' aby sprawdzić konfigurację",
+                text = stringResource(R.string.integ_tg_step_6),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -896,9 +902,9 @@ private fun SystemIntegrationsPanel() {
         }
     }
     
-    SettingsSection(title = "Integracje systemowe") {
+    SettingsSection(title = stringResource(R.string.integ_system_title)) {
         Text(
-            text = "Włącz lub wyłącz poszczególne integracje systemowe. Wyłączone integracje nie będą dostępne dla asystenta głosowego.",
+            text = stringResource(R.string.integ_system_desc),
             fontSize = 12.sp,
             fontWeight = FontWeight.W400,
             color = Color.Gray,
@@ -991,7 +997,7 @@ private fun IntegrationToggleItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = integrationType.displayName,
+                    text = stringResource(id = integrationType.displayNameResId),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -1001,9 +1007,9 @@ private fun IntegrationToggleItem(
                 // Status text
                 Text(
                     text = when {
-                        !isEnabled -> "Wyłączone"
-                        hasPermissions -> "Aktywne"
-                        else -> "Wymaga uprawnień"
+                        !isEnabled -> stringResource(id = R.string.integ_status_disabled)
+                        hasPermissions -> stringResource(id = R.string.integ_status_active)
+                        else -> stringResource(id = R.string.integ_status_need_perms)
                     },
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
@@ -1071,7 +1077,7 @@ private fun IntegrationToggleItem(
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Wymaga: ${integrationManager.getPermissionDisplayNames(integrationType.requiredPermissions).joinToString(", ")}",
+                        text = stringResource(id = R.string.integ_perms_required, integrationManager.getPermissionDisplayNames(integrationType.requiredPermissions).joinToString(", ")),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Gray,
@@ -1084,7 +1090,7 @@ private fun IntegrationToggleItem(
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         Text(
-                            text = "⚠️ Brak: ${integrationManager.getPermissionDisplayNames(missingPermissions).joinToString(", ")}",
+                            text = stringResource(id = R.string.integ_perms_missing, integrationManager.getPermissionDisplayNames(missingPermissions).joinToString(", ")),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.W600,
                             color = Color(0xFFFF9800),
@@ -1124,7 +1130,7 @@ private fun IntegrationToggleItem(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Przyznaj uprawnienia",
+                            text = stringResource(id = R.string.integ_grant_perms),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,
@@ -1156,7 +1162,7 @@ private fun IntegrationToggleItem(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "⚙️ Ustawienia",
+                            text = "⚙️ " + stringResource(id = R.string.menu_settings), // Reusing menu_settings
                             fontSize = 11.sp,
                             fontWeight = FontWeight.W600,
                             color = Colors.buttonNormal,
@@ -1174,7 +1180,7 @@ private fun IntegrationToggleItem(
             onDismissRequest = { showNotificationExplanation = false },
             title = {
                 Text(
-                    text = "Uprawnienie do powiadomień",
+                    text = stringResource(R.string.integ_notif_perm_title),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -1184,7 +1190,7 @@ private fun IntegrationToggleItem(
             text = {
                 Column {
                     Text(
-                        text = "Aby przypomnienia mogły działać poprawnie, aplikacja potrzebuje uprawnienia do wyświetlania powiadomień.",
+                        text = stringResource(R.string.integ_notif_perm_desc),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.Black,
@@ -1195,7 +1201,7 @@ private fun IntegrationToggleItem(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = "Powiadomienia są używane do:",
+                        text = stringResource(R.string.integ_notif_perm_usage),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
@@ -1205,7 +1211,7 @@ private fun IntegrationToggleItem(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "• Wyświetlania przypomnień o zaplanowanej godzinie\n• Odtwarzania dźwięku przypomnienia\n• Działania nawet gdy aplikacja jest zamknięta",
+                        text = stringResource(R.string.integ_notif_perm_list),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.DarkGray,
@@ -1224,7 +1230,7 @@ private fun IntegrationToggleItem(
                         containerColor = Colors.buttonNormal
                     )
                 ) {
-                    Text("Przyznaj uprawnienie", style = TextStyles.base)
+                    Text(stringResource(R.string.integ_notif_perm_grant), style = TextStyles.base)
                 }
             },
             dismissButton = {
@@ -1234,7 +1240,7 @@ private fun IntegrationToggleItem(
                         containerColor = Color.LightGray
                     )
                 ) {
-                    Text("Anuluj", style = TextStyles.base, color = Color.Black)
+                    Text(stringResource(R.string.common_cancel), style = TextStyles.base, color = Color.Black)
                 }
             },
             containerColor = Color.White,
@@ -1267,9 +1273,9 @@ private fun SystemAssistantPanel() {
         threads = sessionManager.getConversationThreads()
     }
     
-    SettingsSection(title = "Asystent systemowy") {
+    SettingsSection(title = stringResource(id = R.string.integ_assistant_title)) {
         Text(
-            text = "Ustaw aplikację jako domyślnego asystenta systemowego. Po ustawieniu możesz uruchomić wybraną konwersację przytrzymując przycisk Power (zależy od urządzenia).",
+            text = stringResource(id = R.string.integ_assistant_desc),
             fontSize = 12.sp,
             fontWeight = FontWeight.W400,
             color = Color.Gray,
@@ -1298,7 +1304,7 @@ private fun SystemAssistantPanel() {
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isDefaultAssistant) "Ustawiona jako asystent" else "Nie ustawiona jako asystent",
+                    text = if (isDefaultAssistant) stringResource(id = R.string.integ_assistant_active) else stringResource(id = R.string.integ_assistant_inactive),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = if (isDefaultAssistant) Color(0xFF2E7D32) else Color(0xFFE65100),
@@ -1307,9 +1313,9 @@ private fun SystemAssistantPanel() {
                 
                 Text(
                     text = if (isDefaultAssistant) 
-                        "Możesz uruchomić aplikację przytrzymując Power" 
+                        stringResource(id = R.string.integ_assistant_active_desc) 
                     else 
-                        "Kliknij przycisk poniżej aby otworzyć ustawienia",
+                        stringResource(id = R.string.integ_assistant_inactive_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = if (isDefaultAssistant) Color(0xFF2E7D32) else Color(0xFFE65100),
@@ -1323,7 +1329,7 @@ private fun SystemAssistantPanel() {
         
         // Thread selection
         Text(
-            text = "Konwersacja do uruchomienia:",
+            text = stringResource(id = R.string.integ_assistant_select_conv),
             fontSize = 13.sp,
             fontWeight = FontWeight.W600,
             color = Color.Black,
@@ -1353,7 +1359,7 @@ private fun SystemAssistantPanel() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = threads.find { it.id == selectedThreadId }?.title ?: "Wybierz konwersację",
+                    text = threads.find { it.id == selectedThreadId }?.title ?: stringResource(id = R.string.integ_assistant_select_hint),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W400,
                     color = if (selectedThreadId != null) Color.Black else Color.Gray,
@@ -1375,7 +1381,7 @@ private fun SystemAssistantPanel() {
                 onDismissRequest = { expanded = false },
                 title = {
                     Text(
-                        text = "Wybierz konwersację",
+                        text = stringResource(id = R.string.integ_assistant_select_hint),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.W700,
                         color = Color.Black,
@@ -1389,7 +1395,7 @@ private fun SystemAssistantPanel() {
                     ) {
                         if (threads.isEmpty()) {
                             Text(
-                                text = "Brak dostępnych konwersacji. Zaloguj się do LibreChat i utwórz konwersację.",
+                                text = stringResource(id = R.string.integ_assistant_empty),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.W400,
                                 color = Color.Gray,
@@ -1450,7 +1456,7 @@ private fun SystemAssistantPanel() {
                             containerColor = Colors.buttonNormal
                         )
                     ) {
-                        Text("Zamknij", style = TextStyles.base)
+                        Text(stringResource(id = R.string.common_ok), style = TextStyles.base) // Reusing common_ok
                     }
                 },
                 containerColor = Color.White,
@@ -1476,7 +1482,7 @@ private fun SystemAssistantPanel() {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Otwórz ustawienia asystenta",
+                text = stringResource(id = R.string.integ_assistant_open_settings),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.W600,
                 color = Color.White,
@@ -1494,7 +1500,7 @@ private fun SystemAssistantPanel() {
                 .padding(12.dp)
         ) {
             Text(
-                text = "ℹ️ Jak to skonfigurować:",
+                text = stringResource(R.string.integ_assist_howto_title),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.W600,
                 color = Color.Black,
@@ -1504,7 +1510,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "1. Wybierz konwersację, która ma się uruchomić",
+                text = stringResource(R.string.integ_assist_step_1),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -1515,7 +1521,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "2. Kliknij 'Ustaw jako asystenta' - otworzy się ekran ustawień",
+                text = stringResource(R.string.integ_assist_step_2),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -1526,7 +1532,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "3. W ustawieniach znajdź 'Aplikacja asystenta' lub 'Assist & voice input'",
+                text = stringResource(R.string.integ_assist_step_3),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -1537,7 +1543,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "4. Wybierz 'Kumpel Chat' jako domyślnego asystenta",
+                text = stringResource(R.string.integ_assist_step_4),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -1548,7 +1554,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "5. Przytrzymaj przycisk Power aby uruchomić aplikację",
+                text = stringResource(R.string.integ_assist_step_5),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.DarkGray,
@@ -1559,7 +1565,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "⚠️ Ważne ograniczenia:",
+                text = stringResource(R.string.integ_assist_warning_title),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.W600,
                 color = Color(0xFFE65100),
@@ -1569,7 +1575,7 @@ private fun SystemAssistantPanel() {
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = "• Na urządzeniach Samsung może być zablokowane przez Bixby\n• Niektóre producenci nie pozwalają zmienić domyślnego asystenta\n• Funkcja 'przytrzymaj Power' może być niedostępna\n• W takim przypadku uruchamiaj aplikację normalnie z ekranu głównego",
+                text = stringResource(R.string.integ_assist_warning_desc),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.W400,
                 color = Color.Gray,
@@ -1594,9 +1600,9 @@ private fun CustomToolsPanel() {
     val customToolsManager = remember { ai.pipecat.gemini_multimodal_websocket_demo.tools.CustomToolsManager }
     val customTools = remember { mutableStateOf(customToolsManager.loadCustomTools(context)) }
     
-    SettingsSection(title = "Własne narzędzia (Custom Tools)") {
+    SettingsSection(title = stringResource(id = R.string.integ_custom_tools_title)) {
         Text(
-            text = "Dodaj własne narzędzia dla Gemini poprzez import JSON. Narzędzia mogą wykonywać HTTP requesty lub uruchamiać Android Intenty.",
+            text = stringResource(id = R.string.integ_custom_tools_desc),
             fontSize = 12.sp,
             fontWeight = FontWeight.W400,
             color = Color.Gray,
@@ -1622,7 +1628,7 @@ private fun CustomToolsPanel() {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Importuj JSON",
+                    text = stringResource(id = R.string.api_keys_import_json), // Reusing api_keys_import_json
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
@@ -1646,7 +1652,7 @@ private fun CustomToolsPanel() {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Przykład",
+                    text = stringResource(id = R.string.integ_custom_tools_example_button),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Colors.buttonNormal,
@@ -1660,7 +1666,7 @@ private fun CustomToolsPanel() {
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Zainstalowane narzędzia (${customTools.value.size}):",
+                text = stringResource(id = R.string.integ_custom_tools_installed, customTools.value.size),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.W600,
                 color = Color.Black,
@@ -1728,7 +1734,7 @@ private fun CustomToolsPanel() {
                 },
                 title = {
                     Text(
-                        text = "Importuj Custom Tool",
+                        text = stringResource(id = R.string.integ_custom_tools_import_json_title),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.W700,
                         color = Color.Black,
@@ -1738,7 +1744,7 @@ private fun CustomToolsPanel() {
                 text = {
                     Column {
                         Text(
-                            text = "Wklej JSON z definicją narzędzia:",
+                            text = stringResource(id = R.string.integ_custom_tools_import_json_desc),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Black,
@@ -1764,7 +1770,7 @@ private fun CustomToolsPanel() {
                             textStyle = TextStyles.base.copy(fontSize = 11.sp),
                             placeholder = {
                                 Text(
-                                    "Wklej JSON...",
+                                    stringResource(id = R.string.integ_custom_tools_import_json_placeholder),
                                     style = TextStyles.base,
                                     fontSize = 11.sp
                                 )
@@ -1788,7 +1794,7 @@ private fun CustomToolsPanel() {
                         onClick = {
                             val result = customToolsManager.importToolsFromJson(context, customToolsJson)
                             if (result.isSuccess) {
-                                importResult = "✅ Zaimportowano ${result.getOrNull()} narzędzi"
+                                importResult = context.getString(R.string.api_keys_import_success)
                                 customTools.value = customToolsManager.loadCustomTools(context)
                                 customToolsJson = ""
                             } else {
@@ -1799,7 +1805,7 @@ private fun CustomToolsPanel() {
                             containerColor = Colors.buttonNormal
                         )
                     ) {
-                        Text("Importuj", style = TextStyles.base)
+                        Text(stringResource(id = R.string.marketplace_import), style = TextStyles.base)
                     }
                 },
                 dismissButton = {
@@ -1813,7 +1819,7 @@ private fun CustomToolsPanel() {
                             containerColor = Color.Gray
                         )
                     ) {
-                        Text("Anuluj", style = TextStyles.base)
+                        Text(stringResource(id = R.string.common_cancel), style = TextStyles.base)
                     }
                 }
             )
@@ -1827,7 +1833,7 @@ private fun CustomToolsPanel() {
                 onDismissRequest = { showExampleDialog = false },
                 title = {
                     Text(
-                        text = "Przykład Custom Tool",
+                        text = stringResource(id = R.string.integ_custom_tools_example_title),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.W700,
                         color = Color.Black,
@@ -1837,7 +1843,7 @@ private fun CustomToolsPanel() {
                 text = {
                     Column {
                         Text(
-                            text = "Przykładowa definicja narzędzia:",
+                            text = stringResource(id = R.string.integ_custom_tools_example_desc),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.W400,
                             color = Color.Black,
@@ -1872,7 +1878,7 @@ private fun CustomToolsPanel() {
                             containerColor = Colors.buttonNormal
                         )
                     ) {
-                        Text("OK", style = TextStyles.base)
+                        Text(stringResource(id = R.string.common_ok), style = TextStyles.base)
                     }
                 }
             )
@@ -1933,7 +1939,7 @@ private fun SystemWakeWordItem(
         }
         
         Text(
-            text = "Wbudowane",
+            text = stringResource(id = R.string.integ_pico_built_in),
             fontSize = 10.sp,
             fontWeight = FontWeight.W600,
             color = Colors.buttonNormal,
@@ -1995,7 +2001,7 @@ private fun CustomWakeWordItem(
                         style = TextStyles.base
                     )
                     Text(
-                        text = if (wakeWord.isReady) "Gotowe do użycia" else "Wymaga importu pliku .ppn",
+                        text = if (wakeWord.isReady) stringResource(id = R.string.integ_pico_ready) else stringResource(id = R.string.integ_pico_needs_import),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = if (wakeWord.isReady) Color(0xFF4CAF50) else Color.Gray,
@@ -2041,7 +2047,7 @@ private fun CustomWakeWordItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (wakeWord.isReady) "Reimportuj .ppn" else "Importuj .ppn",
+                    text = if (wakeWord.isReady) stringResource(id = R.string.integ_pico_reimport_ppn) else stringResource(id = R.string.integ_pico_import_ppn),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
@@ -2065,7 +2071,7 @@ private fun CustomWakeWordItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Instrukcje",
+                    text = stringResource(id = R.string.integ_pico_instructions),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Colors.buttonNormal,
@@ -2090,7 +2096,7 @@ private fun AddWakeWordDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Dodaj komendę głosową",
+                text = stringResource(id = R.string.integ_pico_add_dialog_title),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.W700,
                 color = Color.Black,
@@ -2100,7 +2106,7 @@ private fun AddWakeWordDialog(
         text = {
             Column {
                 Text(
-                    text = "Wprowadź nazwę komendy głosowej (np. 'asystent', 'pomoc'):",
+                    text = stringResource(id = R.string.integ_pico_add_dialog_desc),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Black,
@@ -2121,7 +2127,7 @@ private fun AddWakeWordDialog(
                     ),
                     textStyle = TextStyles.base.copy(fontSize = 14.sp),
                     placeholder = {
-                        Text("np. asystent", style = TextStyles.base, fontSize = 14.sp)
+                        Text(stringResource(id = R.string.integ_pico_add_dialog_placeholder), style = TextStyles.base, fontSize = 14.sp)
                     },
                     singleLine = true
                 )
@@ -2139,7 +2145,7 @@ private fun AddWakeWordDialog(
                     containerColor = Colors.buttonNormal
                 )
             ) {
-                Text("Dodaj", style = TextStyles.base)
+                Text(stringResource(id = R.string.integ_pico_add_button), style = TextStyles.base)
             }
         },
         dismissButton = {
@@ -2149,7 +2155,7 @@ private fun AddWakeWordDialog(
                     containerColor = Color.LightGray
                 )
             ) {
-                Text("Anuluj", style = TextStyles.base, color = Color.Black)
+                Text(stringResource(id = R.string.common_cancel), style = TextStyles.base, color = Color.Black)
             }
         },
         containerColor = Color.White,

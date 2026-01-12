@@ -89,6 +89,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,6 +100,8 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.LocaleUtils
+import androidx.compose.runtime.snapshotFlow
 
 class MainActivity : ComponentActivity() {
 
@@ -114,6 +117,14 @@ class MainActivity : ComponentActivity() {
     // Broadcast receivers for wake word commands
     private var toggleMicrophoneReceiver: BroadcastReceiver? = null
     private var terminateAppReceiver: BroadcastReceiver? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        // Manually read preference because Preferences singleton might not be initialized yet
+        val prefs = newBase.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+        val lang = prefs.getString("app_language", "pl") ?: "pl"
+        val context = LocaleUtils.updateLocale(newBase, lang)
+        super.attachBaseContext(context)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,7 +145,7 @@ class MainActivity : ComponentActivity() {
         
         // Initialize navigation controller and conversation launcher
         navigationController = NavigationController(authManager, sessionManager, voiceClientManager, lifecycleScope)
-        conversationLauncher = ConversationLauncher(authManager, sessionManager, voiceClientManager, navigationController, lifecycleScope)
+        conversationLauncher = ConversationLauncher(this, authManager, sessionManager, voiceClientManager, navigationController, lifecycleScope)
         
         // Initialize network monitor
         networkMonitor = NetworkMonitor(this)
@@ -160,7 +171,7 @@ class MainActivity : ComponentActivity() {
                         ConnectionState.CONNECTED -> {
                             // Start VoiceService when connection is established
                             startVoiceService()
-                            updateVoiceServiceNotification("Połączono - rozmowa aktywna")
+                            updateVoiceServiceNotification(getString(R.string.connection_status_connected))
                             Log.d(TAG, "Connection established - VoiceService started")
                             
                             // Ensure we are on the IN_CALL screen if a session is active
@@ -171,7 +182,7 @@ class MainActivity : ComponentActivity() {
                         }
                         ConnectionState.RECONNECTING -> {
                             // Update notification during reconnection
-                            updateVoiceServiceNotification("Ponowne łączenie...")
+                            updateVoiceServiceNotification(getString(R.string.connection_status_reconnecting))
                             Log.d(TAG, "Reconnecting - updating VoiceService notification")
                         }
                         ConnectionState.DISCONNECTED -> {
@@ -225,9 +236,21 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 
-                // Set up reconnection dialog callback
+                // Reconnection dialog when max attempts reached
                 voiceClientManager.onMaxReconnectionAttemptsReached = {
                     showReconnectionDialog = true
+                }
+                
+                // Watch for language changes and recreate activity
+                launch {
+                    var lastLang: String? = Preferences.appLanguage.value
+                    snapshotFlow { Preferences.appLanguage.value }.collect { newLang ->
+                        if (lastLang != null && lastLang != newLang) {
+                            Log.i(TAG, "Language changed from $lastLang to $newLang - recreating activity")
+                            recreate()
+                        }
+                        lastLang = newLang
+                    }
                 }
             }
             
@@ -320,7 +343,7 @@ class MainActivity : ComponentActivity() {
                                             )
                                             Spacer(modifier = Modifier.height(16.dp))
                                             Text(
-                                                text = "Logging in...",
+                                                text = stringResource(id = R.string.login_logging_in),
                                                 fontSize = 16.sp,
                                                 fontWeight = FontWeight.W400,
                                                 color = Color.Black,
@@ -469,7 +492,7 @@ class MainActivity : ComponentActivity() {
                                 containerColor = Color.White,
                                 title = {
                                     Text(
-                                        text = "Error",
+                                        text = stringResource(id = R.string.common_error),
                                         fontSize = 22.sp,
                                         fontWeight = FontWeight.W600,
                                         color = Color.Black,

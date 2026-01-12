@@ -83,28 +83,45 @@ class CulinaryWorker(
             val rawInstructions = recipeData["instructions"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
 
             // 3. Process EVERYTHING via LLM (Gemini 3 Flash)
-            Log.i(TAG, "🧠 Processing recipe with Gemini (Intelligent Categorization & Formatting)...")
+            Log.i(TAG, "🧠 Processing recipe with Gemini (Intelligent Categorization & Formatting) (lang: ${Preferences.appLanguage.value})...")
+            
+            val currentLanguage = Preferences.appLanguage.value
+            val langName = when (currentLanguage) {
+                "en" -> "ENGLISH"
+                "de" -> "GERMAN"
+                "fr" -> "FRENCH"
+                "es" -> "SPANISH"
+                else -> "POLISH"
+            }
+            
+            val (ingredientsHeader, instructionsHeader, recipeLinkLabel, convTitlePrefix, tags) = when (currentLanguage) {
+                "en" -> listOf("Ingredients", "Preparation", "Recipe link:", "Recipe: ", listOf("culinary", "recipe", "cooking"))
+                "de" -> listOf("Zutaten", "Zubereitung", "Rezept-Link:", "Rezept: ", listOf("kulinarisch", "rezept", "kochen"))
+                "fr" -> listOf("Ingrédients", "Préparation", "Lien de la recette :", "Recette : ", listOf("culinaire", "recette", "cuisine"))
+                "es" -> listOf("Ingredientes", "Preparación", "Enlace de la receta:", "Receta: ", listOf("culinario", "receta", "cocina"))
+                else -> listOf("Składniki", "Przygotowanie", "Link do przepisu:", "Przepis: ", listOf("kulinaria", "przepis", "ania-gotuje"))
+            }
+
             val prompt = """
-                Jesteś profesjonalnym robotem kuchennym i redaktorem. Przetwórz surowe dane przepisu na ustrukturyzowany format JSON.
+                You are a professional kitchen assistant and editor. Process the raw recipe data into a structured JSON format.
                 
-                NAZWA: $rawName
-                SKŁADNIKI: ${rawIngredients.joinToString(", ")}
-                INSTRUKCJE: ${rawInstructions.joinToString("\n\n")}
+                NAME: $rawName
+                INGREDIENTS (RAW): ${rawIngredients.joinToString(", ")}
+                INSTRUCTIONS (RAW): ${rawInstructions.joinToString("\n\n")}
                 
-                TWOJE ZADANIA:
-                1. NAME: Oczyść nazwę potrawy (usuń "Przepis na", nazwy stron itp.).
-                2. INSTRUCTIONS: Sformatuj instrukcje jako czytelną listę numerowaną (Polski).
-                3. INGREDIENTS: Dla każdego składnika:
-                   - Wyodrębnij czystą nazwę produktu (np. "mąka pszenna" zamiast "2 szklanki mąki pszennej typ 500").
-                   - Przypisz kategorię z dozwolonej listy: 
+                YOUR TASKS:
+                1. NAME: Clean the dish name (remove site names, redundant phrases). Translate to $langName.
+                2. INSTRUCTIONS: Format the instructions as a clear numbered list in $langName language.
+                3. INGREDIENTS: For each ingredient:
+                   - Extract and translate the clean product name to $langName (e.g., "wheat flour" instead of "2 cups of wheat flour").
+                   - Assign a category from the allowed list: 
                      [FRUIT_VEG, BREAD, DAIRY, MEAT, FISH, DRY_GOODS, PRESERVES, NIGHTSHADE, DRINKS, SWEETS, FROZEN, HOUSEHOLD, OTHER]
                 
-                ZWRÓĆ TYLKO CZYSTY JSON:
+                RETURN ONLY CLEAN JSON:
                 {
-                  "name": "nazwa potrawy",
-                  "instructions": "1. Pierwszy krok...\n2. Drugi krok...",
+                  "name": "dish name in $langName",
+                  "instructions": "1. First step...\n2. Second step...",
                   "ingredients": [
-                    { "name": "mąka pszenna", "category": "DRY_GOODS" },
                     { "name": "mleko", "category": "DAIRY" }
                   ]
                 }
@@ -140,18 +157,18 @@ class CulinaryWorker(
                 if (image.isNotEmpty()) {
                     appendLine("![Danie]($image)\n")
                 }
-                appendLine("**Link do przepisu:** [$resolvedUrl]($resolvedUrl)\n")
-                appendLine("## Składniki")
+                appendLine("**$recipeLinkLabel** [$resolvedUrl]($resolvedUrl)\n")
+                appendLine("## $ingredientsHeader")
                 rawIngredients.forEach { appendLine("- $it") }
-                appendLine("\n## Przygotowanie")
+                appendLine("\n## $instructionsHeader")
                 appendLine(formattedInstructions)
             }
 
             val metadata = NoteMetadata(
                 conversationId = conversationId,
-                conversationTitle = "Przepis: $name",
+                conversationTitle = "$convTitlePrefix$name",
                 timestamp = System.currentTimeMillis(),
-                tags = listOf("kulinaria", "przepis", "ania-gotuje")
+                tags = tags as List<String>
             )
             noteService.createNote(name, markdown, metadata)
 

@@ -3,7 +3,10 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 import ai.pipecat.gemini_multimodal_websocket_demo.PINManager
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import ai.pipecat.gemini_multimodal_websocket_demo.R
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +48,7 @@ fun ChangePINDialog(
     onPINChanged: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var currentStep by remember { mutableStateOf(PINChangeStep.CURRENT_PIN) }
     var currentPinInput by remember { mutableStateOf("") }
     var newPinInput by remember { mutableStateOf("") }
@@ -68,10 +72,10 @@ fun ChangePINDialog(
                 // Title
                 Text(
                     text = when (currentStep) {
-                        PINChangeStep.CURRENT_PIN -> "Wprowadź obecny PIN"
-                        PINChangeStep.NEW_PIN -> "Wprowadź nowy PIN"
-                        PINChangeStep.CONFIRM_PIN -> "Potwierdź nowy PIN"
-                        PINChangeStep.SUCCESS -> "PIN zmieniony"
+                        PINChangeStep.CURRENT_PIN -> stringResource(R.string.pin_change_title_current)
+                        PINChangeStep.NEW_PIN -> stringResource(R.string.pin_change_title_new)
+                        PINChangeStep.CONFIRM_PIN -> stringResource(R.string.pin_change_title_confirm)
+                        PINChangeStep.SUCCESS -> stringResource(R.string.pin_change_title_success)
                     },
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W700,
@@ -152,6 +156,7 @@ fun ChangePINDialog(
                                 NumericButton(digit.toString(), Modifier.weight(1f)) {
                                     handleDigitInput(
                                         digit.toString(),
+                                        context,
                                         currentStep,
                                         currentPinInput,
                                         newPinInput,
@@ -162,7 +167,7 @@ fun ChangePINDialog(
                                         onStepChange = { currentStep = it },
                                         onError = { errorMessage = it },
                                         onSuccess = { 
-                                            successMessage = it
+                                            successMessage = context.getString(R.string.pin_change_success_msg)
                                             currentStep = PINChangeStep.SUCCESS
                                         }
                                     )
@@ -179,6 +184,7 @@ fun ChangePINDialog(
                                 NumericButton(digit.toString(), Modifier.weight(1f)) {
                                     handleDigitInput(
                                         digit.toString(),
+                                        context,
                                         currentStep,
                                         currentPinInput,
                                         newPinInput,
@@ -189,7 +195,7 @@ fun ChangePINDialog(
                                         onStepChange = { currentStep = it },
                                         onError = { errorMessage = it },
                                         onSuccess = { 
-                                            successMessage = it
+                                            successMessage = context.getString(R.string.pin_change_success_msg)
                                             currentStep = PINChangeStep.SUCCESS
                                         }
                                     )
@@ -206,6 +212,7 @@ fun ChangePINDialog(
                                 NumericButton(digit.toString(), Modifier.weight(1f)) {
                                     handleDigitInput(
                                         digit.toString(),
+                                        context,
                                         currentStep,
                                         currentPinInput,
                                         newPinInput,
@@ -216,7 +223,7 @@ fun ChangePINDialog(
                                         onStepChange = { currentStep = it },
                                         onError = { errorMessage = it },
                                         onSuccess = { 
-                                            successMessage = it
+                                            successMessage = context.getString(R.string.pin_change_success_msg)
                                             currentStep = PINChangeStep.SUCCESS
                                         }
                                     )
@@ -236,6 +243,7 @@ fun ChangePINDialog(
                             NumericButton("0", Modifier.weight(1f)) {
                                 handleDigitInput(
                                     "0",
+                                    context,
                                     currentStep,
                                     currentPinInput,
                                     newPinInput,
@@ -246,7 +254,7 @@ fun ChangePINDialog(
                                     onStepChange = { currentStep = it },
                                     onError = { errorMessage = it },
                                     onSuccess = { 
-                                        successMessage = it
+                                        successMessage = context.getString(R.string.pin_change_success_msg)
                                         currentStep = PINChangeStep.SUCCESS
                                     }
                                 )
@@ -337,7 +345,7 @@ fun ChangePINDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Anuluj",
+                            text = stringResource(R.string.common_cancel),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
                             color = Colors.buttonNormal,
@@ -392,6 +400,7 @@ private enum class PINChangeStep {
  */
 private fun handleDigitInput(
     digit: String,
+    context: android.content.Context,
     currentStep: PINChangeStep,
     currentPinInput: String,
     newPinInput: String,
@@ -415,7 +424,7 @@ private fun handleDigitInput(
                         onStepChange(PINChangeStep.NEW_PIN)
                         onError("")
                     } else {
-                        onError("Nieprawidłowy obecny PIN")
+                        onError(context.getString(R.string.pin_change_error_invalid_current))
                         onCurrentPinChange("")
                     }
                 }
@@ -432,7 +441,7 @@ private fun handleDigitInput(
                         onStepChange(PINChangeStep.CONFIRM_PIN)
                         onError("")
                     } else {
-                        onError("PIN musi składać się z 4 cyfr")
+                        onError(context.getString(R.string.pin_change_error_invalid_new))
                         onNewPinChange("")
                     }
                 }
@@ -449,13 +458,13 @@ private fun handleDigitInput(
                         // Change PIN
                         val result = PINManager.changePIN(currentPinInput, newPinInput)
                         if (result.isSuccess) {
-                            onSuccess("PIN został pomyślnie zmieniony")
+                            onSuccess(context.getString(R.string.pin_change_success_msg))
                         } else {
-                            onError(result.exceptionOrNull()?.message ?: "Błąd zmiany PIN")
+                            onError(result.exceptionOrNull()?.message ?: context.getString(R.string.pin_change_title_success))
                             onConfirmPinChange("")
                         }
                     } else {
-                        onError("PIN nie pasuje")
+                        onError(context.getString(R.string.pin_change_error_match))
                         onConfirmPinChange("")
                     }
                 }

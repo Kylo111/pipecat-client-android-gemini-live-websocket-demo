@@ -36,7 +36,12 @@
 > Task :gemini-multimodal-websocket-demo:writeDebugSigningConfigVersions UP-TO-DATE
 
 > Task :gemini-multimodal-websocket-demo:compileDebugKotlin FAILED
-e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/agents/ReasoningWorker.kt:711:36 'when' expression must be exhaustive. Add the 'is AddToShoppingList' branch or an 'else' branch.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/IntegrationsTab.kt:720:29 Try catch is not supported around composable function invocations.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/IntegrationsTab.kt:723:47 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/SettingsScreen.kt:216:66 Unresolved reference 'settings_validation_error_openrouter_missing'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/SettingsScreen.kt:492:84 Unresolved reference 'settings_validation_unknown_error'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/SettingsScreen.kt:497:65 Unresolved reference 'settings_validation_check_keys'.
+e: file:///C:/Users/Komp/Live-bot/Live-bot/pipecat-client-android-gemini-live-websocket-demo/gemini-multimodal-websocket-demo/src/main/java/ai/pipecat/gemini_multimodal_websocket_demo/ui/SettingsTabBar.kt:119:24 Unresolved reference 'stringResource'.
 
 FAILURE: Build failed with an exception.
 
@@ -51,5 +56,5 @@ Execution failed for task ':gemini-multimodal-websocket-demo:compileDebugKotlin'
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 4s
+BUILD FAILED in 5s
 31 actionable tasks: 1 executed, 30 up-to-date

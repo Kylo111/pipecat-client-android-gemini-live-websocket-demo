@@ -115,15 +115,16 @@ class IntegrationManager(private val context: Context) {
      */
     fun getPermissionDisplayNames(permissions: List<String>): List<String> {
         return permissions.map { permission ->
-            when (permission) {
-                android.Manifest.permission.READ_CONTACTS -> "Kontakty"
-                android.Manifest.permission.READ_CALENDAR -> "Kalendarz (odczyt)"
-                android.Manifest.permission.WRITE_CALENDAR -> "Kalendarz (zapis)"
-                android.Manifest.permission.SCHEDULE_EXACT_ALARM -> "Dokładne alarmy"
-                android.Manifest.permission.POST_NOTIFICATIONS -> "Powiadomienia"
-                android.Manifest.permission.ACCESS_FINE_LOCATION -> "Lokalizacja"
-                else -> permission.substringAfterLast('.')
+            val resId = when (permission) {
+                android.Manifest.permission.READ_CONTACTS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_contacts
+                android.Manifest.permission.READ_CALENDAR -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_calendar_read
+                android.Manifest.permission.WRITE_CALENDAR -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_calendar_write
+                android.Manifest.permission.SCHEDULE_EXACT_ALARM -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_alarms
+                android.Manifest.permission.POST_NOTIFICATIONS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_notif
+                android.Manifest.permission.ACCESS_FINE_LOCATION -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_perm_location
+                else -> 0
             }
+            if (resId != 0) context.getString(resId) else permission.substringAfterLast('.')
         }
     }
     
@@ -135,22 +136,16 @@ class IntegrationManager(private val context: Context) {
      * @return User-friendly message explaining unavailable features
      */
     fun getUnavailableMessage(integration: IntegrationType): String {
-        return when (integration) {
-            IntegrationType.CONTACTS_SMS -> 
-                "Asystent nie może wyszukiwać kontaktów ani wysyłać SMS-ów."
-            IntegrationType.ALARMS_REMINDERS -> 
-                "Asystent nie może ustawiać alarmów ani tworzyć przypomnień."
-            IntegrationType.CALENDAR -> 
-                "Asystent nie może sprawdzać ani dodawać wydarzeń w kalendarzu."
-            IntegrationType.TODO_LIST -> 
-                "Asystent nie może zarządzać listą zadań TODO."
-            IntegrationType.GOOGLE_MAPS -> 
-                "Asystent nie może uruchamiać nawigacji ani wyszukiwać miejsc na mapie."
-            IntegrationType.PUBLIC_TRANSIT -> 
-                "Asystent nie może sprawdzać połączeń transportu publicznego."
-            IntegrationType.SHOPPING_LIST -> 
-                "Asystent nie może zarządzać listą zakupów."
+        val resId = when (integration) {
+            IntegrationType.CONTACTS_SMS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_contacts
+            IntegrationType.ALARMS_REMINDERS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_alarms
+            IntegrationType.CALENDAR -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_calendar
+            IntegrationType.TODO_LIST -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_todo
+            IntegrationType.GOOGLE_MAPS -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_maps
+            IntegrationType.PUBLIC_TRANSIT -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_transit
+            IntegrationType.SHOPPING_LIST -> ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_unavailable_shopping
         }
+        return context.getString(resId)
     }
     
     companion object {
@@ -163,23 +158,23 @@ class IntegrationManager(private val context: Context) {
  * 
  * Each integration type has:
  * - A preference key for storing enabled/disabled state
- * - A display name for UI
+ * - A display name resource ID for UI
  * - A list of required permissions
  * - A list of tool definitions that belong to this integration
  */
 enum class IntegrationType(
     val prefKey: String,
-    val displayName: String,
+    val displayNameResId: Int,
     val requiredPermissions: List<String>
 ) {
     CONTACTS_SMS(
         "integration_contacts_sms",
-        "Kontakty i SMS",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_contacts_sms,
         listOf(android.Manifest.permission.READ_CONTACTS)
     ),
     ALARMS_REMINDERS(
         "integration_alarms_reminders",
-        "Alarmy i przypomnienia",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_alarms,
         listOf(
             android.Manifest.permission.SCHEDULE_EXACT_ALARM,
             android.Manifest.permission.POST_NOTIFICATIONS
@@ -187,7 +182,7 @@ enum class IntegrationType(
     ),
     CALENDAR(
         "integration_calendar",
-        "Kalendarz",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_calendar,
         listOf(
             android.Manifest.permission.READ_CALENDAR,
             android.Manifest.permission.WRITE_CALENDAR
@@ -195,22 +190,22 @@ enum class IntegrationType(
     ),
     TODO_LIST(
         "integration_todo_list",
-        "Lista zadań TODO",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_todo,
         emptyList() // No permissions needed - local database
     ),
     GOOGLE_MAPS(
         "integration_google_maps",
-        "Google Maps",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_maps,
         emptyList() // No permissions needed - uses Intents
     ),
     PUBLIC_TRANSIT(
         "integration_public_transit",
-        "Transport publiczny",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_transit,
         listOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
     ),
     SHOPPING_LIST(
         "integration_shopping_list",
-        "Lista zakupów",
+        ai.pipecat.gemini_multimodal_websocket_demo.R.string.integ_name_shopping,
         emptyList() // No permissions needed - local database
     );
     

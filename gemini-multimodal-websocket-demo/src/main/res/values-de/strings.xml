@@ -1,0 +1,301 @@
+<resources>
+    <string name="app_name">Live Bot</string>
+    
+    <!-- Connection Status -->
+    <string name="connection_status_reconnecting">Wiederverbinden...</string>
+    <string name="connection_status_reconnecting_with_attempt">Wiederverbinden... Versuch %1$d von %2$d</string>
+    <string name="connection_status_connecting">Verbinden...</string>
+    <string name="connection_status_connected">Verbunden - Gespräch aktiv</string>
+    <string name="connection_status_disconnected">Getrennt</string>
+    
+    <!-- Reconnection Dialog -->
+    <string name="reconnection_dialog_title">Verbindungsproblem</string>
+    <string name="reconnection_dialog_message">Verbindung nach 5 Versuchen fehlgeschlagen. Weiter versuchen?</string>
+    <string name="reconnection_dialog_continue">Weiter</string>
+    <string name="reconnection_dialog_end">Gespräch beenden</string>
+    
+    <!-- Transcript Sync -->
+    <string name="transcript_sync_in_progress">Transkript wird gespeichert... Versuch %1$d</string>
+    <string name="transcript_sync_success">Transkript erfolgreich gespeichert</string>
+    <string name="transcript_sync_error">Fehler bei der Synchronisation: %1$s</string>
+    
+    <!-- Navigation Items -->
+    <string name="nav_conversations">Gespräche</string>
+    <string name="nav_marketplace">Marktplatz</string>
+    <string name="nav_notes">Notizen</string>
+    <string name="nav_settings">Einstellungen</string>
+    
+    <!-- Conversation Categories -->
+    <string name="category_education">Bildung</string>
+    <string name="category_productivity">Produktivität</string>
+    <string name="category_lifestyle">Lifestyle</string>
+    <string name="category_health">Gesundheit</string>
+    <string name="category_entertainment">Unterhaltung</string>
+    <string name="category_custom">Eigene</string>
+
+    <string name="login_title">Willkommen!</string>
+    <string name="login_subtitle">Melden Sie sich mit Ihrem LibreChat-Konto an</string>
+    <string name="login_email_placeholder">E-Mail</string>
+    <string name="login_password_placeholder">Passwort</string>
+    <string name="login_button">Anmelden</string>
+    <string name="login_logging_in">Anmeldung...</string>
+    <string name="login_error_invalid_credentials">Ungültige Anmeldedaten</string>
+    <string name="login_error_network">Netzwerkfehler. Verbindung prüfen.</string>
+    <string name="login_error_unknown">Ein unerwarteter Fehler ist aufgetreten</string>
+    
+    <string name="thread_list_title">Ihre Gespräche</string>
+    <string name="thread_list_empty">Keine Gespräche. Erstellen Sie ein neues!</string>
+    <string name="thread_list_new_chat">Neues Gespräch</string>
+    <string name="thread_list_logout">Abmelden</string>
+    
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_language_label">App-Sprache</string>
+    <string name="settings_voice_label">Gemini-Stimme</string>
+    <string name="settings_theme_label">Design</string>
+    <string name="settings_server_url">Server-URL</string>
+    <string name="settings_save_button">Speichern</string>
+    
+    <string name="notes_title">Ihre Notizen</string>
+    <string name="notes_empty">Sie haben noch keine Notizen.</string>
+    <string name="notes_create_new">Neue Notiz erstellen</string>
+    
+    <string name="common_save">Speichern</string>
+    <string name="common_cancel">Abbrechen</string>
+    <string name="common_delete">Löschen</string>
+    <string name="common_edit">Bearbeiten</string>
+    <string name="common_error">Fehler</string>
+    <string name="common_success">Erfolg</string>
+    <string name="common_loading">Laden...</string>
+    <string name="common_ok">OK</string>
+    <string name="common_back">Zurück</string>
+    <string name="common_close">Schließen</string>
+    <string name="common_search">Suchen</string>
+    <string name="common_confirm">Bestätigen</string>
+    <string name="common_retry">Wiederholen</string>
+    <string name="common_done">Fertig</string>
+    <string name="common_warning">Warnung</string>
+    <string name="common_info">Information</string>
+    <string name="common_none">Keine</string>
+    <string name="common_all">Alle</string>
+    <string name="common_selected">Ausgewählt</string>
+    <string name="common_optional">Optional</string>
+
+    <string name="action_settings">Einstellungen</string>
+    <string name="error_mic_permission">Mikrofonberechtigung nicht erteilt</string>
+    <string name="error_connection_failed">Verbindung zum Server fehlgeschlagen</string>
+    <string name="error_session_expired">Sitzung abgelaufen</string>
+    <string name="speech_placeholder">Ich höre zu...</string>
+    <string name="reconnect_title">Verbindung verloren</string>
+    <string name="reconnect_message">Verbindung zum Server unterbrochen. Erneut versuchen?</string>
+    <string name="reconnect_button">Erneut verbinden</string>
+    <string name="reconnect_limit_reached">Limit für Wiederverbindungsversuche erreicht.</string>
+    <string name="reconnect_limit_message">Automatische Wiederverbindung fehlgeschlagen. Erneut versuchen oder Gespräch beenden?</string>
+
+    <string name="pref_keep_screen_awake_title">Bildschirm anlassen</string>
+    <string name="pref_keep_screen_awake_summary">Verhindert das Ausschalten des Bildschirms</string>
+    <string name="pref_auto_reconnect_title">Auto-Reconnect</string>
+    <string name="pref_auto_reconnect_summary">Automatisch wiederverbinden bei Fehlern</string>
+
+    <string name="permission_required_title">Berechtigungen erforderlich</string>
+    <string name="permission_required_msg">Die App benötigt Mikrofonzugriff für Gespräche mit Gemini.</string>
+    <string name="permission_grant_button">Berechtigungen erteilen</string>
+    <string name="permission_settings_button">Einstellungen</string>
+
+    <string name="marketplace_title">Assistenten-Marktplatz</string>
+    <string name="marketplace_empty">Keine Assistenten verfügbar.</string>
+    <string name="marketplace_search_hint">Assistenten suchen...</string>
+    <string name="marketplace_install_button">Installieren</string>
+    <string name="marketplace_installed_tag">Installiert</string>
+    <string name="marketplace_category_all">Alle</string>
+    <string name="marketplace_category_education">Bildung</string>
+    <string name="marketplace_category_productivity">Produktivität</string>
+    <string name="marketplace_category_lifestyle">Lifestyle</string>
+    <string name="marketplace_category_health">Gesundheit</string>
+    <string name="marketplace_category_entertainment">Unterhaltung</string>
+    <string name="marketplace_category_tools">Tools</string>
+    <string name="marketplace_import_success">Assistent \"%1$s\" erfolgreich importiert!</string>
+    <string name="marketplace_import_error">Fehler beim Importieren</string>
+
+    <string name="settings_tab_session">Sitzung &amp; Design</string>
+    <string name="settings_tab_agents">Agenten</string>
+    <string name="settings_tab_integrations">Integrationen</string>
+    <string name="settings_tab_system">System</string>
+
+    <string name="settings_section_general">Allgemein</string>
+    <string name="settings_section_appearance">Aussehen</string>
+    <string name="settings_section_api">API-Konfiguration</string>
+    <string name="settings_section_debug">Fehlerbehebung (Debug)</string>
+    <string name="settings_section_danger">Gefahrenzone</string>
+
+    <string name="settings_api_token_label">LibreChat API Token</string>
+    <string name="settings_api_token_placeholder">API Token eingeben</string>
+    <string name="settings_api_token_desc">Erforderlich für Synchronisation von Notizen</string>
+    
+    <string name="settings_model_label">Gemini-Modell</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Hell</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    
+    <string name="settings_clear_data_title">App-Daten löschen</string>
+    <string name="settings_clear_data_button">Alles löschen</string>
+    <string name="settings_clear_data_confirm">Alle Daten und Einstellungen löschen? Dies kann nicht rückgängig gemacht werden.</string>
+    
+    <string name="settings_advanced_options">Erweiterte Optionen</string>
+    <string name="settings_show_debug_info">Technische Infos anzeigen</string>
+    <string name="settings_enable_logging">Datei-Logging aktivieren</string>
+
+    <string name="settings_agent_control_enabled">Control Agent (Smart Switching)</string>
+    <string name="settings_agent_control_desc">Ermöglicht automatisches Wechseln zwischen Assistenten</string>
+    
+    <string name="settings_agent_reasoning_enabled">Reasoning Agent (Deep Analysis)</string>
+    <string name="settings_agent_reasoning_desc">Ermöglicht komplexe Notizen und Forschung im Hintergrund</string>
+
+    <string name="settings_integ_telegram_label">Telegram Bot Token</string>
+    <string name="settings_integ_telegram_placeholder">Token von @BotFather</string>
+    <string name="settings_integ_telegram_chatid_label">Telegram Chat ID</string>
+    <string name="settings_integ_telegram_chatid_placeholder">Ihre ID (z.B. 123456789)</string>
+    <string name="settings_integ_telegram_test_btn">Verbindung testen</string>
+    <string name="settings_integ_telegram_test_success">Nachricht erfolgreich gesendet!</string>
+    <string name="settings_integ_telegram_test_error">Fehler: %1$s</string>
+
+    <string name="settings_integ_azure_label">Azure Health Bot Token</string>
+    <string name="settings_integ_azure_placeholder">Azure Key</string>
+    <string name="settings_integ_azure_desc">Erforderlich für Symptom Checker</string>
+
+    <string name="settings_integ_assistant_label">System-Assistent</string>
+    <string name="settings_integ_assistant_desc">Gespräch statt Google Assistant starten (Power halten)</string>
+    <string name="settings_integ_assistant_btn">Als Assistent festlegen</string>
+    <string name="settings_integ_assistant_current">Aktuell: %1$s</string>
+    <string name="settings_integ_assistant_none">Nichts ausgewählt</string>
+
+    <string name="settings_change_pin_btn">PIN ändern</string>
+    <string name="settings_pin_info">Standard: 1111</string>
+    <string name="settings_pin_title">PIN eingeben</string>
+    <string name="settings_pin_error">Ungültige PIN</string>
+
+    <string name="prompt_edit_title">Prompt bearbeiten</string>
+    <string name="prompt_edit_label">System Prompt</string>
+    <string name="prompt_edit_placeholder">Anweisungen für KI eingeben...</string>
+
+    <string name="pin_dialog_title">Zugriff geschützt</string>
+    <string name="pin_dialog_subtitle">Geben Sie die PIN ein</string>
+    <string name="pin_dialog_placeholder">PIN</string>
+    <string name="pin_dialog_info">Standard: 2222</string>
+    <string name="pin_dialog_error">Falsche PIN. Versuche übrig: %1$d</string>
+
+    <string name="conversation_title_new">Neues Gespräch</string>
+    <string name="conversation_title_edit">Gesprächt bearbeiten</string>
+    <string name="conversation_name_label">Name</string>
+    <string name="conversation_name_placeholder">Name eingeben (z.B. Englischlehrer)</string>
+    <string name="conversation_system_prompt_label">System Prompt (Rolle)</string>
+    <string name="conversation_system_prompt_placeholder">Beschreiben Sie das Verhalten...</string>
+    <string name="conversation_voice_label">Stimme</string>
+    <string name="conversation_model_settings_title">Modellparameter</string>
+    <string name="conversation_model_settings_button">⚙️ Erweiterte Einstellungen</string>
+    <string name="conversation_tools_label">Werkzeuge</string>
+    <string name="conversation_tools_button">🛠️ Werkzeuge wählen (%1$s)</string>
+    <string name="conversation_tools_all">Alle</string>
+    <string name="conversation_delete_button">Löschen</string>
+    <string name="conversation_delete_confirm_title">Löschen?</string>
+    <string name="conversation_delete_confirm_msg">Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="tool_selection_title">Werkzeuge auswählen</string>
+    <string name="tool_selection_all">Alle auswählen</string>
+    <string name="thread_config_title">Thread-Konfiguration</string>
+
+    <string name="pin_enter_title">PIN eingeben</string>
+    <string name="pin_default_info">Standard-PIN ist 2222</string>
+    <string name="pin_invalid_error">Ungültige PIN</string>
+    <string name="conv_list_new_offline">Neues Offline-Gespräch</string>
+    <string name="conv_list_locked_parental">Gesperrt</string>
+    <string name="conv_list_loading">Lade Threads...</string>
+    <string name="conv_list_loading_error">Fehler beim Laden der Gespräche: %1$s</string>
+    <string name="conv_list_empty">Keine Gespräche.\nErstellen Sie ein neues Offline-Gespräch oder einen Thread in LibreChat.</string>
+    <string name="conv_list_saving_memories">Speichere Erinnerungen...</string>
+    <string name="conv_list_offline_badge">OFFLINE</string>
+    <string name="conv_list_locked_title">Gespräch gesperrt</string>
+    <string name="conv_list_locked_description">Dieses Gespräch ist gesperrt, weil der Prozess zum Speichern der Erinnerungen unterbrochen wurde (z.B. durch Neustart der App).</string>
+    <string name="conv_list_locked_options">Sie können:</string>
+    <string name="conv_list_locked_unlock_info">Entsperren - das Gespräch wird wieder verfügbar sein (Erinnerungen könnten unvollständig sein)</string>
+    <string name="conv_list_locked_delete_info">Löschen - das Gespräch und alle seine Daten dauerhaft löschen</string>
+    <string name="conv_list_unlock_button">Entsperren</string>
+    
+    <!-- Notification Permission -->
+    <string name="integ_notif_perm_title">Benachrichtigungsberechtigung</string>
+    <string name="integ_notif_perm_desc">Benachrichtigungen für Erinnerungen aktivieren.</string>
+    <string name="integ_notif_perm_grant">Berechtigung erteilen</string>
+
+    <!-- Telegram Instructions -->
+    <string name="integ_tg_step_1">1. Telegram öffnen und @BotFather suchen</string>
+    <string name="integ_tg_step_2">2. /newbot senden</string>
+    <string name="integ_tg_step_3">3. Bot Token kopieren</string>
+
+    <!-- Assistant Instructions -->
+    <string name="integ_assist_howto_title">ℹ️ Konfiguration:</string>
+    <string name="integ_assist_step_4">4. \'Live Bot\' als Standard-Assistent wählen</string>
+    
+    <!-- Model Settings Dialog -->
+    <string name="model_settings_subtitle">Erweiterte Parameter</string>
+    <string name="model_settings_temp_label">Temperatur</string>
+    <string name="model_settings_max_tokens_label">Max Tokens</string>
+    <string name="model_settings_val_range_error">%1$s muss zwischen %2$s und %3$s liegen</string>
+
+    <!-- Integration Names -->
+    <string name="integ_name_contacts_sms">Kontakte &amp; SMS</string>
+    <string name="integ_name_alarms">Alarme &amp; Erinnerungen</string>
+    <string name="integ_name_calendar">Kalender</string>
+    <string name="integ_name_todo">Aufgabenliste (TODO)</string>
+    <string name="integ_name_maps">Google Maps</string>
+    <string name="integ_name_transit">ÖPNV</string>
+    <string name="integ_name_shopping">Einkaufsliste</string>
+
+    <!-- Permission Names -->
+    <string name="integ_perm_contacts">Kontakte</string>
+    <string name="integ_perm_calendar_read">Kalender (lesen)</string>
+    <string name="integ_perm_calendar_write">Kalender (schreiben)</string>
+    <string name="integ_perm_alarms">Genaue Alarme</string>
+    <string name="integ_perm_notif">Benachrichtigungen</string>
+    <string name="integ_perm_location">Standort</string>
+
+    <!-- Integration Unavailable Messages -->
+    <string name="integ_unavailable_contacts">Assistent kann keine Kontakte suchen.</string>
+    <string name="integ_unavailable_alarms">Assistent kann keine Alarme einstellen.</string>
+
+    <!-- Tool Groups -->
+    <string name="tool_group_search_title">Google Suche (Grounding)</string>
+    <string name="tool_group_search_desc">Native Google Suche</string>
+    <string name="tool_group_reasoning_title">Reasoning Agent</string>
+    <string name="tool_group_reasoning_desc">Analyse, Notizen, Perplexity</string>
+    <string name="tool_group_perplexity_title">Perplexity (Online)</string>
+    <string name="tool_group_perplexity_desc">Echtzeitsuche mit Zitaten</string>
+    <string name="tool_group_progress_title">Fortschritt (Done List)</string>
+    <string name="tool_group_progress_desc">Sitzungszusammenfassung speichern</string>
+    <string name="tool_group_shopping_title">Einkaufsliste</string>
+    <string name="tool_group_todo_title">Aufgabenliste</string>
+    <string name="tool_group_encyclopedia_title">Enzyklopädie (Wikipedia)</string>
+    <string name="tool_group_calendar_title">Kalender</string>
+    <string name="tool_group_reminders_title">Erinnerungen</string>
+    <string name="tool_group_alarms_title">Wecker</string>
+    <string name="tool_group_weather_title">Wetter</string>
+    <string name="tool_group_time_title">Zeit &amp; Datum</string>
+    <string name="tool_group_location_title">Standort</string>
+    <string name="tool_group_calculate_title">Rechner</string>
+    <string name="tool_group_places_title">Orte in der Nähe</string>
+    <string name="tool_group_map_search_title">Kartensuche</string>
+    <string name="tool_group_navigation_title">Navigation</string>
+    <string name="tool_group_transit_title">ÖPNV</string>
+    <string name="tool_group_show_map_title">Auf Karte zeigen</string>
+    <string name="tool_group_media_title">Mediensteuerung</string>
+    <string name="tool_group_contacts_title">Kontakte</string>
+    <string name="tool_group_sms_title">SMS senden</string>
+    <string name="tool_group_health_title">Symptom Checker</string>
+
+    <!-- PIN Change Dialog -->
+    <string name="pin_change_title_current">Geben Sie die aktuelle PIN ein</string>
+    <string name="pin_change_title_new">Geben Sie die neue PIN ein</string>
+    <string name="pin_change_title_confirm">Bestätigen Sie die neue PIN</string>
+    <string name="pin_change_title_success">PIN geändert</string>
+    <string name="pin_change_error_invalid_current">Ungültige aktuelle PIN</string>
+    <string name="pin_change_error_invalid_new">PIN muss 4-stellig sein</string>
+    <string name="pin_change_error_match">PINs stimmen nicht überein</string>
+    <string name="pin_change_success_msg">PIN wurde erfolgreich geändert</string>
+</resources>

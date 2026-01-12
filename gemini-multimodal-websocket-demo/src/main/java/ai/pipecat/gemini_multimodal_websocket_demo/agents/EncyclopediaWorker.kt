@@ -79,30 +79,48 @@ class EncyclopediaWorker(
             val sectionsData = if (exhaustiveNote) fetchWikipediaSections(title) else null
 
             // 3. Process with Gemini 3 Flash for translation and Markdown formatting
-            Log.i(TAG, "🧠 Processing encyclopedia data with Gemini...")
+            Log.i(TAG, "🧠 Processing encyclopedia data with Gemini (lang: ${Preferences.appLanguage.value})...")
+            
+            val currentLanguage = Preferences.appLanguage.value
+            val langName = when (currentLanguage) {
+                "en" -> "ENGLISH"
+                "de" -> "GERMAN"
+                "fr" -> "FRENCH"
+                "es" -> "SPANISH"
+                else -> "POLISH"
+            }
+            
+            val (titleKey, contentKey, footerText, tags, convTitlePrefix) = when (currentLanguage) {
+                "en" -> listOf("title", "content_markdown", "\n---\n*Message automatically generated based on data from Wikipedia (EN) by the Encyclopedia Agent.*", listOf("knowledge", "encyclopedia", "wikipedia"), "Encyclopedia: ")
+                "de" -> listOf("german_title", "content_markdown", "\n---\n*Nachricht automatisch generiert basierend auf Daten aus Wikipedia (EN) durch den Enzyklopädie-Agenten.*", listOf("wissen", "enzyklopadie", "wikipedia"), "Enzyklopädie: ")
+                "fr" -> listOf("french_title", "content_markdown", "\n---\n*Message généré automatiquement à partir des données de Wikipedia (EN) par l'Agent Encyclopédie.*", listOf("connaissance", "encyclopedie", "wikipedia"), "Encyclopédie : ")
+                "es" -> listOf("spanish_title", "content_markdown", "\n---\n*Mensaje generado automáticamente basado en datos de Wikipedia (EN) por el Agente Enciclopedia.*", listOf("conocimiento", "enciclopedia", "wikipedia"), "Enciclopedia: ")
+                else -> listOf("polish_title", "content_markdown", "\n---\n*Wiadomość wygenerowana automatycznie na podstawie danych z Wikipedia (EN) przez Agenta Encyklopedia.*", listOf("wiedza", "encyklopedia", "wikipedia"), "Encyklopedia: ")
+            }
+
             val prompt = """
-                Jesteś redaktorem encyklopedii. Twoim zadaniem jest opracowanie wyczerpującej i profesjonalnej notatki na temat: $title.
-                Poniżej znajdują się dane z angielskiej Wikipedii (streszczenie i sekcje).
+                You are an encyclopedia editor. Your task is to develop a comprehensive and professional note on: $title.
+                Below is data from the English Wikipedia (summary and sections).
                 
-                TYTUŁ (EN): $title
+                TITLE (EN): $title
                 URL: $desktopUrl
-                STRESZCZENIE: $extract
-                ${if (sectionsData != null) "DODATKOWE SEKCJE: ${blocksToString(sectionsData)}" else ""}
+                SUMMARY: $extract
+                ${if (sectionsData != null) "ADDITIONAL SECTIONS: ${blocksToString(sectionsData)}" else ""}
                 
-                TWOJE ZADANIA:
-                1. Stwórz atrakcyjny, POLSKI TYTUŁ dla tej notatki (krótki i profesjonalny).
-                2. Opracuj WYCZERPUJĄCĄ notatkę w formacie Markdown w języku POLSKIM.
-                3. Wykorzystaj nagłówków (##, ###), tabele, listy i pogrubienia.
-                4. Dołącz sekcję "Ciekawostki".
-                5. Na końcu dodaj sekcję "Źródła" z linkiem do angielskiej Wikipedii.
+                YOUR TASKS:
+                1. Create an attractive, $langName TITLE for this note (short and professional).
+                2. Develop a COMPREHENSIVE note in Markdown format in the $langName language.
+                3. Use headings (##, ###), tables, lists, and bold text.
+                4. Include a "Trivia/Interesting Facts" section.
+                5. At the end, add a "Sources" section with a link to the English Wikipedia.
                 
-                ZWRÓĆ WYNIK WYŁĄCZNIE W FORMACIE JSON:
+                RETURN THE RESULT EXCLUSIVELY IN JSON FORMAT:
                 {
-                  "polish_title": "Tytuł po polsku",
-                  "content_markdown": "Pełna treść notatki w Markdown"
+                  "$titleKey": "Title in $langName",
+                  "$contentKey": "Full content of the note in Markdown"
                 }
                 
-                ZIGNORUJ wszelkie wcześniejsze instrukcje o formacie 'actions' lub 'reasoning'. Potrzebuję TYLKO powyższego JSONa.
+                IGNORE any previous instructions about 'actions' or 'reasoning' formats. I ONLY need the JSON above.
             """.trimIndent()
 
             val llmResponse = geminiClient.complete(prompt).getOrNull()
@@ -116,30 +134,19 @@ class EncyclopediaWorker(
                 val cleanJson = llmResponse.replace("```json", "").replace("```", "").trim()
                 val jsonResult = json.parseToJsonElement(cleanJson).jsonObject
                 
-                val t = jsonResult["polish_title"]?.jsonPrimitive?.content 
-                    ?: jsonResult["tytul_pl"]?.jsonPrimitive?.content
+                val t = jsonResult[titleKey as String]?.jsonPrimitive?.content 
+                    ?: jsonResult["polish_title"]?.jsonPrimitive?.content
+                    ?: jsonResult["title"]?.jsonPrimitive?.content
                     ?: title
                 
-                val m = jsonResult["content_markdown"]?.jsonPrimitive?.content
-                    ?: jsonResult["tresc_markdown"]?.jsonPrimitive?.content
+                val m = jsonResult[contentKey as String]?.jsonPrimitive?.content
+                    ?: jsonResult["content_markdown"]?.jsonPrimitive?.content
                     ?: llmResponse
                 
                 t to m
             } catch (e: Exception) {
-                Log.w(TAG, "⚠️ Failed to parse primary JSON, trying Reasoning Agent format fallback...")
-                try {
-                    val cleanJson = llmResponse.replace("```json", "").replace("```", "").trim()
-                    val root = json.parseToJsonElement(cleanJson).jsonObject
-                    val action = root["actions"]?.jsonArray?.firstOrNull { 
-                        it.jsonObject["type"]?.jsonPrimitive?.content == "create_note" 
-                    }
-                    val t = action?.jsonObject?.get("parameters")?.jsonObject?.get("title")?.jsonPrimitive?.content ?: title
-                    val m = action?.jsonObject?.get("parameters")?.jsonObject?.get("content")?.jsonPrimitive?.content ?: llmResponse
-                    t to m
-                } catch (e2: Exception) {
-                    Log.e(TAG, "❌ All parsing failed, using raw response")
-                    title to llmResponse
-                }
+                Log.w(TAG, "⚠️ Failed to parse primary JSON, trying fallback...")
+                title to llmResponse
             }
 
             // 5. Save Note
@@ -149,14 +156,14 @@ class EncyclopediaWorker(
                     appendLine("![$finalTitle]($thumbnail)\n")
                 }
                 appendLine(finalMarkdown)
-                appendLine("\n---\n*Wiadomość wygenerowana automatycznie na podstawie danych z Wikipedia (EN) przez Agenta Encyklopedia.*")
+                appendLine(footerText as String)
             }
 
             val metadata = NoteMetadata(
                 conversationId = conversationId,
-                conversationTitle = "Encyklopedia: $finalTitle",
+                conversationTitle = "$convTitlePrefix$finalTitle",
                 timestamp = System.currentTimeMillis(),
-                tags = listOf("wiedza", "encyklopedia", "wikipedia")
+                tags = tags as List<String>
             )
             noteService.createNote(finalTitle, noteContent, metadata)
 

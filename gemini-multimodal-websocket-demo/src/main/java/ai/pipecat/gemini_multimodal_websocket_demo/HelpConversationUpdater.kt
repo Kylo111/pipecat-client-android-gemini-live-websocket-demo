@@ -22,6 +22,7 @@ class HelpConversationUpdater(
         private const val TAG = "HelpConvUpdater"
         private const val PREFS_NAME = "help_conversation_prefs"
         private const val KEY_HELP_VERSION = "help_conversation_version"
+        private const val KEY_HELP_LANGUAGE = "help_conversation_language"
         private const val HELP_CONVERSATION_ID = "system_help_conversation"
     }
     
@@ -45,24 +46,22 @@ class HelpConversationUpdater(
     suspend fun checkAndUpdateHelpConversation() {
         try {
             val helpConfig = configRepository.getHelpConversationConfig()
-            if (helpConfig == null) {
-                Log.w(TAG, "No Help conversation configuration found")
-                return
-            }
             
             val storedVersion = prefs.getInt(KEY_HELP_VERSION, 0)
+            val storedLanguage = prefs.getString(KEY_HELP_LANGUAGE, "")
             val configVersion = helpConfig.version
+            val currentLanguage = Preferences.appLanguage.value
             
-            Log.d(TAG, "Help conversation version check: stored=$storedVersion, config=$configVersion")
+            Log.d(TAG, "Help conversation check: storedV=$storedVersion, configV=$configVersion, storedL=$storedLanguage, currentL=$currentLanguage")
             
-            // Requirement 13.4: Skip update when versions match
-            if (configVersion <= storedVersion) {
-                Log.d(TAG, "Help conversation is up to date (version $storedVersion)")
+            // Requirement 13.4: Skip update when versions match AND language matches
+            if (configVersion <= storedVersion && currentLanguage == storedLanguage) {
+                Log.d(TAG, "Help conversation is up to date")
                 return
             }
             
-            // Requirement 13.1: Version detection - config version is higher
-            Log.i(TAG, "Help conversation update available: $storedVersion -> $configVersion")
+            // Requirement 13.1: Version or language change detected
+            Log.i(TAG, "Help conversation update necessary (v: $storedVersion->$configVersion, l: $storedLanguage->$currentLanguage)")
             
             // Get the Help conversation
             val helpConversation = OfflineConversationManager.getHelpConversation()
@@ -73,14 +72,15 @@ class HelpConversationUpdater(
             
             // Requirement 13.2: Automatic update without user confirmation
             val updatedConversation = helpConversation.copy(
-                systemPrompt = helpConfig.prompt
+                systemPrompt = helpConfig.getLocalizedPrompt(currentLanguage ?: "pl")
             )
             
             OfflineConversationManager.update(updatedConversation)
             
-            // Store the new version
+            // Store the new version and language
             prefs.edit()
                 .putInt(KEY_HELP_VERSION, configVersion)
+                .putString(KEY_HELP_LANGUAGE, currentLanguage)
                 .apply()
             
             Log.i(TAG, "✅ Help conversation updated to version $configVersion")

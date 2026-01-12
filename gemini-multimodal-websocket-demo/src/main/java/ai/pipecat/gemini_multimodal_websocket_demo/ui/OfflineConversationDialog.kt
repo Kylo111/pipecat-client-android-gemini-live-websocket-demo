@@ -27,7 +27,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.res.stringResource
+import ai.pipecat.gemini_multimodal_websocket_demo.R
 
 /**
  * Dialog for creating or editing offline conversation
@@ -95,7 +98,7 @@ fun OfflineConversationDialog(
             ) {
                 // Title
                 Text(
-                    text = if (isEditing) "Edytuj konwersację" else "Nowa konwersacja offline",
+                    text = if (isEditing) stringResource(R.string.conversation_title_edit) else stringResource(R.string.conversation_title_new),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.W700,
                     color = Color.Black,
@@ -106,7 +109,7 @@ fun OfflineConversationDialog(
 
                 // Conversation title input
                 Text(
-                    text = "Nazwa konwersacji",
+                    text = stringResource(R.string.conversation_name_label),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Gray,
@@ -121,7 +124,7 @@ fun OfflineConversationDialog(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { 
                         Text(
-                            "np. Nauka angielskiego",
+                            stringResource(R.string.conversation_name_placeholder),
                             style = TextStyles.base
                         ) 
                     },
@@ -139,7 +142,7 @@ fun OfflineConversationDialog(
 
                 // System prompt input
                 Text(
-                    text = "Prompt systemowy (opcjonalny)",
+                    text = stringResource(R.string.conversation_system_prompt_label),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Gray,
@@ -156,7 +159,7 @@ fun OfflineConversationDialog(
                         .height(120.dp),
                     placeholder = { 
                         Text(
-                            "Wpisz instrukcje dla asystenta...\nnp. Jesteś nauczycielem angielskiego.",
+                            stringResource(R.string.conversation_system_prompt_placeholder),
                             style = TextStyles.base
                         ) 
                     },
@@ -174,7 +177,7 @@ fun OfflineConversationDialog(
                 
                 // Voice selection dropdown
                 Text(
-                    text = "Głos",
+                    text = stringResource(R.string.conversation_voice_label),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -260,7 +263,7 @@ fun OfflineConversationDialog(
                 
                 // Model Settings button
                 Text(
-                    text = "Ustawienia Modelu",
+                    text = stringResource(R.string.conversation_model_settings_title),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -284,7 +287,7 @@ fun OfflineConversationDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "⚙️ Zaawansowane Ustawienia Modelu",
+                            text = stringResource(R.string.conversation_model_settings_button),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,
@@ -297,7 +300,7 @@ fun OfflineConversationDialog(
                 
                 // Tools Selection button
                 Text(
-                    text = "Dostępne Narzędzia",
+                    text = stringResource(R.string.conversation_tools_label),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -320,9 +323,9 @@ fun OfflineConversationDialog(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val toolCount = if (allowedTools == null) "Wszystkie" else "${allowedTools?.size}"
+                        val toolCount = if (allowedTools == null) stringResource(R.string.conversation_tools_all) else "${allowedTools?.size}"
                         Text(
-                            text = "🛠️ Wybierz Narzędzia ($toolCount)",
+                            text = stringResource(R.string.conversation_tools_button, toolCount),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,
@@ -349,7 +352,7 @@ fun OfflineConversationDialog(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                "Usuń",
+                                stringResource(R.string.conversation_delete_button),
                                 style = TextStyles.base,
                                 fontWeight = FontWeight.W600
                             )
@@ -366,7 +369,7 @@ fun OfflineConversationDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            "Anuluj",
+                            stringResource(R.string.common_cancel),
                             color = Color.Black,
                             style = TextStyles.base,
                             fontWeight = FontWeight.W600
@@ -419,7 +422,7 @@ fun OfflineConversationDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            "Zapisz",
+                            stringResource(R.string.common_save),
                             style = TextStyles.base,
                             fontWeight = FontWeight.W600
                         )
@@ -435,14 +438,14 @@ fun OfflineConversationDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = {
                 Text(
-                    "Usuń konwersację?",
+                    stringResource(R.string.conversation_delete_confirm_title),
                     style = TextStyles.base,
                     fontWeight = FontWeight.W700
                 )
             },
             text = {
                 Text(
-                    "Czy na pewno chcesz usunąć tę konwersację? Tej operacji nie można cofnąć.",
+                    stringResource(R.string.conversation_delete_confirm_msg),
                     style = TextStyles.base
                 )
             },
@@ -454,7 +457,7 @@ fun OfflineConversationDialog(
                     }
                 ) {
                     Text(
-                        "Usuń",
+                        stringResource(R.string.conversation_delete_button),
                         color = Color(0xFFFF5252),
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
@@ -464,7 +467,7 @@ fun OfflineConversationDialog(
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
                     Text(
-                        "Anuluj",
+                        stringResource(R.string.common_cancel),
                         style = TextStyles.base,
                         fontWeight = FontWeight.W600
                     )
@@ -561,7 +564,7 @@ fun ToolSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Wybierz dostępne narzędzia") },
+        title = { Text(stringResource(R.string.tool_selection_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -588,7 +591,7 @@ fun ToolSelectionDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Zaznacz wszystkie",
+                        stringResource(R.string.tool_selection_all),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -624,12 +627,12 @@ fun ToolSelectionDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = group.friendlyName,
+                                    text = stringResource(id = group.titleResId),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
                                 Text(
-                                    text = group.description,
+                                    text = stringResource(id = group.descResId),
                                     fontSize = 12.sp,
                                     color = Color.Gray,
                                     lineHeight = 14.sp
@@ -652,12 +655,12 @@ fun ToolSelectionDialog(
                     }
                 }
             ) {
-                Text("Zapisz")
+                Text(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Anuluj")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

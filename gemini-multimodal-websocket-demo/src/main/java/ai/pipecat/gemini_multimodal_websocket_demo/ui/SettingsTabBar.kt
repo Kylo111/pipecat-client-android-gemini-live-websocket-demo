@@ -3,6 +3,8 @@ package ai.pipecat.gemini_multimodal_websocket_demo.ui
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Colors
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.Shapes
 import ai.pipecat.gemini_multimodal_websocket_demo.ui.theme.TextStyles
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -116,7 +118,7 @@ private fun TabItem(
                 modifier = Modifier.padding(end = 4.dp)
             )
             Text(
-                text = tab.title,
+                text = stringResource(id = tab.titleResId),
                 color = textColor,
                 fontSize = 11.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,

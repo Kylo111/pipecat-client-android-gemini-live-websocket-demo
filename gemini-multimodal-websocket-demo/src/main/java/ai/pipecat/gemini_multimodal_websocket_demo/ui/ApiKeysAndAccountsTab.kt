@@ -11,6 +11,8 @@ import ai.pipecat.gemini_multimodal_websocket_demo.utils.ApiKeysImporter
 import ai.pipecat.gemini_multimodal_websocket_demo.utils.ApiKeysExporter
 import ai.pipecat.gemini_multimodal_websocket_demo.AzureSpeechService
 import ai.pipecat.gemini_multimodal_websocket_demo.audio.simple.AudioEngine
+import ai.pipecat.gemini_multimodal_websocket_demo.R
+import androidx.compose.ui.res.stringResource
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -150,9 +152,9 @@ fun ApiKeysAndAccountsTab(
                 config.azureTtsVoice?.let { voice -> onAzureTtsVoiceChange(voice) }
                 config.directLineSecret?.let { secret -> onDirectLineSecretChange(secret) }
                 
-                importResult = "✅ Zaimportowano klucze API pomyślnie!"
+                importResult = context.getString(R.string.api_keys_import_success)
             } else {
-                importResult = "❌ Błąd: ${result.exceptionOrNull()?.message}"
+                importResult = context.getString(R.string.api_keys_error, result.exceptionOrNull()?.message ?: "")
             }
             showImportDialog = true
         }
@@ -180,9 +182,9 @@ fun ApiKeysAndAccountsTab(
             
             val result = ApiKeysExporter.exportToUri(context, uri, config)
             if (result.isSuccess) {
-                exportResult = "✅ Wyeksportowano klucze API pomyślnie!"
+                exportResult = context.getString(R.string.api_keys_export_success)
             } else {
-                exportResult = "❌ Błąd: ${result.exceptionOrNull()?.message}"
+                exportResult = context.getString(R.string.api_keys_error, result.exceptionOrNull()?.message ?: "")
             }
             showExportDialog = true
         }
@@ -196,10 +198,10 @@ fun ApiKeysAndAccountsTab(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // API Keys Section
-        SettingsSection(title = "Klucze API") {
+        SettingsSection(title = stringResource(id = R.string.api_keys_section_title)) {
             // Gemini API Key
             SettingsTextField(
-                label = "Klucz API Gemini",
+                label = stringResource(id = R.string.api_keys_gemini_label),
                 value = geminiApiKey,
                 onValueChange = onGeminiApiKeyChange,
                 isPassword = true
@@ -209,7 +211,7 @@ fun ApiKeysAndAccountsTab(
 
             // Model Name
             SettingsTextField(
-                label = "Nazwa modelu",
+                label = stringResource(id = R.string.api_keys_model_label),
                 value = modelName,
                 onValueChange = onModelNameChange
             )
@@ -219,7 +221,7 @@ fun ApiKeysAndAccountsTab(
             // Perplexity API Key
             Column {
                 SettingsTextField(
-                    label = "Klucz API Perplexity (opcjonalny)",
+                    label = stringResource(id = R.string.api_keys_perplexity_label),
                     value = perplexityApiKey,
                     onValueChange = onPerplexityApiKeyChange,
                     isPassword = true
@@ -228,7 +230,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Perplexity Sonar API zapewnia wyszukiwanie w czasie rzeczywistym z automatycznymi cytowaniami. Zdobądź klucz na: https://www.perplexity.ai/settings/api",
+                    text = stringResource(id = R.string.api_keys_perplexity_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -242,7 +244,7 @@ fun ApiKeysAndAccountsTab(
             // OpenRouter API Key
             Column {
                 SettingsTextField(
-                    label = "Klucz API OpenRouter (opcjonalny)",
+                    label = stringResource(id = R.string.api_keys_openrouter_label),
                     value = openRouterApiKey,
                     onValueChange = onOpenRouterApiKeyChange,
                     isPassword = true
@@ -251,7 +253,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "OpenRouter API zapewnia dostęp do zaawansowanych modeli AI (Claude, GPT-4, etc.) dla Reasoning Agent. Zdobądź klucz na: https://openrouter.ai/keys",
+                    text = stringResource(id = R.string.api_keys_openrouter_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -265,7 +267,7 @@ fun ApiKeysAndAccountsTab(
             // Google Directions API Key
             Column {
                 SettingsTextField(
-                    label = "Klucz API Google Directions (opcjonalny)",
+                    label = stringResource(id = R.string.api_keys_google_directions_label),
                     value = googleDirectionsApiKey,
                     onValueChange = onGoogleDirectionsApiKeyChange,
                     isPassword = true
@@ -274,7 +276,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Google Directions API umożliwia wyszukiwanie tras transportu publicznego. Możesz użyć tego samego klucza co Google Places API. Zdobądź klucz na: https://console.cloud.google.com",
+                    text = stringResource(id = R.string.api_keys_google_directions_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -288,7 +290,7 @@ fun ApiKeysAndAccountsTab(
             // Picovoice Access Key
             Column {
                 SettingsTextField(
-                    label = "Klucz dostępu Picovoice (opcjonalny)",
+                    label = stringResource(id = R.string.api_keys_picovoice_label),
                     value = picovoiceAccessKey,
                     onValueChange = onPicovoiceAccessKeyChange,
                     isPassword = true
@@ -297,7 +299,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Uzyskaj darmowy klucz na console.picovoice.ai dla wykrywania komend głosowych",
+                    text = stringResource(id = R.string.api_keys_picovoice_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -311,7 +313,7 @@ fun ApiKeysAndAccountsTab(
             // Telegram Bot Token
             Column {
                 SettingsTextField(
-                    label = "Token bota Telegram (opcjonalny)",
+                    label = stringResource(id = R.string.api_keys_telegram_token_label),
                     value = telegramBotToken,
                     onValueChange = onTelegramBotTokenChange,
                     isPassword = true
@@ -320,7 +322,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Uzyskaj token od @BotFather na Telegramie. Przykład: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+                    text = stringResource(id = R.string.api_keys_telegram_token_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -334,7 +336,7 @@ fun ApiKeysAndAccountsTab(
             // Telegram Chat ID
             Column {
                 SettingsTextField(
-                    label = "ID czatu Telegram (opcjonalny)",
+                    label = stringResource(id = R.string.api_keys_telegram_chat_label),
                     value = telegramChatId,
                     onValueChange = onTelegramChatIdChange
                 )
@@ -342,7 +344,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Twój ID czatu Telegram. Możesz go uzyskać od @userinfobot. Przykład: 123456789",
+                    text = stringResource(id = R.string.api_keys_telegram_chat_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -356,7 +358,7 @@ fun ApiKeysAndAccountsTab(
             // Azure Speech Section
             Column {
                 Text(
-                    text = "Azure Speech (wymagane dla LibreChat Audio)",
+                    text = stringResource(id = R.string.api_keys_azure_section),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.Black,
@@ -366,7 +368,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 SettingsTextField(
-                    label = "Azure API Key",
+                    label = stringResource(id = R.string.api_keys_azure_key_label),
                     value = azureApiKey,
                     onValueChange = onAzureApiKeyChange,
                     isPassword = true
@@ -375,7 +377,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 SettingsTextField(
-                    label = "Azure Region (np. eastus)",
+                    label = stringResource(id = R.string.api_keys_azure_region_label),
                     value = azureRegion,
                     onValueChange = onAzureRegionChange
                 )
@@ -383,7 +385,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 SettingsTextField(
-                    label = "Azure TTS Voice (np. en-US-AvaMultilingualNeural)",
+                    label = stringResource(id = R.string.api_keys_azure_voice_label),
                     value = azureTtsVoice,
                     onValueChange = onAzureTtsVoiceChange
                 )
@@ -391,7 +393,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 SettingsTextField(
-                    label = "Azure Health Bot Secret (Direct Line API)",
+                    label = stringResource(id = R.string.api_keys_azure_bot_secret),
                     value = directLineSecret,
                     onValueChange = onDirectLineSecretChange,
                     isPassword = true
@@ -400,7 +402,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = "Klucz i region znajdziesz w Azure Portal (Speech Service). Głos musi obsługiwać wiele języków dla najlepszego efektu.",
+                    text = stringResource(id = R.string.api_keys_azure_desc),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -431,7 +433,7 @@ fun ApiKeysAndAccountsTab(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Importuj z JSON",
+                    text = stringResource(id = R.string.api_keys_import_json),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
@@ -454,7 +456,7 @@ fun ApiKeysAndAccountsTab(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Eksportuj do JSON",
+                    text = stringResource(id = R.string.api_keys_export_json),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W600,
                     color = Color.White,
@@ -468,7 +470,7 @@ fun ApiKeysAndAccountsTab(
             if (!isLoggedIn) {
                 // Login form for non-logged users
                 Text(
-                    text = "Zaloguj się do Kumpel-chat aby synchronizować konwersacje z serwerem",
+                    text = stringResource(id = R.string.login_kumpel_chat_desc),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -480,7 +482,7 @@ fun ApiKeysAndAccountsTab(
                 
                 // Server URL
                 SettingsTextField(
-                    label = "Adres serwera",
+                    label = stringResource(id = R.string.login_server_url),
                     value = serverUrl,
                     onValueChange = { serverUrl = it }
                 )
@@ -489,7 +491,7 @@ fun ApiKeysAndAccountsTab(
                 
                 // Email
                 SettingsTextField(
-                    label = "Email",
+                    label = stringResource(id = R.string.login_email),
                     value = email,
                     onValueChange = { email = it },
                     keyboardType = KeyboardType.Email
@@ -499,7 +501,7 @@ fun ApiKeysAndAccountsTab(
                 
                 // Password
                 SettingsTextField(
-                    label = "Hasło",
+                    label = stringResource(id = R.string.login_password),
                     value = password,
                     onValueChange = { password = it },
                     isPassword = true
@@ -560,7 +562,7 @@ fun ApiKeysAndAccountsTab(
                         )
                     } else {
                         Text(
-                            text = "Zaloguj",
+                            text = stringResource(id = R.string.login_button_text),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.W600,
                             color = Color.White,
@@ -595,7 +597,7 @@ fun ApiKeysAndAccountsTab(
                         .padding(12.dp)
                 ) {
                     Text(
-                        text = "ℹ️ Tryb offline",
+                        text = stringResource(id = R.string.login_offline_mode_title),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
@@ -605,7 +607,7 @@ fun ApiKeysAndAccountsTab(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "Możesz korzystać z aplikacji bez logowania. Wszystkie konwersacje będą przechowywane lokalnie na urządzeniu.",
+                        text = stringResource(id = R.string.login_offline_mode_desc),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.W400,
                         color = Color.DarkGray,
@@ -616,7 +618,7 @@ fun ApiKeysAndAccountsTab(
             } else {
                 // Logged in state info
                 Text(
-                    text = "✅ Zalogowano do Kumpel-chat",
+                    text = stringResource(id = R.string.login_success_info),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = Color(0xFF4CAF50),
@@ -626,7 +628,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "Transkrypcja rozmowy jest wysyłana bezpośrednio do LibreChat.",
+                    text = stringResource(id = R.string.login_transcript_info),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -652,7 +654,7 @@ fun ApiKeysAndAccountsTab(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Wyloguj z Kumpel-chat",
+                        text = stringResource(id = R.string.login_logout_button),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.W600,
                         color = Colors.buttonWarning,
@@ -663,7 +665,7 @@ fun ApiKeysAndAccountsTab(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Wylogowanie zachowa lokalne konwersacje offline",
+                    text = stringResource(id = R.string.login_logout_info),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.W400,
                     color = Color.Gray,
@@ -897,6 +899,7 @@ private fun AzureDiagnosticTool(
             if (apiKey.isBlank() || region.isBlank()) return null
             try {
                 // Temporarily update preferences for test
+                val lang = Preferences.appLanguage.value ?: "pl"
                 Preferences.azureApiKey.value = apiKey
                 Preferences.azureRegion.value = region
                 Preferences.azureTtsVoice.value = voice
@@ -935,7 +938,7 @@ private fun AzureDiagnosticTool(
             .padding(12.dp)
     ) {
         Text(
-            text = "Narzędzia diagnostyczne Azure",
+            text = stringResource(id = R.string.azure_diagnostics_title),
             fontSize = 13.sp,
             fontWeight = FontWeight.W700,
             style = TextStyles.base,
@@ -963,7 +966,7 @@ private fun AzureDiagnosticTool(
                             services.second.stopSTT()
                             isSttRunning = false
                         } else {
-                            transcript = "Słucham..."
+                            transcript = context.getString(R.string.connection_status_connecting) // Reuse "Connecting..." or similar? Or just plain "..."
                             services.first.startRecording()
                             services.second.startSTT()
                             isSttRunning = true
@@ -972,7 +975,7 @@ private fun AzureDiagnosticTool(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (isSttRunning) "Stop STT" else "Testuj STT (Mów)",
+                    text = if (isSttRunning) stringResource(id = R.string.azure_stt_stop_button) else stringResource(id = R.string.azure_stt_test_button),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.W600,
                     color = if (isSttRunning) Color.White else Color.Black,
@@ -991,7 +994,7 @@ private fun AzureDiagnosticTool(
                         scope.launch {
                             isSynthesizing = true
                             services.first.startPlayback()
-                            services.second.synthesize("To jest test syntezy mowy Azure. Jeśli to słyszysz, konfiguracja jest poprawna.")
+                            services.second.synthesize(context.getString(R.string.azure_tts_test_message))
                             kotlinx.coroutines.delay(3000)
                             isSynthesizing = false
                         }
@@ -1002,7 +1005,7 @@ private fun AzureDiagnosticTool(
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Colors.buttonNormal, strokeWidth = 2.dp)
                 } else {
                     Text(
-                        text = "Testuj TTS (Głos)",
+                        text = stringResource(id = R.string.azure_tts_test_button),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.W600,
                         color = Color.Black,
@@ -1015,7 +1018,7 @@ private fun AzureDiagnosticTool(
         if (transcript.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Wynik: $transcript",
+                text = stringResource(id = R.string.azure_test_result_label, transcript),
                 fontSize = 11.sp,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 color = Color.DarkGray,
@@ -1026,6 +1029,7 @@ private fun AzureDiagnosticTool(
     
     androidx.compose.runtime.DisposableEffect(Unit) {
         onDispose {
+            val lang = Preferences.appLanguage.value ?: "pl"
             testServices.value?.let { (engine, azure) ->
                 engine.stopRecording()
                 engine.stopPlayback()

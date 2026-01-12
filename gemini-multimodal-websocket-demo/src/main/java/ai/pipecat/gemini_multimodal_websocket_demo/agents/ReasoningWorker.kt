@@ -632,11 +632,20 @@ class ReasoningWorker(
         val result = perplexityClient.search(action.query, action.recencyFilter)
         
         // Format result with citations
+        val currentLanguage = Preferences.appLanguage.value
+        val sourcesLabel = when (currentLanguage) {
+            "pl" -> "Źródła:"
+            "de" -> "Quellen:"
+            "fr" -> "Sources :"
+            "es" -> "Fuentes:"
+            else -> "Sources:"
+        }
+        
         val formattedResult = buildString {
             appendLine(result.answer)
             if (result.citations.isNotEmpty()) {
                 appendLine()
-                appendLine("Sources:")
+                appendLine(sourcesLabel)
                 result.citations.forEachIndexed { index, citation ->
                     appendLine("${index + 1}. $citation")
                 }
@@ -736,29 +745,101 @@ class ReasoningWorker(
         conversationId: String,
         result: ReasoningTaskResult
     ) {
+        val currentLanguage = Preferences.appLanguage.value
         try {
             val formattedResult = buildString {
-                appendLine("=== REASONING AGENT RESULT ===")
-                appendLine()
-                appendLine("Summary: ${result.contextInjection.summary}")
-                appendLine()
-                
-                if (result.contextInjection.keyFacts.isNotEmpty()) {
-                    appendLine("Key Facts:")
-                    result.contextInjection.keyFacts.forEach { fact ->
-                        appendLine("- $fact")
+                when (currentLanguage) {
+                    "pl" -> {
+                        appendLine("=== WYNIK AGENTA REZONOWANIA ===")
+                        appendLine()
+                        appendLine("Podsumowanie: ${result.contextInjection.summary}")
+                        appendLine()
+                        if (result.contextInjection.keyFacts.isNotEmpty()) {
+                            appendLine("Kluczowe fakty:")
+                            result.contextInjection.keyFacts.forEach { appendLine("- $it") }
+                            appendLine()
+                        }
+                        if (result.contextInjection.sources.isNotEmpty()) {
+                            appendLine("Źródła: ${result.contextInjection.sources.joinToString(", ")}")
+                            appendLine()
+                        }
+                        appendLine("Pewność: ${result.contextInjection.confidence}")
+                        appendLine()
+                        appendLine("Użyj tych informacji naturalnie w swojej odpowiedzi.")
                     }
-                    appendLine()
+                    "de" -> {
+                        appendLine("=== ERGEBNIS DES REASONING AGENTS ===")
+                        appendLine()
+                        appendLine("Zusammenfassung: ${result.contextInjection.summary}")
+                        appendLine()
+                        if (result.contextInjection.keyFacts.isNotEmpty()) {
+                            appendLine("Wichtige Fakten:")
+                            result.contextInjection.keyFacts.forEach { appendLine("- $it") }
+                            appendLine()
+                        }
+                        if (result.contextInjection.sources.isNotEmpty()) {
+                            appendLine("Quellen: ${result.contextInjection.sources.joinToString(", ")}")
+                            appendLine()
+                        }
+                        appendLine("Konfidenz: ${result.contextInjection.confidence}")
+                        appendLine()
+                        appendLine("Nutzen Sie diese Informationen natürlich in Ihrer Antwort.")
+                    }
+                    "fr" -> {
+                        appendLine("=== RÉSULTAT DE L'AGENT DE RAISONNEMENT ===")
+                        appendLine()
+                        appendLine("Résumé : ${result.contextInjection.summary}")
+                        appendLine()
+                        if (result.contextInjection.keyFacts.isNotEmpty()) {
+                            appendLine("Faits clés :")
+                            result.contextInjection.keyFacts.forEach { appendLine("- $it") }
+                            appendLine()
+                        }
+                        if (result.contextInjection.sources.isNotEmpty()) {
+                            appendLine("Sources : ${result.contextInjection.sources.joinToString(", ")}")
+                            appendLine()
+                        }
+                        appendLine("Confiance : ${result.contextInjection.confidence}")
+                        appendLine()
+                        appendLine("Utilisez ces informations naturellement dans votre réponse.")
+                    }
+                    "es" -> {
+                        appendLine("=== RESULTADO DEL AGENTE DE RAZONAMIENTO ===")
+                        appendLine()
+                        appendLine("Resumen: ${result.contextInjection.summary}")
+                        appendLine()
+                        if (result.contextInjection.keyFacts.isNotEmpty()) {
+                            appendLine("Hechos clave:")
+                            result.contextInjection.keyFacts.forEach { appendLine("- $it") }
+                            appendLine()
+                        }
+                        if (result.contextInjection.sources.isNotEmpty()) {
+                            appendLine("Fuentes: ${result.contextInjection.sources.joinToString(", ")}")
+                            appendLine()
+                        }
+                        appendLine("Confianza: ${result.contextInjection.confidence}")
+                        appendLine()
+                        appendLine("Utiliza esta información de forma natural en tu respuesta.")
+                    }
+                    else -> {
+                        appendLine("=== REASONING AGENT RESULT ===")
+                        appendLine()
+                        appendLine("Summary: ${result.contextInjection.summary}")
+                        appendLine()
+                        if (result.contextInjection.keyFacts.isNotEmpty()) {
+                            appendLine("Key Facts:")
+                            result.contextInjection.keyFacts.forEach { fact -> appendLine("- $fact") }
+                            appendLine()
+                        }
+                        if (result.contextInjection.sources.isNotEmpty()) {
+                            appendLine("Sources: ${result.contextInjection.sources.joinToString(", ")}")
+                            appendLine()
+                        }
+                        appendLine("Confidence: ${result.contextInjection.confidence}")
+                        appendLine()
+                        appendLine("Use this information naturally in your response.")
+                    }
                 }
-                
-                if (result.contextInjection.sources.isNotEmpty()) {
-                    appendLine("Sources: ${result.contextInjection.sources.joinToString(", ")}")
-                    appendLine()
-                }
-                
-                appendLine("Confidence: ${result.contextInjection.confidence}")
-                appendLine()
-                appendLine("Use this information naturally in your response.")
             }
             
             conversationRepositoryForInjector.updatePendingInsight(conversationId, formattedResult)
@@ -1032,6 +1113,39 @@ class ReasoningWorker(
                 generatedBy = "Wygenerowane przez Reasoning Agent",
                 noResults = "Brak dostępnych wyników"
             )
+            "de" -> ReportStrings(
+                title = "Sitzungsbericht",
+                conversationLabel = "Konversation:",
+                generatedLabel = "Generiert am:",
+                contextHeader = "Konversationskontext",
+                topicsHeader = "Forschungsthemen",
+                summaryHeader = "Zusammenfassung",
+                summaryText = "Dieser Bericht wurde automatisch basierend auf der Konversationsanalyse erstellt. Er umfasst %d Thema/Themen, die als untersuchungswürdig eingestuft wurden.",
+                generatedBy = "Erstellt vom Reasoning Agent",
+                noResults = "Keine Ergebnisse verfügbar"
+            )
+            "fr" -> ReportStrings(
+                title = "Rapport de session",
+                conversationLabel = "Conversation :",
+                generatedLabel = "Généré le :",
+                contextHeader = "Contexte de la conversation",
+                topicsHeader = "Sujets de recherche",
+                summaryHeader = "Résumé",
+                summaryText = "Ce rapport a été généré automatiquement sur la base de l'analyse de la conversation. Il couvre %d sujet(s) identifié(s) comme nécessitant des recherches plus approfondies.",
+                generatedBy = "Généré par l'Agent de Raisonnement",
+                noResults = "Aucun résultat disponible"
+            )
+            "es" -> ReportStrings(
+                title = "Informe de sesión",
+                conversationLabel = "Conversación:",
+                generatedLabel = "Generado el:",
+                contextHeader = "Contexto de la conversación",
+                topicsHeader = "Temas de investigación",
+                summaryHeader = "Resumen",
+                summaryText = "Este informe se generó automáticamente a partir del análisis de la conversación. Cubre %d tema(s) que se identificaron como necesitados de una investigación más profunda.",
+                generatedBy = "Generado por el Agente de Razonamiento",
+                noResults = "No hay resultados disponibles"
+            )
             else -> ReportStrings(
                 title = "Post-Session Report",
                 conversationLabel = "Conversation:",
@@ -1134,7 +1248,14 @@ class ReasoningWorker(
                 tags = listOf("reasoning-agent", "report", "post-session")
             )
             
-            val reportTitle = if (language == "pl") "Raport z sesji" else "Post-Session Report"
+            val currentLanguage = Preferences.appLanguage.value
+            val reportTitle = when (currentLanguage) {
+                "pl" -> "Raport z sesji"
+                "de" -> "Sitzungsbericht"
+                "fr" -> "Rapport de session"
+                "es" -> "Informe de sesión"
+                else -> "Post-Session Report"
+            }
             
             val noteResult = noteService.createNote(
                 title = reportTitle,

@@ -36,9 +36,14 @@ data class NewsAnnouncement(
     val id: String,
     val active: Boolean,
     val title: String,
+    val titleEn: String? = null,
     val message: String,
+    val messageEn: String? = null,
     val color: String  // "info", "warning", "error"
-)
+) {
+    fun getLocalizedTitle(lang: String) = if (lang == "en" && titleEn != null) titleEn else title
+    fun getLocalizedMessage(lang: String) = if (lang == "en" && messageEn != null) messageEn else message
+}
 
 /**
  * Global application settings.
@@ -55,8 +60,11 @@ data class GlobalSettings(
 @Serializable
 data class HelpConversationConfig(
     val version: Int,
-    val prompt: String
-)
+    val prompt: String,
+    val promptEn: String? = null
+) {
+    fun getLocalizedPrompt(lang: String) = if (lang == "en" && promptEn != null) promptEn else prompt
+}
 
 /**
  * App update information (functionality not implemented in MVP).
