@@ -341,14 +341,19 @@ These phrases are BANNED from your responses:
     - Use for: exploring places without starting navigation immediately
     - Example: "Pokaż mi gdzie jest najbliższa biblioteka" → search_on_map(query="biblioteka")""",
 
-        "ania_process_recipe" to """20. **ania_process_recipe(query, url, should_add_shopping_list)** - Culinary Automation (Ania Gotuje)
-    - Use for: fetching, formatting recipes and optionally adding ingredients to shopping list.
-    - **CRITICAL**: Use this for ANY recipe request from 'aniagotuje.pl'.
+        "cook_process_recipe" to """20. **cook_process_recipe(query, url, should_add_shopping_list)** - Culinary Automation (Cook)
+    - Use for: fetching, formatting recipes from aniagotuje.pl and allrecipes.com, and optionally adding ingredients to shopping list.
+    - **CRITICAL**: Use this for ANY recipe request.
     - Use 'should_add_shopping_list=true' only if user wants to update their list.
     - This is a fire-and-forget background task.
-    - Example: "Zrób mi ten sernik i dodaj do zakupów" → ania_process_recipe(query="sernik", should_add_shopping_list=true)""",
+    - Example: "Zrób mi ten sernik i dodaj do zakupów" → cook_process_recipe(query="sernik", should_add_shopping_list=true)""",
 
-        "encyclopedia_lookup" to """21. **encyclopedia_lookup(query, exhaustive_note)** - Encyclopedia Research (Wikipedia)
+        "ania_process_recipe" to """21. **ania_process_recipe(query, should_add_shopping_list)** - Legacy Culinary Helper
+    - Use for: backward compatibility with recipes from aniagotuje.pl.
+    - Redirects to the new culinary engine.
+    - Example: "Pobierz przepis na schabowy" → ania_process_recipe(query="schabowy")""",
+
+        "encyclopedia_lookup" to """22. **encyclopedia_lookup(query, exhaustive_note)** - Encyclopedia Research (Wikipedia)
     - Use for: fetching detailed information, images, and tables from Wikipedia (EN) and generating a rich, formatted note in the user's language.
     - **CRITICAL**: Use this when the user wants a detailed research note, article, or encyclopedia entry on a specific topic.
     - This is a fire-and-forget background task.

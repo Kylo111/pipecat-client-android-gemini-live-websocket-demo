@@ -85,6 +85,9 @@ class CulinaryWorker(
             val image = recipeData["image"]?.jsonPrimitive?.content ?: ""
             val rawIngredients = recipeData["ingredients"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
             val rawInstructions = recipeData["instructions"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            
+            val ratingValue = recipeData["ratingValue"]?.jsonPrimitive?.content ?: ""
+            val ratingCount = recipeData["ratingCount"]?.jsonPrimitive?.content ?: ""
 
             // 3. Process EVERYTHING via LLM (Gemini 3 Flash)
             Log.i(TAG, "🧠 Processing recipe with Gemini (Intelligent Categorization & Formatting) (lang: ${Preferences.appLanguage.value})...")
@@ -98,16 +101,24 @@ class CulinaryWorker(
                 else -> "POLISH"
             }
             
-            val (ingredientsHeader, instructionsHeader, recipeLinkLabel, convTitlePrefix, tags) = when (currentLanguage) {
-                "en" -> listOf("Ingredients", "Preparation", "Recipe link:", "Recipe: ", listOf("culinary", "recipe", "cooking"))
-                "de" -> listOf("Zutaten", "Zubereitung", "Rezept-Link:", "Rezept: ", listOf("kulinarisch", "rezept", "kochen"))
-                "fr" -> listOf("Ingrédients", "Préparation", "Lien de la recette :", "Recette : ", listOf("culinaire", "recette", "cuisine"))
-                "es" -> listOf("Ingredientes", "Preparación", "Enlace de la receta:", "Receta: ", listOf("culinario", "receta", "cocina"))
-                else -> listOf("Składniki", "Przygotowanie", "Link do przepisu:", "Przepis: ", listOf("kulinaria", "przepis", "ania-gotuje"))
+            val (ingredientsHeader, instructionsHeader, recipeLinkLabel, convTitlePrefix, ratingLabel) = when (currentLanguage) {
+                "en" -> listOf("Ingredients", "Preparation", "Recipe link:", "Recipe: ", "Rating:")
+                "de" -> listOf("Zutaten", "Zubereitung", "Rezept-Link:", "Rezept: ", "Bewertung:")
+                "fr" -> listOf("Ingrédients", "Préparation", "Lien de la recette :", "Recette : ", "Note :")
+                "es" -> listOf("Ingredientes", "Preparación", "Enlace de la receta:", "Receta: ", "Calificación:")
+                else -> listOf("Składniki", "Przygotowanie", "Link do przepisu:", "Przepis: ", "Ocena:")
+            }
+            
+            val tags = when (currentLanguage) {
+                "en" -> listOf("culinary", "recipe", "cooking")
+                "de" -> listOf("kulinarisch", "rezept", "kochen")
+                "fr" -> listOf("culinaire", "recette", "cuisine")
+                "es" -> listOf("culinario", "receta", "cocina")
+                else -> listOf("kulinaria", "przepis", "kucharz")
             }
 
             val prompt = """
-                You are a professional kitchen assistant and editor. Process the raw recipe data into a structured JSON format.
+                You are a professional kitchen assistant and editor named "Cook". Process the raw recipe data into a structured JSON format.
                 
                 NAME: $rawName
                 INGREDIENTS (RAW): ${rawIngredients.joinToString(", ")}
@@ -117,8 +128,10 @@ class CulinaryWorker(
                 1. NAME: Clean the dish name (remove site names, redundant phrases). Translate to $langName.
                 2. INSTRUCTIONS: Format the instructions as a clear numbered list in $langName language.
                 3. INGREDIENTS: For each ingredient:
-                   - Extract and translate the clean product name to $langName (e.g., "wheat flour" instead of "2 cups of wheat flour").
-                   - Assign a category from the allowed list: 
+                   - TRANSLATED_FULL: Translate the entire line (with quantities/units) to $langName. 
+                     IMPORTANT: If the target language is NOT English, convert imperial units to metric (e.g., pounds to kg/grams, ounces to grams, cups/quarts/gallons to ml/liters) where appropriate.
+                   - CLEAN_NAME: Extract and translate only the clean product name to $langName (for shopping list).
+                   - CATEGORY: Assign a category from the allowed list: 
                      [FRUIT_VEG, BREAD, DAIRY, MEAT, FISH, DRY_GOODS, PRESERVES, NIGHTSHADE, DRINKS, SWEETS, FROZEN, HOUSEHOLD, OTHER]
                 
                 RETURN ONLY CLEAN JSON:
@@ -126,7 +139,7 @@ class CulinaryWorker(
                   "name": "dish name in $langName",
                   "instructions": "1. First step...\n2. Second step...",
                   "ingredients": [
-                    { "name": "mleko", "category": "DAIRY" }
+                    { "translated_full": "2 szklanki mleka", "clean_name": "mleko", "category": "DAIRY" }
                   ]
                 }
             """.trimIndent()
@@ -154,11 +167,18 @@ class CulinaryWorker(
             
             val name = processed["name"]?.jsonPrimitive?.content ?: rawName
             val formattedInstructions = processed["instructions"]?.jsonPrimitive?.content ?: ""
+            
+            // Full translated lines for the note
+            val translatedIngredientsList = processed["ingredients"]?.jsonArray?.map { 
+                it.jsonObject["translated_full"]?.jsonPrimitive?.content ?: ""
+            } ?: emptyList()
+
+            // Clean names and categories for the shopping list
             val categorizedIngredients = processed["ingredients"]?.jsonArray?.map { 
                 val obj = it.jsonObject
-                val ingName = obj["name"]?.jsonPrimitive?.content ?: ""
+                val cleanName = obj["clean_name"]?.jsonPrimitive?.content ?: ""
                 val catStr = obj["category"]?.jsonPrimitive?.content ?: "OTHER"
-                ingName to ProductCategory.fromString(catStr)
+                cleanName to ProductCategory.fromString(catStr)
             } ?: emptyList()
 
             // 4. Save Note
@@ -167,9 +187,24 @@ class CulinaryWorker(
                 if (image.isNotEmpty()) {
                     appendLine("![Danie]($image)\n")
                 }
+                
+                if (ratingValue.isNotEmpty()) {
+                    val ratingStars = try {
+                        val score = ratingValue.toFloat()
+                        "⭐".repeat(score.toInt().coerceIn(0, 5)) + if (score % 1 >= 0.5) "½" else ""
+                    } catch (e: Exception) { "" }
+                    
+                    val countInfo = if (ratingCount.isNotEmpty()) " ($ratingValue/5 z $ratingCount opinii)" else " ($ratingValue/5)"
+                    appendLine("**$ratingLabel** $ratingStars$countInfo\n")
+                }
+
                 appendLine("**$recipeLinkLabel** [$resolvedUrl]($resolvedUrl)\n")
                 appendLine("## $ingredientsHeader")
-                rawIngredients.forEach { appendLine("- $it") }
+                if (translatedIngredientsList.isNotEmpty()) {
+                    translatedIngredientsList.forEach { if (it.isNotBlank()) appendLine("- $it") }
+                } else {
+                    rawIngredients.forEach { appendLine("- $it") }
+                }
                 appendLine("\n## $instructionsHeader")
                 appendLine(formattedInstructions)
             }
@@ -232,17 +267,25 @@ class CulinaryWorker(
             connection.setRequestProperty("Content-Type", "application/json")
             connection.doOutput = true
             
+            // Search both sites
             val jsonBody = buildJsonObject {
-                put("q", "site:aniagotuje.pl $query")
-                put("num", 3)
+                put("q", "(site:aniagotuje.pl OR site:allrecipes.com) $query")
+                put("num", 5)
             }.toString()
             
             connection.outputStream.use { it.write(jsonBody.toByteArray()) }
             
             if (connection.responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val regex = Regex("https://aniagotuje\\.pl/przepis/[a-zA-Z0-9-]+")
-                regex.find(response)?.value
+                
+                // Try to find aniagotuje.pl first (preferred for PL) or allrecipes.com
+                val aniaRegex = Regex("https://aniagotuje\\.pl/przepis/[a-zA-Z0-9-]+")
+                val allRecipesRegex = Regex("https://www\\.allrecipes\\.com/recipe/[0-9]+/[a-zA-Z0-9-]+/?")
+                
+                val aniaMatch = aniaRegex.find(response)?.value
+                if (aniaMatch != null) return aniaMatch
+                
+                allRecipesRegex.find(response)?.value
             } else {
                 null
             }

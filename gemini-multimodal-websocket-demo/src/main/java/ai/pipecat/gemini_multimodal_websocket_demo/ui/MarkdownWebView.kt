@@ -189,7 +189,8 @@ fun MarkdownWebView(
                             val isAllowedDomain = host == "aniagotuje.pl" || host.endsWith(".aniagotuje.pl") || 
                                                  host == "aniagotuje.com" || host.endsWith(".aniagotuje.com") ||
                                                  host == "wikimedia.org" || host.endsWith(".wikimedia.org") ||
-                                                 host == "wikipedia.org" || host.endsWith(".wikipedia.org")
+                                                 host == "wikipedia.org" || host.endsWith(".wikipedia.org") ||
+                                                 host == "allrecipes.com" || host.endsWith(".allrecipes.com")
                             
                             if (isSafeImage && isAllowedDomain) {
                                 Log.d(TAG, "🟢 Allowed network request: $url")

@@ -353,8 +353,9 @@
     <string name="tool_desc_find_transit_route">17. **find_transit_route(origin, destination, arrival_time, departure_time)**\n    - Używaj do: tras komunikacji miejskiej\n    - Przykład: \"Jak dojadę autobusem do centrum?\" → find_transit_route(origin=\"current\", destination=\"Centrum\")</string>
     <string name="tool_desc_symptom_checker">18. **symptom_checker(userTextEn, conversationId, watermark)** - Specjalistyczny Triage Medyczny\n    - Używaj do: sprawdzania symptomów, porad medycznych (Azure Health Bot).\n    - **WAŻNE**: MUSISZ przetłumaczyć całe zapytanie użytkownika na angielski PRZED wywołaniem tego narzędzia. Parametr `userTextEn` MUSI być po angielsku.\n    - Przykład: \"Mam temperaturę i kaszel\" → symptom_checker(userTextEn=\"I have a fever and a cough\")</string>
     <string name="tool_desc_search_on_map">19. **search_on_map(query)** / **show_on_map(location)**\n    - Używaj do: przeglądania miejsc na mapie bez uruchamiania nawigacji\n    - Przykład: \"Pokaż mi gdzie jest najbliższa biblioteka\" → search_on_map(query=\"biblioteka\")</string>
-    <string name="tool_desc_ania_process_recipe">20. **ania_process_recipe(query, url, should_add_shopping_list)** - Automatyzacja Kulinarna (Ania Gotuje)\n    - Używaj do: pobierania i formatowania przepisów z aniagotuje.pl.\n    - Przykład: \"Zrób mi ten sernik i dodaj do zakupów\" → ania_process_recipe(query=\"sernik\", should_add_shopping_list=true)</string>
-    <string name="tool_desc_encyclopedia_lookup">21. **encyclopedia_lookup(query, exhaustive_note)** - Badania Encyklopedyczne (Wikipedia)\n    - Używaj do: pobierania szczegółowych informacji z Wikipedii i tworzenia sformatowanych notatek w języku użytkownika.\n    - Przykład: \"Zrób mi o tym notatkę encyklopedyczną\" → encyclopedia_lookup(query=\"Mikołaj Kopernik\", exhaustive_note=true)</string>
+    <string name="tool_desc_cook_process_recipe">20. **cook_process_recipe(query, url, should_add_shopping_list)** - Automatyzacja Kulinarna (Cook)\n    - Używaj do: pobierania i formatowania przepisów z aniagotuje.pl oraz allrecipes.com.\n    - Przykład: \"Zrób mi ten sernik i dodaj do zakupów\" → cook_process_recipe(query=\"sernik\", should_add_shopping_list=true)</string>
+    <string name="tool_desc_ania_process_recipe">21. **ania_process_recipe(query, should_add_shopping_list)** - Pobieranie przepisów z aniagotuje.pl\n    - Używaj do: pobierania przepisów tylko z serwisu aniagotuje.pl.\n    - Przykład: \"Pobierz przepis na schabowy\" → ania_process_recipe(query=\"schabowy\", should_add_shopping_list=true)</string>
+    <string name="tool_desc_encyclopedia_lookup">22. **encyclopedia_lookup(query, exhaustive_note)** - Badania Encyklopedyczne (Wikipedia)\n    - Używaj do: pobierania szczegółowych informacji z Wikipedii i tworzenia sformatowanych notatek w języku użytkownika.\n    - Przykład: \"Zrób mi o tym notatkę encyklopedyczną\" → encyclopedia_lookup(query=\"Mikołaj Kopernik\", exhaustive_note=true)</string>
     <!-- Azure Diagnostics -->
     <string name="azure_diagnostics_title">Narzędzia diagnostyczne Azure</string>
     <string name="azure_stt_test_button">Testuj STT (Mów)</string>
@@ -426,6 +427,7 @@
     <string name="pin_change_error_invalid_new">PIN musi składać się z 4 cyfr</string>
     <string name="pin_change_error_match">PINy nie pasują</string>
     <string name="pin_change_success_msg">PIN został pomyślnie zmieniony</string>
+
 
     <!-- Offline Conversation Dialog -->
     <string name="conversation_title_edit">Edytuj konwersację</string>
@@ -558,4 +560,42 @@
     <string name="tool_group_sms_desc">Wysyłanie wiadomości tekstowych</string>
     <string name="tool_group_health_title">Sprawdzanie Objawów</string>
     <string name="tool_group_health_desc">Azure Health Bot</string>
+    <string name="tool_group_culinary_title">Kulinaria</string>
+    <string name="tool_group_culinary_desc">Przepisy i lista zakupów (AniaGotuje / Allrecipes)</string>
+    <string name="settings_section_general">Ogólne</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_api">Konfiguracja API</string>
+    <string name="settings_section_debug">Debugowanie</string>
+    <string name="settings_section_danger">Strefa niebezpieczna</string>
+    <string name="settings_language_label">Język aplikacji</string>
+    <string name="settings_voice_label">Głos Gemini</string>
+    <string name="settings_model_label">Model Gemini</string>
+    <string name="settings_theme_system">Systemowy</string>
+    <string name="settings_theme_light">Jasny</string>
+    <string name="settings_theme_dark">Ciemny</string>
+    <string name="settings_server_url">URL serwera</string>
+    <string name="settings_save_button">Zapisz</string>
+    <string name="settings_show_debug_info">Pokaż informacje debugowania</string>
+    <string name="settings_tab_system">System</string>
+    <string name="settings_integ_telegram_label">Token Bot Telegram</string>
+    <string name="settings_integ_telegram_placeholder">Token od @BotFather</string>
+    <string name="settings_integ_telegram_chatid_label">Telegram Chat ID</string>
+    <string name="settings_integ_telegram_chatid_placeholder">Twój Chat ID</string>
+    <string name="settings_integ_telegram_test_btn">Testuj połączenie</string>
+    <string name="settings_integ_telegram_test_success">Wysłano wiadomość testową!</string>
+    <string name="settings_integ_telegram_test_error">Błąd: %1$s</string>
+    <string name="settings_integ_azure_label">Token Azure Health Bot</string>
+    <string name="settings_integ_azure_placeholder">Azure Key</string>
+    <string name="settings_integ_azure_desc">Wymagane dla Symptom Checker</string>
+    <string name="settings_integ_assistant_label">Asystent systemowy</string>
+    <string name="settings_integ_assistant_desc">Ustaw aplikację jako domyślnego asystenta</string>
+    <string name="settings_integ_assistant_none">Nie wybrano</string>
+    <string name="settings_pin_title">Podaj PIN</string>
+    <string name="settings_pin_info">Domyślny PIN: 2222</string>
+    <string name="settings_pin_error">Niepoprawny PIN</string>
+    <string name="speech_placeholder">Słucham...</string>
+    <string name="thread_list_title">Twoje rozmowy</string>
+    <string name="thread_list_empty">Brak rozmów</string>
+    <string name="thread_list_new_chat">Nowa rozmowa</string>
+    <string name="thread_list_logout">Wyloguj</string>
 </resources>

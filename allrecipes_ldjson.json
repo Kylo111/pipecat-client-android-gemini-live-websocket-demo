@@ -1,0 +1,450 @@
+[
+  {
+    "@context": "http://schema.org",
+    "@type": [
+      "Recipe",
+      "NewsArticle"
+    ],
+    "headline": "Good Old-Fashioned Pancakes",
+    "datePublished": "2000-08-01T17:53:33.000-04:00",
+    "dateModified": "2025-08-14T13:36:25.459-04:00",
+    "author": [
+      {
+        "@type": "Person",
+        "name": "dakota kelly"
+      }
+    ],
+    "description": "This easy pancake recipe makes delicious, fluffy homemade pancakes from scratch with basic ingredients you probably already have in your pantry!",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://www.allrecipes.com/thmb/ywrODZNVX6SDdyA3XqkgeqBF1M4=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/21014-good-old-fashioned-pancakes-VAT-004-4x3-02-d6ce3b61def840fcaf40a43f805b733e.jpg",
+      "height": 1125,
+      "width": 1500
+    },
+    "video": {
+      "@type": "VideoObject",
+      "contentUrl": "https://cdn.jwplayer.com/videos/ToSSwbsI-ma1DlVvV.mp4",
+      "description": "See how to make good old-fashioned pancakes. In the video, you\u2019ll see what your pancakes should look like when they\u2019re ready to flip!",
+      "duration": "PT2M7S",
+      "name": "Good Old Fashioned Pancakes",
+      "thumbnailUrl": "https://cdn.jwplayer.com/v2/media/ToSSwbsI/thumbnails/cIylueIz.jpg?width=1280",
+      "uploadDate": "2021-03-06T15:38:23.474-05:00"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Allrecipes",
+      "url": "https://www.allrecipes.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.allrecipes.com/thmb/Z9lwz1y0B5aX-cemPiTgpn5YB0k=/112x112/filters:no_upscale():max_bytes(150000):strip_icc()/allrecipes_logo_schema-867c69d2999b439a9eba923a445ccfe3.png",
+        "width": 112,
+        "height": 112
+      },
+      "brand": "Allrecipes",
+      "publishingPrinciples": "https://www.allrecipes.com/about-us-6648102#toc-editorial-guidelines",
+      "sameAs": [
+        "https://www.facebook.com/allrecipes",
+        "https://www.instagram.com/allrecipes/",
+        "https://www.pinterest.com/allrecipes/",
+        "https://www.tiktok.com/@allrecipes",
+        "https://www.youtube.com/user/allrecipes/videos",
+        "https://flipboard.com/@Allrecipes",
+        "https://en.wikipedia.org/wiki/Allrecipes.com",
+        "http://linkedin.com/company/allrecipes.com"
+      ]
+    },
+    "name": "Good Old-Fashioned Pancakes",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.6",
+      "ratingCount": "20012"
+    },
+    "cookTime": "PT15M",
+    "nutrition": {
+      "@type": "NutritionInformation",
+      "calories": "158 kcal",
+      "carbohydrateContent": "22 g",
+      "cholesterolContent": "38 mg",
+      "fiberContent": "1 g",
+      "proteinContent": "5 g",
+      "saturatedFatContent": "3 g",
+      "sodiumContent": "504 mg",
+      "sugarContent": "4 g",
+      "fatContent": "6 g",
+      "unsaturatedFatContent": "0 g"
+    },
+    "prepTime": "PT5M",
+    "recipeCategory": [
+      "Breakfast"
+    ],
+    "recipeCuisine": [
+      "American"
+    ],
+    "recipeIngredient": [
+      "1.5 cups all-purpose flour",
+      "3.5 teaspoons baking powder",
+      "1 tablespoon white sugar",
+      "0.25 teaspoon salt, or more to taste",
+      "1.25 cups milk",
+      "3 tablespoons butter, melted",
+      "1 egg"
+    ],
+    "recipeInstructions": [
+      {
+        "@type": "HowToStep",
+        "image": [
+          {
+            "@type": "ImageObject",
+            "url": "https://www.allrecipes.com/thmb/IeQxUZWp8LNovpf1QBjVAyGTmCU=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/21014-good-old-fashioned-pancakes-VAT-006-step-01-bcdc01eae3054391a8fc12fb231a7226.jpg"
+          }
+        ],
+        "text": "Gather all ingredients."
+      },
+      {
+        "@type": "HowToStep",
+        "image": [
+          {
+            "@type": "ImageObject",
+            "url": "https://www.allrecipes.com/thmb/fQn7oqrkg-2-5NLVPfBKJ2EPXag=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/21014-good-old-fashioned-pancakes-VAT-007-step-02-01-903b507442f34e51b54346c5f08f950b.jpg"
+          }
+        ],
+        "text": "Sift flour, baking powder, sugar, and salt together in a large bowl. Make a well in the center and add milk, melted butter, and egg; mix until smooth."
+      },
+      {
+        "@type": "HowToStep",
+        "image": [
+          {
+            "@type": "ImageObject",
+            "url": "https://www.allrecipes.com/thmb/Qh5kv7qvxK3FROmv69G-f6baiA8=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/21014-good-old-fashioned-pancakes-VAT-008-step-03-2bd38c6cadd142849ed8635bea029dbd.jpg"
+          }
+        ],
+        "text": "Heat a lightly oiled griddle or pan over medium-high heat. Pour or scoop the batter onto the griddle, using approximately 1/4 cup for each pancake; cook until bubbles form and the edges are dry, about 2 to 3 minutes."
+      },
+      {
+        "@type": "HowToStep",
+        "image": [
+          {
+            "@type": "ImageObject",
+            "url": "https://www.allrecipes.com/thmb/oPWZUPTP39_Q4ETTnMzzlxZeL9w=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/21014-good-old-fashioned-pancakes-VAT-009-step-04-9d5a399cb2e34900a9a789eb6f0831ea.jpg"
+          }
+        ],
+        "text": "Flip and cook until browned on the other side. Repeat with remaining batter."
+      },
+      {
+        "@type": "HowToStep",
+        "image": [
+          {
+            "@type": "ImageObject",
+            "url": "https://www.allrecipes.com/thmb/ywrODZNVX6SDdyA3XqkgeqBF1M4=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/21014-good-old-fashioned-pancakes-VAT-004-4x3-02-d6ce3b61def840fcaf40a43f805b733e.jpg"
+          }
+        ],
+        "text": "Serve and enjoy!"
+      }
+    ],
+    "recipeYield": "8",
+    "totalTime": "PT20M",
+    "review": [
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "TEVANS211"
+        },
+        "reviewBody": "It kills me how people go in and mutilate a perfectly good recipe. Then you have bad reviews and more mutilations. I read these reviews and decided I'd make the recipe just as it calls and I recommend not changing a thing (except maybe adding 1/2 tsp of vanilla to your egg mixture). I DO recommend sifting the flour, twice. That makes for a fluffier pancake. Let your egg and milk set at room tempurature and use unsalted butter. Beat your egg, add the melted butter and beat lightly until blended, then lightly beat in your milk (careful not to overbeat your egg). Add to your dry mixture. Your result is a fluffy, delicious, good old fashion pancake. This is one is a keeper!"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "chefgodzilla"
+        },
+        "reviewBody": "As a chef it is interesting how many times friends will ask why something turns out tasting the way it does. I ask them if they tasted their ingredients...the answer being, no. With regards to the \"saltiness\" of these delicious pancakes, it is the baking powder. Go ahead, put a little in your mouth. To some, this will be VERY salty.\nAfterall, there is 3 1/2 teaspoons of baking powder in the recipe PLUS the teaspoon of salt. So, I recommend that for those that noted them to be to salty, leave out the teaspoon of salt.\nRemember, baking is chemistry, so do not mess with the baking powder as you will change the outcome of the rising properties of these pancakes. If they still seem to be too salty, try some zest of a lemon peel.",
+        "datePublished": "2008-11-08T12:44:36.603Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "sakuraiiko"
+        },
+        "reviewBody": "great pancakes! i don't know why more people don't make from scratch, they were so easy to make and tasted so much better! did add a bit of water as it was pretty thick, but after about 1/4 c it was perfect.",
+        "datePublished": "2005-09-11T09:03:25.577Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "naples34102"
+        },
+        "reviewBody": "Other than forgetting to add the salt, which neither I nor hubby missed anyway, we found these delicious. These were light, fluffy, tender, thick and perfectly rounded pancakes. Quick and easy to mix up too! I've made other pancake recipes with more steps (like separating the egg yolks from the whites, beating the whites separately before folding into the batter) and didn't find these any less delicious. Also, I had really wanted to make buttermilk pancakes, but since I didn't have any I \"settled\" for these and didn't find the buttermilk pancakes necesssarily any better either. With quick and delicious recipes like this, there's no reason not to have fresh, homemade pancakes more often!",
+        "datePublished": "2009-01-04T09:10:53.213Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "PORUSGIRL"
+        },
+        "reviewBody": "Wow, these were absolutely fantastic. I read many reviews before I made these so I made some changes to the recipe based on all the reviews......I doubled the recipe and made the following changes. I used 4-teaspoons baking powder, 1-teaspoon cinnamon, 1/2-teaspoon nutmeg, 1-tablespoon vanilla, 1/2-teaspoon salt, 3-cups milk, 3 eggs lightly beaten and 1-stick butter......I melted the butter then added the milk to the butter and heated it (just heat, do not boil). So I had 3 bowls - 1 with the dry ingredients all sifted together, 1 with the warm liquids and 1 with the eggs lightly beaten. I then added the liquids to the dry ingredients and mixed a bit then added the eggs to the mixture. Mixed with a wire wisk until it was well blended together. I let it sit on the counter for 10-minutes before cooking. Served with bacon and eggs. This was made for 4-people and none was left. The kids told me these are best pancakes they have ever had and to never use bisquick again. Thank you so much for the fine recipe. Its a keeper.",
+        "datePublished": "2007-08-31T04:27:37.013Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "1"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Allrecipes Member"
+        },
+        "reviewBody": "Judging by the other comments, it seems we may have done something wrong because we couldn't even bring ourselves to eat these. The aftertaste was horrible. Too much baking powder?",
+        "datePublished": "2001-08-12T09:30:55.560Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "DREGINEK"
+        },
+        "reviewBody": "I used 1/4 tsp less salt and added 1 tsp vanilla. Loved these pancakes. My boyfriend said that they're better than any box brand and that they had the taste of \"sugar cookie dough.\" Goodbye Bisquick, I'm keeping this easy and great breakfast recipe! Thanks Verona!",
+        "datePublished": "2002-12-07T08:09:38.090Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "4"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Stepford Wife"
+        },
+        "reviewBody": "I don't understand why people make variations to a recipe and then give it a poor rating after they've ruined it. It is unfair to the poster.\n\nI followed the recipe EXACTLY and in my opinion the pancakes were good. The batter did have a strong taste of baking powder but after the pancakes are cooked they taste fine, the baking powder flavor is diminished. The pancakes for me were a bit too heavy which is why I deducted a star but they were very good overall (the recipe called for the batter to be mixed until smooth which is what I did, but leaving lumps in batter actually makes pancakes fluffier when cooked). My husband says \"They were good baby, they weren't like ohhhh excellent, but they were good.\" Next time I will make variations such as using buttermilk, less baking powder, more sugar, adding vanilla, not overmixing; but I thought is was only fair to rate the recipe as it was given.",
+        "datePublished": "2007-12-10T09:46:34.613Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "TRINITY7"
+        },
+        "reviewBody": "I made this as written with just adding some vanilla to the egg mixture. I mixed these as I do my other pancakes/waffles, I sifted the dry ingredients and let the eggs and milk come to room temp. When I combined the eggs and butter I emulsified them with a whisk then added the milk and vanilla. Once the dry and wet are combined I mix them lightly with a spatula (kind of folding them together) once they are somewhat combined I let them rest for a couple minutes and then give a quick mix. The key is not over mixing the batter, get it combined (with lumps) let it rest and then a quick blend, this results in a light airy pancakes that melts in your mouth. These are great!!",
+        "datePublished": "2011-08-13T06:53:31.963Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "TastyBay6234"
+        },
+        "reviewBody": "Buttery, fluffy pancakes. Will be using this one again! I made them in the blender, adding the wet ingredients first and added some vanilla. Blitzed for about 10 seconds until it was all mixed in and let it sit for 5 minutes before cooking. They were absolutely perfect and got the stamp of approval from my partner who only likes the boxed stuff",
+        "datePublished": "2024-01-02T19:58:46.383Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Reallife IsReal"
+        },
+        "reviewBody": "I am a stay at home Dad and I found an easy trick if you have multiple children for this recipe and not enough time to make flap jacks while you have screaming lil one's running around your feet..Just make 2x the recipe and pour batter into a 9x13 tray (preferably glass) and throw it in the oven at 375 degrees for about 30-45min give or take..You can cut it into squares and it's super filling. My children love this recipe made this way and also you can add some fruit in the batter if you like.",
+        "datePublished": "2017-11-04T12:53:30.823Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Natia"
+        },
+        "reviewBody": "I added some vanilla flavor \ud83d\ude18",
+        "datePublished": "2026-01-13T10:06:48.432Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Renata"
+        },
+        "reviewBody": "Fluffy and tasty \ud83d\ude0b thank you! I added vanilla and a little more sugar, nice lumberjack pancakes \ud83e\udd5e",
+        "datePublished": "2026-01-11T19:26:22.617Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Amanda"
+        },
+        "reviewBody": "This recipe is fantastic!!! Super simple and my family was under the impression that I was sweating away in the kitchen making them \ud83d\ude0f. Hehehe",
+        "datePublished": "2026-01-11T17:47:01.709Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Ron"
+        },
+        "reviewBody": "Great recipe. My go to for pancakes!",
+        "datePublished": "2026-01-11T16:54:57.410Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Sarah"
+        },
+        "reviewBody": "I added some cinnamon and vanilla, and they turned out wonderful. Tasty and fluffy.",
+        "datePublished": "2026-01-11T14:54:34.418Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Nikki H"
+        },
+        "reviewBody": "Great flavour, Imy family love them, I thoroughly recommend them.",
+        "datePublished": "2026-01-06T17:58:16.545Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Kendrick"
+        },
+        "reviewBody": "Excellent recipe",
+        "datePublished": "2026-01-05T02:55:06.523Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Jim Weber"
+        },
+        "reviewBody": "I was a box pancake Dad for a long time. Not anymore. Everyone loves this recipe. I like to add vanilla &amp; cinnamon for a little extra flavor. Never will we eat box pancakes again",
+        "datePublished": "2026-01-04T15:48:26.606Z"
+      },
+      {
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "StrongSalad3301"
+        },
+        "reviewBody": "Delicious, perfect. I read someone added vanilla and I will try that next time!",
+        "datePublished": "2026-01-03T19:11:39.357Z"
+      }
+    ],
+    "mainEntityOfPage": {
+      "@type": [
+        "WebPage"
+      ],
+      "@id": "https://www.allrecipes.com/recipe/21014/good-old-fashioned-pancakes/",
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "item": {
+              "@id": "https://www.allrecipes.com/recipes/",
+              "name": "Recipes"
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "item": {
+              "@id": "https://www.allrecipes.com/recipes/78/breakfast-and-brunch/",
+              "name": "Breakfast and Brunch"
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "item": {
+              "@id": "https://www.allrecipes.com/recipes/151/breakfast-and-brunch/pancakes/",
+              "name": "Pancake Recipes"
+            }
+          }
+        ]
+      },
+      "reviewedBy": [
+        {
+          "@type": "Person",
+          "name": "Allrecipes Test Kitchen",
+          "url": "https://www.allrecipes.com/allrecipes-test-kitchen-7553892"
+        }
+      ]
+    }
+  }
+]

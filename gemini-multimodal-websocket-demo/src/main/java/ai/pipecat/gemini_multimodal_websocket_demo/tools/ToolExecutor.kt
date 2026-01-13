@@ -99,7 +99,8 @@ class ToolExecutor(private val context: Context) {
                 "start_navigation" -> startNavigation(parameters)
                 "copy_to_clipboard" -> copyToClipboard(parameters)
                 "start_reasoning_task" -> startReasoningTask(parameters)
-                "ania_process_recipe" -> aniaProcessRecipe(parameters)
+                "cook_process_recipe" -> cookProcessRecipe(parameters)
+                "ania_process_recipe" -> cookProcessRecipe(parameters)
                 "encyclopedia_lookup" -> encyclopediaLookup(parameters)
                 "search_contacts" -> searchContacts(parameters)
                 "send_sms" -> sendSms(parameters)
@@ -2572,7 +2573,7 @@ class ToolExecutor(private val context: Context) {
         
         return results
     }
-    private suspend fun aniaProcessRecipe(parameters: JsonObject): String = withContext(Dispatchers.Main) {
+    private suspend fun cookProcessRecipe(parameters: JsonObject): String = withContext(Dispatchers.Main) {
         val query = parameters["query"]?.jsonPrimitive?.content ?: ""
         val url = parameters["url"]?.jsonPrimitive?.content
         val shouldAddShoppingList = parameters["should_add_shopping_list"]?.jsonPrimitive?.booleanOrNull ?: true
@@ -2599,7 +2600,7 @@ class ToolExecutor(private val context: Context) {
                 
             workManager.enqueue(workRequest)
             
-            "Success. Background recipe processing task has been started."
+            "Success. Background culinary task started."
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to enqueue culinary task: ${e.message}", e)
             "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania kulinarnego: ${e.message}"

@@ -189,20 +189,15 @@ object RecipeParser {
         // Instructions
         val instructions = JSONArray()
         val instVal = recipeJson.opt("recipeInstructions")
-        if (instVal is JSONArray) {
-            for (i in 0 until instVal.length()) {
-                val item = instVal.get(i)
-                if (item is String) instructions.put(item.trim())
-                else if (item is JSONObject) {
-                    // Try to finding 'text' property if it's an object (from JSON-LD)
-                    val text = item.optString("text", "")
-                    if (text.isNotEmpty()) instructions.put(text.trim())
-                }
-            }
-        } else if (instVal is String) {
-            instructions.put(instVal.trim())
-        }
+        processInstructions(instVal, instructions)
         result.put("instructions", instructions)
+
+        // Rating
+        val ratingObj = recipeJson.optJSONObject("aggregateRating")
+        if (ratingObj != null) {
+            result.put("ratingValue", ratingObj.optString("ratingValue", ""))
+            result.put("ratingCount", ratingObj.optString("ratingCount", ""))
+        }
 
         // Image
         var imageUrl = ""
@@ -223,7 +218,8 @@ object RecipeParser {
              // If urlSource is "https://aniagotuje.pl/przepis/x", base domain is "https://aniagotuje.pl"
              // But usually relative paths start with /.
              if (imageUrl.startsWith("/")) {
-                 val domain = java.net.URI(urlSource).scheme + "://" + java.net.URI(urlSource).host
+                 val uri = java.net.URI(urlSource)
+                 val domain = uri.scheme + "://" + uri.host
                  imageUrl = domain + imageUrl
              } else {
                  // Relative to current path? uncommon for root assets usually
@@ -234,5 +230,43 @@ object RecipeParser {
         result.put("image", imageUrl)
 
         return result
+    }
+
+    private fun processInstructions(instVal: Any?, output: JSONArray) {
+        if (instVal == null) return
+
+        if (instVal is JSONArray) {
+            for (i in 0 until instVal.length()) {
+                val item = instVal.get(i)
+                processInstructionItem(item, output)
+            }
+        } else {
+            processInstructionItem(instVal, output)
+        }
+    }
+
+    private fun processInstructionItem(item: Any, output: JSONArray) {
+        when (item) {
+            is String -> {
+                if (item.trim().isNotEmpty()) output.put(item.trim())
+            }
+            is JSONObject -> {
+                val type = item.optString("@type", "")
+                if (type.contains("HowToSection", ignoreCase = true)) {
+                    val name = item.optString("name", "")
+                    if (name.isNotEmpty()) output.put("### $name") // Optional heading for section
+                    val elements = item.opt("itemListElement")
+                    processInstructions(elements, output)
+                } else if (type.contains("HowToStep", ignoreCase = true) || item.has("text")) {
+                    val text = item.optString("text", "")
+                    if (text.isNotEmpty()) output.put(text.trim())
+                }
+            }
+            is JSONArray -> {
+                for (i in 0 until item.length()) {
+                    processInstructionItem(item.get(i), output)
+                }
+            }
+        }
     }
 }

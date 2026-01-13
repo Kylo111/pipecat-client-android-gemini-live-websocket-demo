@@ -72,7 +72,8 @@ object ToolDefinitions {
         ToolInfo("remove_from_shopping_list", "Usuń z Zakupów", "Zakupy", "Usuwanie produktów"),
         ToolInfo("mark_item_purchased", "Oznacz Kupione", "Zakupy", "Oznaczanie jako kupione"),
         ToolInfo("clear_purchased_items", "Wyczyść Kupione", "Zakupy", "Usuwanie kupionych produktów"),
-        ToolInfo("ania_process_recipe", "Kuchnia: Ania Gotuje", "Kulinaria", "Automatyczne pobieranie, formatowanie i lista zakupów"),
+        ToolInfo("cook_process_recipe", "Kitchen: Cook", "Culinary", "Automated recipe fetching, formatting, and shopping list (AniaGotuje & Allrecipes)"),
+        ToolInfo("ania_process_recipe", "Kuchnia: Ania", "Kulinaria", "Alias dla narzędzia kucharskiego (AniaGotuje)"),
         ToolInfo("encyclopedia_lookup", "Encyklopedia", "Wiedza", "Szczegółowe opracowania z Wikipedii i bogate notatki")
     )
 
@@ -122,7 +123,8 @@ object ToolDefinitions {
         ToolGroup("media", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_media_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_media_desc, listOf("control_media")),
         ToolGroup("contacts", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_contacts_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_contacts_desc, listOf("search_contacts")),
         ToolGroup("sms", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_sms_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_sms_desc, listOf("send_sms")),
-        ToolGroup("health", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_desc, listOf("symptom_checker"))
+        ToolGroup("health", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_desc, listOf("symptom_checker")),
+        ToolGroup("culinary", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_culinary_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_culinary_desc, listOf("cook_process_recipe", "ania_process_recipe"))
     )
 
 
@@ -178,6 +180,7 @@ object ToolDefinitions {
             searchPerplexityTool(),
             symptomCheckerTool(),
             getCreateDoneItemTool(),
+            cookProcessRecipeTool(),
             aniaProcessRecipeTool(),
             encyclopediaLookupTool()
         )
@@ -1203,23 +1206,20 @@ object ToolDefinitions {
         }
     }
 
-    /**
-     * Specialized culinary tool for Ania Gotuje bot.
-     * Fetches, formats, saves recipes and updates shopping list in one go.
-     */
-    internal fun aniaProcessRecipeTool() = buildJsonObject {
-        put("name", "ania_process_recipe")
-        put("description", "Download, format, save recipe note and update shopping list in the background (fire-and-forget). Use ONLY for culinary recipes from 'aniagotuje.pl'. Provide dish name in 'query'.")
+    const val TOOL_COOK_PROCESS_RECIPE = "cook_process_recipe"
+    internal fun cookProcessRecipeTool() = buildJsonObject {
+        put("name", TOOL_COOK_PROCESS_RECIPE)
+        put("description", "Fetches and formats recipes from aniagotuje.pl and allrecipes.com, and optionally adds ingredients to shopping list.")
         putJsonObject("parameters") {
             put("type", "object")
             putJsonObject("properties") {
                 putJsonObject("query") {
                     put("type", "string")
-                    put("description", "Name of the dish (e.g., 'szarlotka') or search query.")
+                    put("description", "Name of the dish (e.g., 'pancakes') or search query.")
                 }
                 putJsonObject("url") {
                     put("type", "string")
-                    put("description", "Optional: Direct URL to the recipe on aniagotuje.pl")
+                    put("description", "Optional: Direct URL to the recipe on aniagotuje.pl or allrecipes.com")
                 }
                 putJsonObject("should_add_shopping_list") {
                     put("type", "boolean")
@@ -1231,6 +1231,31 @@ object ToolDefinitions {
             })
         }
     }
+
+    /**
+     * Alias for backward compatibility and user preference.
+     */
+    internal fun aniaProcessRecipeTool() = buildJsonObject {
+        put("name", "ania_process_recipe")
+        put("description", "Pobierz, sformatuj i zapisz przepis z aniagotuje.pl oraz zaktualizuj listę zakupów.")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("query") {
+                    put("type", "string")
+                    put("description", "Nazwa potrawy lub zapytanie wyszukiwania.")
+                }
+                putJsonObject("should_add_shopping_list") {
+                    put("type", "boolean")
+                    put("description", "Czy automatycznie dodać składniki do listy zakupów. Domyślnie true.")
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("query"))
+            })
+        }
+    }
+
     fun encyclopediaLookupTool() = buildJsonObject {
         put("name", "encyclopedia_lookup")
         put("description", """
