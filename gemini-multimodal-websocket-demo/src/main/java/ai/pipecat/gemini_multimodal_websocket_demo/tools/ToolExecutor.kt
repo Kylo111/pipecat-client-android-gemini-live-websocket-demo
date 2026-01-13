@@ -102,6 +102,7 @@ class ToolExecutor(private val context: Context) {
                 "cook_process_recipe" -> cookProcessRecipe(parameters)
                 "ania_process_recipe" -> cookProcessRecipe(parameters)
                 "encyclopedia_lookup" -> encyclopediaLookup(parameters)
+                "fetch_movie_review" -> fetchMovieReview(parameters)
                 "search_contacts" -> searchContacts(parameters)
                 "send_sms" -> sendSms(parameters)
                 "set_alarm" -> setAlarm(parameters)
@@ -2634,6 +2635,37 @@ class ToolExecutor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to enqueue encyclopedia task: ${e.message}", e)
             "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania encyklopedycznego: ${e.message}"
+        }
+    }
+
+    private suspend fun fetchMovieReview(parameters: JsonObject): String = withContext(Dispatchers.Main) {
+        val query = parameters["query"]?.jsonPrimitive?.content ?: ""
+        
+        Log.i(TAG, "🎬 Starting background movie review task: $query")
+        
+        try {
+            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+            val sessionManager = voiceService?.getSessionManager()
+            val conversationId = sessionManager?.getCurrentConversationId() ?: "default"
+            
+            val workManager = androidx.work.WorkManager.getInstance(context)
+            val inputData = androidx.work.Data.Builder()
+                .putString("query", query)
+                .putString("conversation_id", conversationId)
+            
+            val workRequest = androidx.work.OneTimeWorkRequestBuilder<ai.pipecat.gemini_multimodal_websocket_demo.agents.MediaReviewWorker>()
+                .setInputData(inputData.build())
+                .addTag("media_review_task")
+                .build()
+                
+            Log.i(TAG, "🚀 Enqueuing MediaReviewWorker for: '$query'")
+            workManager.enqueue(workRequest)
+            Log.i(TAG, "✅ Enqueued MediaReviewWorker with ID: ${workRequest.id}")
+            
+            "Success. Movie research started in background. I'm checking availability and reviews."
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to enqueue media review task: ${e.message}", e)
+            "Przepraszam, ale wystąpił błąd podczas uruchamiania zadania filmowego: ${e.message}"
         }
     }
 }

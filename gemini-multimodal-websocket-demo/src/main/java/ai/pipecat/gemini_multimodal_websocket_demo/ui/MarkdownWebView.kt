@@ -84,7 +84,7 @@ fun MarkdownWebView(
                     
                     // Cache policy: LOAD_DEFAULT (network blocked in shouldInterceptRequest)
                     cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                    mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     
                     // Enable smooth scrolling
                     setRenderPriority(WebSettings.RenderPriority.HIGH)
@@ -190,7 +190,9 @@ fun MarkdownWebView(
                                                  host == "aniagotuje.com" || host.endsWith(".aniagotuje.com") ||
                                                  host == "wikimedia.org" || host.endsWith(".wikimedia.org") ||
                                                  host == "wikipedia.org" || host.endsWith(".wikipedia.org") ||
-                                                 host == "allrecipes.com" || host.endsWith(".allrecipes.com")
+                                                 host == "allrecipes.com" || host.endsWith(".allrecipes.com") ||
+                                                 host == "m.media-amazon.com" || host.endsWith(".media-amazon.com") ||
+                                                 host == "imdb.com" || host.endsWith(".imdb.com")
                             
                             if (isSafeImage && isAllowedDomain) {
                                 Log.d(TAG, "🟢 Allowed network request: $url")

@@ -287,7 +287,8 @@ class NoteService(
             val originalModifiedTime = oldFile.lastModified()
             
             // Sanitize the new name
-            val sanitizedName = newName.replace(Regex("[^a-zA-Z0-9-_\\s]"), "_")
+            // Allow letters from any language (including Polish), numbers, dashes, underscores and spaces
+            val sanitizedName = newName.replace(Regex("[^\\p{L}0-9-_\\s]"), "_")
             if (sanitizedName.isBlank()) {
                 Log.e(TAG, "Cannot rename note: new name is empty after sanitization")
                 return false

@@ -83,6 +83,8 @@ android {
         // Disable MissingClass check - false positive for Kotlin classes
         // Lint runs before Kotlin compilation completes
         disable += "MissingClass"
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 }
 

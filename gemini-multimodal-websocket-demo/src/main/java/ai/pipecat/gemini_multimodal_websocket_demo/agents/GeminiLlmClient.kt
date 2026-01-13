@@ -35,7 +35,29 @@ class GeminiLlmClient {
     @Serializable
     data class GeminiRequest(
         val contents: List<Content>,
+        val tools: List<Tool>? = null,
         val generationConfig: GenerationConfig? = null
+    )
+
+    @Serializable
+    data class Tool(
+        val googleSearchRetrieval: GoogleSearchRetrieval? = null,
+        @kotlinx.serialization.SerialName("google_search")
+        val googleSearch: GoogleSearch? = null
+    )
+
+    @Serializable
+    data class GoogleSearchRetrieval(
+        val dynamicRetrievalConfig: DynamicRetrievalConfig? = null
+    )
+
+    @Serializable
+    class GoogleSearch
+
+    @Serializable
+    data class DynamicRetrievalConfig(
+        val mode: String = "MODE_DYNAMIC",
+        val dynamicThreshold: Float = 0.7f
     )
 
     @Serializable
@@ -86,6 +108,7 @@ class GeminiLlmClient {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        encodeDefaults = true // Important for optional fields like tools
     }
 
     /**
@@ -96,13 +119,15 @@ class GeminiLlmClient {
      * @param userPrompt The main prompt from user/worker.
      * @param temperature Sampling temperature.
      * @param jsonMode If true, requests JSON output format.
+     * @param tools Optional list of tools to use (e.g. Google Search Grounding).
      */
     suspend fun complete(
         modelId: String,
         systemPrompt: String = "",
         userPrompt: String,
         temperature: Float = 0.7f,
-        jsonMode: Boolean = false
+        jsonMode: Boolean = false,
+        tools: List<Tool>? = null
     ): Result<String> {
         val apiKey = Preferences.geminiApiKey.value
         if (apiKey.isNullOrBlank()) {
@@ -131,6 +156,7 @@ class GeminiLlmClient {
 
         val request = GeminiRequest(
             contents = contents,
+            tools = tools,
             generationConfig = GenerationConfig(
                 temperature = temperature,
                 maxOutputTokens = 8192,

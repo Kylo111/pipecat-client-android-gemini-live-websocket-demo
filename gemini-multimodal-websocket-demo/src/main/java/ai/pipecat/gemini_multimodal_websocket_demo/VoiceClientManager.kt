@@ -142,13 +142,16 @@ class VoiceClientManager(
             Log.d(TAG, "🔧 [DIAGNOSTIC] Using Help conversation tools (includes create_offline_conversation)")
             val tools = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getHelpConversationTools(context)
             Log.d(TAG, "🔧 [DIAGNOSTIC] Help tools count: ${tools.size}")
-            tools.forEach { tool ->
-                val toolName = tool["name"]?.toString() ?: "unknown"
-                Log.d(TAG, "🔧 [DIAGNOSTIC] Tool available: $toolName")
-            }
             tools
         } else {
-            ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getAllTools(context)
+            // Respect allowedTools from agent configuration
+            val tools = ai.pipecat.gemini_multimodal_websocket_demo.tools.ToolDefinitions.getToolsForConversation(context, settings?.allowedTools)
+            Log.d(TAG, "🔧 [DIAGNOSTIC] Conversation tools count: ${tools.size}")
+            tools.forEach { tool ->
+                val toolName = tool["name"]?.toString()?.replace("\"", "") ?: "unknown"
+                Log.d(TAG, "🔧 [DIAGNOSTIC] Tool enabled for this agent: $toolName")
+            }
+            tools
         }
         Log.d(TAG, "🔧 [DIAGNOSTIC] Configuring ${toolDeclarations.size} tools for function calling")
         

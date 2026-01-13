@@ -74,7 +74,8 @@ object ToolDefinitions {
         ToolInfo("clear_purchased_items", "Wyczyść Kupione", "Zakupy", "Usuwanie kupionych produktów"),
         ToolInfo("cook_process_recipe", "Kitchen: Cook", "Culinary", "Automated recipe fetching, formatting, and shopping list (AniaGotuje & Allrecipes)"),
         ToolInfo("ania_process_recipe", "Kuchnia: Ania", "Kulinaria", "Alias dla narzędzia kucharskiego (AniaGotuje)"),
-        ToolInfo("encyclopedia_lookup", "Encyklopedia", "Wiedza", "Szczegółowe opracowania z Wikipedii i bogate notatki")
+        ToolInfo("encyclopedia_lookup", "Encyklopedia", "Wiedza", "Szczegółowe opracowania z Wikipedii i bogate notatki"),
+        ToolInfo("fetch_movie_review", "Kino: Recenzja", "Wiedza", "Pobiera dane o filmie, plakat, oceny i sprawdza VOD (IMDb + Grounding)")
     )
 
     // Data class for tool groups in UI
@@ -124,7 +125,8 @@ object ToolDefinitions {
         ToolGroup("contacts", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_contacts_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_contacts_desc, listOf("search_contacts")),
         ToolGroup("sms", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_sms_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_sms_desc, listOf("send_sms")),
         ToolGroup("health", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_health_desc, listOf("symptom_checker")),
-        ToolGroup("culinary", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_culinary_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_culinary_desc, listOf("cook_process_recipe", "ania_process_recipe"))
+        ToolGroup("culinary", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_culinary_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_culinary_desc, listOf("cook_process_recipe", "ania_process_recipe")),
+        ToolGroup("kino", ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_kino_title, ai.pipecat.gemini_multimodal_websocket_demo.R.string.tool_group_kino_desc, listOf("fetch_movie_review"))
     )
 
 
@@ -182,7 +184,8 @@ object ToolDefinitions {
             getCreateDoneItemTool(),
             cookProcessRecipeTool(),
             aniaProcessRecipeTool(),
-            encyclopediaLookupTool()
+            encyclopediaLookupTool(),
+            fetchMovieReviewTool()
         )
         
         // Add system integration tools based on IntegrationManager enabled state
@@ -1274,6 +1277,26 @@ object ToolDefinitions {
                     put("type", "boolean")
                     put("description", "Whether to generate a full, rich note with images and tables. Default is true.")
                     put("default", true)
+                }
+            }
+            put("required", buildJsonArray {
+                add(JsonPrimitive("query"))
+            })
+        }
+    }
+
+    /**
+     * Fetch movie review and technical data (IMDb + Grounding)
+     */
+    private fun fetchMovieReviewTool() = buildJsonObject {
+        put("name", "fetch_movie_review")
+        put("description", "Pobiera szczegółowe informacje o filmie, w tym plakat, oceny (IMDb/Rotten Tomatoes), obsadę oraz sprawdza dostępność na platformach VOD w Polsce (Netflix, HBO Max, Disney+ itp.). Tworzy również piękną notatkę z podsumowaniem.")
+        putJsonObject("parameters") {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("query") {
+                    put("type", "string")
+                    put("description", "Tytuł filmu oraz opcjonalnie rok wydania (np. 'Infiltracja 2006' lub 'Inception')")
                 }
             }
             put("required", buildJsonArray {

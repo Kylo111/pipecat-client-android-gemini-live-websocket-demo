@@ -562,6 +562,8 @@
     <string name="tool_group_health_desc">Azure Health Bot</string>
     <string name="tool_group_culinary_title">Kulinaria</string>
     <string name="tool_group_culinary_desc">Przepisy i lista zakupów (AniaGotuje / Allrecipes)</string>
+    <string name="tool_group_kino_title">Kino (Ekspert Filmowy)</string>
+    <string name="tool_group_kino_desc">Recenzje, plakaty i dostępność VOD</string>
     <string name="settings_section_general">Ogólne</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_section_api">Konfiguracja API</string>

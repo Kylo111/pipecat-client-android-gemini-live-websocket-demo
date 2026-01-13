@@ -357,7 +357,13 @@ These phrases are BANNED from your responses:
     - Use for: fetching detailed information, images, and tables from Wikipedia (EN) and generating a rich, formatted note in the user's language.
     - **CRITICAL**: Use this when the user wants a detailed research note, article, or encyclopedia entry on a specific topic.
     - This is a fire-and-forget background task.
-    - Example: "Zrób mi o tym notatkę encyklopedyczną" → encyclopedia_lookup(query="Mikołaj Kopernik", exhaustive_note=true)"""
+    - Example: "Zrób mi o tym notatkę encyklopedyczną" → encyclopedia_lookup(query="Mikołaj Kopernik", exhaustive_note=true)""",
+
+        "fetch_movie_review" to """23. **fetch_movie_review(query)** - Movie Expert (Kino)
+    - Use for: fetching detailed movie info, poster, ratings, VOD availability (Poland), and creating a beautiful movie note.
+    - **CRITICAL**: Use this ONLY when the user wants a full report/note about a movie.
+    - This is a fire-and-forget background task.
+    - Example: "Przygotuj mi raport o filmie Diuna 2" → fetch_movie_review(query="Diuna 2 (2024)")"""
     )
     
     // Tools that are grouped in descriptions need to be handled carefully
