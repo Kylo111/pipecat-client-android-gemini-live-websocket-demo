@@ -297,12 +297,16 @@
     <!-- Conversation List -->
     <string name="conv_list_offline_banner">Tryb offline: Twoje konwersacje są zapisywane lokalnie. Zaloguj się do Kumpel-chat w zakładce \"Klucze i konta\" aby synchronizować konwersacje. Aby uzyskać pełną funkcjonalność, nadaj uprawnienia w menu Integracje. Sprawdź też Market Place, gdzie znajdziesz asystentów.</string>
     <string name="conv_list_new_offline">Nowa konwersacja offline</string>
+    <string name="conv_list_new_live">Live</string>
+    <string name="conv_list_new_standard">Standard</string>
     <string name="conv_list_locked_parental">Zablokowane</string>
     <string name="conv_list_loading">Ładowanie wątków...</string>
     <string name="conv_list_loading_error">Błąd podczas ładowania konwersacji: %1$s</string>
     <string name="conv_list_empty">Brak konwersacji.\nUtwórz nową konwersację offline lub wątek w LibreChat.</string>
     <string name="conv_list_saving_memories">Zapisuję wspomnienia...</string>
     <string name="conv_list_offline_badge">OFFLINE</string>
+    <string name="conv_list_live_badge">LIVE</string>
+    <string name="conv_list_standard_badge">STANDARD</string>
     <string name="conv_list_locked_title">Konwersacja zablokowana</string>
     <string name="conv_list_locked_description">Ta konwersacja jest zablokowana, ponieważ proces zapisywania wspomnień został przerwany (np. przez restart aplikacji).</string>
     <string name="conv_list_locked_options">Możesz:</string>

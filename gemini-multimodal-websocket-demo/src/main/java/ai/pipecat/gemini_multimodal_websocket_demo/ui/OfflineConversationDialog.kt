@@ -43,7 +43,7 @@ fun OfflineConversationDialog(
     onDelete: (() -> Unit)? = null, // Only shown when editing existing conversation
     onDismiss: () -> Unit
 ) {
-    var title by remember { mutableStateOf(conversation?.title ?: "") }
+    var title by remember { mutableStateOf(conversation?.title ?: "Live") }
     var systemPrompt by remember { mutableStateOf(conversation?.systemPrompt ?: "") }
     var selectedVoice by remember { mutableStateOf(conversation?.voiceName ?: "Puck") }
     var showVoiceDropdown by remember { mutableStateOf(false) }

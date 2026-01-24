@@ -9,6 +9,7 @@ import ai.pipecat.gemini_multimodal_websocket_demo.SystemPrompts
 import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
 import ai.pipecat.gemini_multimodal_websocket_demo.VoiceClientManager
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationMode
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
 import android.content.Context
 import android.util.Log
@@ -163,7 +164,15 @@ class ConversationLauncher(
                 presencePenalty = offlineConv.presencePenalty,
                 frequencyPenalty = offlineConv.frequencyPenalty,
                 stopSequences = offlineConv.stopSequences,
-                source = "gemini_live",
+                source = if (offlineConv.conversationMode == ConversationMode.STT_LLM_TTS) "standard" else "gemini_live",
+                conversationMode = offlineConv.conversationMode,
+                sttLanguage = offlineConv.sttLanguage,
+                azureVoice = offlineConv.azureVoice,
+                llmProvider = offlineConv.llmProvider,
+                llmModel = offlineConv.llmModel,
+                useGrounding = offlineConv.useGrounding,
+                thinkingEnabled = offlineConv.thinkingEnabled,
+                openRouterToolsEnabled = offlineConv.openRouterToolsEnabled,
                 allowedTools = offlineConv.allowedTools
             )
             

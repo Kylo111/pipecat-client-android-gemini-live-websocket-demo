@@ -204,6 +204,36 @@ class AudioEngine(
     }
 
     /**
+     * Immediately stops playback and clears all buffers.
+     * Used for barge-in (interruption).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun stopImmediate() {
+        if (!_isPlaying) return
+        
+        Log.i(tag, "⛔ IMMEDIATE STOP (Barge-in)")
+        
+        // 1. Cancel write job immediately
+        writeJob?.cancel()
+        writeJob = null
+        
+        // 2. Pause audio track
+        audioOutput.pause()
+        
+        // 3. Clear channel
+        while (!audioChannel.isEmpty) {
+            audioChannel.tryReceive()
+        }
+        
+        // 4. Flush track buffers
+        audioOutput.flush()
+        
+        // 5. Reset tracking state
+        _isPlaying = false
+        totalWrittenSamples = 0L
+    }
+
+    /**
      * Start recording with VOICE_COMMUNICATION source and AEC.
      * 
      * @throws PermissionException if RECORD_AUDIO permission is missing

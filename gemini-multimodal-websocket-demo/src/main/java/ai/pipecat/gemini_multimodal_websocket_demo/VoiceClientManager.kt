@@ -28,6 +28,15 @@ import ai.pipecat.gemini_multimodal_websocket_demo.data.DoneItem
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
 import java.util.UUID
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.GeminiLlmClient
+import ai.pipecat.gemini_multimodal_websocket_demo.agents.OpenRouterClient
+import ai.pipecat.gemini_multimodal_websocket_demo.config.AgentConfigProvider
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationMode
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor
+import ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor.ProcessedImage
 
 /**
  * VoiceClientManager - coordinates GeminiClient, AudioEngine, and AudioDeviceHandler.
@@ -63,6 +72,12 @@ class VoiceClientManager(
     private var screenshotMonitor: ai.pipecat.gemini_multimodal_websocket_demo.integrations.ScreenshotMonitor? = null
     private var azureSpeechService: AzureSpeechService? = null
     
+    // Standard Mode components
+    private val geminiLlmClient = GeminiLlmClient()
+    private val configProvider = AgentConfigProvider.apply { init(context) }
+    private val openRouterClient = OpenRouterClient(context, configProvider)
+    private var standardJob: kotlinx.coroutines.Job? = null
+    
     // LibreChat specific state
     private var libreChatJob: kotlinx.coroutines.Job? = null
     private var currentLibreChatParentMessageId: String? = null
@@ -70,7 +85,8 @@ class VoiceClientManager(
     // Reconnection manager
     private var reconnectionManager: ai.pipecat.gemini_multimodal_websocket_demo.network.ReconnectionManager? = null
     
-    // Interruption    @Volatile
+    // Interruption
+    @Volatile
     private var isBotBusyWithResponse = false
     
     @Volatile
@@ -84,10 +100,14 @@ class VoiceClientManager(
     
     // Image processor
     private val imageProcessor = ai.pipecat.gemini_multimodal_websocket_demo.utils.ImageProcessor(context)
+
     private val integrationManager = ai.pipecat.gemini_multimodal_websocket_demo.integrations.IntegrationManager(context)
     private var imageProcessingJob: kotlinx.coroutines.Job? = null
     private var lastBotSpeechEndedAt: Long = 0
     private val ECHO_SUPPRESSION_WINDOW_MS = 1000L // Ignore transcripts for 1s after bot stops talking
+    
+    // Thinking Sound
+    private val thinkingSoundPlayer = ai.pipecat.gemini_multimodal_websocket_demo.audio.ThinkingSoundPlayer(scope)
     
     // UI State (VoiceUiState for compatibility with MainActivity)
     private val _uiState = MutableStateFlow(VoiceUiState())
@@ -275,6 +295,8 @@ class VoiceClientManager(
             
             if (settings?.source == "librechat") {
                 connectToLibreChat(settings.conversationId)
+            } else if (settings?.source == "standard" || settings?.conversationMode == ConversationMode.STT_LLM_TTS) {
+                connectToStandard(settings!!)
             } else {
                 // Gemini Live - components already initialized in start()
                 wireEvents()
@@ -743,8 +765,235 @@ class VoiceClientManager(
     }
     
     /**
-     * Connect using Azure STT/TTS and LibreChat Streaming API.
+     * Connect using Azure STT/TTS and direct Gemini/OpenRouter Streaming API.
      */
+    private suspend fun connectToStandard(settings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings) {
+        Log.i(TAG, "🔌 Connecting to Standard pipeline (Azure STT -> LLM -> Azure TTS)...")
+        _uiState.value = _uiState.value.copy(connectionState = ConnectionState.CONNECTING)
+        
+        try {
+            audioDeviceHandler?.start()
+            audioDeviceHandler?.enableSpeakerphoneIfNoHeadset()
+            syncSpeakerphoneState()
+            
+            // Initialize Azure Service
+            azureSpeechService = AzureSpeechService(context, scope).apply {
+                setLanguage(settings.sttLanguage ?: "pl-PL")
+                
+                onTranscriptionReceived = { text ->
+                    Log.i(TAG, "🎙️ [Standard] Azure Transcript: $text")
+                    if (text.isNotBlank()) {
+                        _uiState.value = _uiState.value.copy(lastUserTranscript = text)
+                        
+                        if (isBotBusyWithResponse) {
+                            Log.i(TAG, "🚫 User interrupted busy bot. Interrupting old turn.")
+                            silenceBotSpeechOnly()
+                            interruptStandard()
+                        }
+                        
+                        sessionManager?.captureUserTranscript(text)
+                        
+                        scope.launch {
+                            processStandardTurn(text, settings)
+                        }
+                    }
+                }
+                
+                onIntermediateResult = { text ->
+                    Log.v(TAG, "🎙️ [Standard] Azure Intermediate: $text")
+                    _uiState.value = _uiState.value.copy(lastUserTranscript = text)
+                }
+                
+                onSpeechDetected = {
+                    // BARGE-IN: Immediate stop when user STARTS speaking
+                    if (isBotBusyWithResponse || _uiState.value.isBotTalking) {
+                        Log.i(TAG, "🚫 [Standard] Speech detected (Barge-in). Stopping everything.")
+                        
+                        // 1. Stop thinking sound if playing (or queued)
+                        thinkingSoundPlayer.stop()
+                        
+                        // 2. Stop TTS playback immediately (flush buffers)
+                        audioEngine?.stopImmediate()
+                        
+                        // 3. Cancel Azure synthesis
+                        azureSpeechService?.stopSynthesis()
+                        
+                        // 4. Cancel LLM streaming job
+                        interruptStandard()
+                        
+                        // 5. Update UI state
+                        _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+                        autoMuteMonitor?.setBotTalking(false)
+                        updateSystemState()
+                    }
+                }
+
+                onAudioDataReceived = { audioData ->
+                    if (!isSilenced) {
+                        if (!_uiState.value.isBotTalking) {
+                            _uiState.value = _uiState.value.copy(isBotTalking = true)
+                            autoMuteMonitor?.setBotTalking(true)
+                            updateSystemState()
+                        }
+                        audioEngine?.queueAudio(audioData)
+                        updateBotAudioLevel(audioData)
+                    }
+                }
+            }
+            
+            audioEngine?.onAudioRecorded = { audioData ->
+                if (!_uiState.value.isPaused) {
+                    azureSpeechService?.feedAudio(audioData)
+                    val audioLevel = updateUserAudioLevel(audioData)
+                    autoMuteMonitor?.resetAutoMuteTimer(audioLevel)
+                }
+            }
+            
+            audioEngine?.onPlaybackComplete = {
+                if (!_uiState.value.isPaused) {
+                    _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+                    autoMuteMonitor?.setBotTalking(false)
+                    updateSystemState()
+                }
+            }
+            
+            audioEngine?.startPlayback()
+            audioEngine?.startRecording()
+            azureSpeechService?.startSTT()
+            
+            autoMuteMonitor?.startAutoMuteTimer()
+            autoMuteMonitor?.startBotResponseTimer()
+            
+            _uiState.value = _uiState.value.copy(
+                connectionState = ConnectionState.CONNECTED,
+                isConnected = true,
+                isMicEnabled = true
+            )
+            
+            Log.i(TAG, "✅ Connected to Standard pipeline successfully")
+            updateSystemState()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Standard connection failed", e)
+            _uiState.value = _uiState.value.copy(connectionState = ConnectionState.ERROR)
+            throw e
+        }
+    }
+
+    private fun interruptStandard() {
+        Log.d(TAG, "interruptStandard() called")
+        standardJob?.cancel()
+        standardJob = null
+        isBotBusyWithResponse = false
+        audioEngine?.startPlayback() // RECOVER FROM stopImmediate()
+    }
+    
+    private suspend fun processStandardTurn(userText: String, settings: ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings) {
+        Log.i(TAG, "🚀 [Standard TURN] Starting pipeline turn: \"$userText\"")
+        
+        interruptStandard() 
+        isBotBusyWithResponse = true
+        isSilenced = false 
+        
+        val systemPrompt = Preferences.systemPrompt.value ?: ""
+        
+        // Check for STOP words
+        if (ai.pipecat.gemini_multimodal_websocket_demo.utils.StopWordFilter.shouldBlock(userText, settings.sttLanguage ?: "pl")) {
+            Log.i(TAG, "🚫 [Standard] Stop word detected. Aborting turn.")
+            isBotBusyWithResponse = false
+            return
+        }
+        
+        standardJob = scope.launch(Dispatchers.IO) {
+            var fullResponse = ""
+            try {
+                // START THINKING SOUND (with 1s delay)
+                thinkingSoundPlayer.startWithDelay(1000)
+                
+                var speechBuffer = ""
+                
+                val flow = if (settings.llmProvider == "openrouter") {
+                    openRouterClient.streamComplete(
+                        modelId = settings.llmModel ?: "anthropic/claude-3-haiku",
+                        systemPrompt = systemPrompt,
+                        userPrompt = userText,
+                        temperature = settings.temperature
+                    )
+                } else {
+                    geminiLlmClient.streamComplete(
+                        modelId = settings.llmModel ?: "gemini-1.5-flash-lite-latest",
+                        systemPrompt = systemPrompt,
+                        userPrompt = userText,
+                        temperature = settings.temperature,
+                        useGrounding = settings.useGrounding
+                    )
+                }
+
+                flow.onStart {
+                    Log.d(TAG, "LLM Stream started")
+                }.onCompletion {
+                    Log.d(TAG, "LLM Stream completed. Remaining buffer: \"$speechBuffer\"")
+                }.collect { chunk ->
+                    // STOP THINKING SOUND on first token
+                    thinkingSoundPlayer.stop()
+                    
+                    fullResponse += chunk
+                    speechBuffer += chunk
+                    
+                    _uiState.value = _uiState.value.copy(lastBotTranscript = fullResponse.trim())
+                    
+                    if (!_uiState.value.isBotTalking && !isSilenced) {
+                        _uiState.value = _uiState.value.copy(isBotTalking = true)
+                        autoMuteMonitor?.setBotTalking(true)
+                        updateSystemState()
+                    }
+                    
+                    // Sentence splitting logic
+                    if (!isSilenced && (speechBuffer.contains(".") || speechBuffer.contains("?") || speechBuffer.contains("!") || speechBuffer.contains("\n"))) {
+                        val sentences = speechBuffer.split(Regex("(?<=[.!?\n])"))
+                        if (sentences.size > 1) {
+                            val toSpeak = sentences.dropLast(1).joinToString("")
+                            speechBuffer = sentences.last()
+                            
+                            val cleanedToSpeak = cleanTextForSpeech(toSpeak)
+                            if (cleanedToSpeak.isNotEmpty()) {
+                                azureSpeechService?.synthesize(cleanedToSpeak, voiceOverride = settings.azureVoice)
+                            }
+                        }
+                    }
+                }
+                
+                // Speak final buffer
+                if (speechBuffer.trim().isNotEmpty() && !isSilenced) {
+                    val cleanedFinal = cleanTextForSpeech(speechBuffer)
+                    if (cleanedFinal.isNotEmpty()) {
+                        azureSpeechService?.synthesize(cleanedFinal, voiceOverride = settings.azureVoice)
+                    }
+                }
+                
+                // Wait for playback
+                while (audioEngine?.isPlaybackFinished() == false && !isSilenced) {
+                    delay(200)
+                }
+                
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    Log.e(TAG, "Error in Standard turn processing", e)
+                }
+            } finally {
+                thinkingSoundPlayer.stop() 
+                isBotBusyWithResponse = false
+                isSilenced = false // CRITICAL: Reset silence state for next turn
+                _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
+                autoMuteMonitor?.setBotTalking(false)
+                updateSystemState()
+                if (fullResponse.isNotBlank()) {
+                    sessionManager?.captureBotTranscript(fullResponse)
+                }
+            }
+        }
+    }
+    
     private suspend fun connectToLibreChat(conversationId: String) {
         Log.i(TAG, "🔌 Connecting to LibreChat via Azure (resuming convo: $conversationId)...")
         _uiState.value = _uiState.value.copy(connectionState = ConnectionState.CONNECTING)
@@ -782,17 +1031,18 @@ class VoiceClientManager(
                         
                         // BARGE-IN / INTERRUPTION LOGIC:
                         if (isBotBusyWithResponse) {
-                            Log.i(TAG, "🚫 User interrupted busy bot. Text dropped: \"$text\"")
+                            Log.i(TAG, "🚫 User interrupted busy bot. Interrupting old turn and processing new turn.")
                             silenceBotSpeechOnly()
-                        } else {
-                            // Normal turn - bot is idle
-                            sessionManager?.captureUserTranscript(text)
-                            val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
-                            voiceService?.getControlAgentManager()?.onUserTranscript(text)
-                            
-                            scope.launch {
-                                processLibreChatTurn(text, conversationId)
-                            }
+                            interruptLibreChat()
+                        }
+                        
+                        // Handle normal or interrupted turn
+                        sessionManager?.captureUserTranscript(text)
+                        val voiceService = ai.pipecat.gemini_multimodal_websocket_demo.VoiceService.getInstance()
+                        voiceService?.getControlAgentManager()?.onUserTranscript(text)
+                        
+                        scope.launch {
+                            processLibreChatTurn(text, conversationId)
                         }
                     }
                 }
@@ -803,10 +1053,18 @@ class VoiceClientManager(
                 }
                 
                 onSpeechDetected = {
-                    Log.d(TAG, "🎙️ Speech detected (isBusy=$isBotBusyWithResponse)")
-                    if (isBotBusyWithResponse) {
-                        Log.i(TAG, "🚫 Speech detected during bot turn. Silencing.")
-                        silenceBotSpeechOnly()
+                    val now = System.currentTimeMillis()
+                    // IGNORE barge-in if bot just started talking (Echo suppression)
+                    val isPotentiallyEcho = (now - lastBotSpeechEndedAt < ECHO_SUPPRESSION_WINDOW_MS)
+                    
+                    Log.d(TAG, "🎙️ Speech detected (isBusy=$isBotBusyWithResponse, isTalking=${_uiState.value.isBotTalking}, isEcho=$isPotentiallyEcho)")
+                    
+                    if ((isBotBusyWithResponse || _uiState.value.isBotTalking) && !isPotentiallyEcho) {
+                        Log.i(TAG, "🚫 Speech detected during bot turn. Silencing and interrupting LLM.")
+                        thinkingSoundPlayer.stop()
+                        audioEngine?.stopImmediate()
+                        azureSpeechService?.stopSynthesis()
+                        interruptLibreChat()
                     }
                 }
 
@@ -895,6 +1153,7 @@ class VoiceClientManager(
         _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
         autoMuteMonitor?.setBotTalking(false)
         updateSystemState()
+        audioEngine?.startPlayback() // RECOVER FROM stopImmediate()
     }
     
     private suspend fun processLibreChatTurn(userText: String, conversationId: String) {
@@ -905,8 +1164,20 @@ class VoiceClientManager(
         isBotBusyWithResponse = true
         isSilenced = false 
         
+        // Check for STOP words
+        val lang = currentSettings?.sttLanguage ?: "pl"
+        if (ai.pipecat.gemini_multimodal_websocket_demo.utils.StopWordFilter.shouldBlock(userText, lang)) {
+            Log.i(TAG, "🚫 [LibreChat] Stop word detected. Aborting turn.")
+            isBotBusyWithResponse = false
+            isSilenced = false
+            return
+        }        
+        
         libreChatJob = scope.launch(Dispatchers.IO) {
             try {
+                // START THINKING SOUND
+                thinkingSoundPlayer.startWithDelay(1000)
+                
                 Log.d(TAG, "Requesting LibreChat response for: $userText")
                 // Stream from LibreChat using Agent API
                 var fullResponse = ""
@@ -921,6 +1192,9 @@ class VoiceClientManager(
                     provider = currentSettings?.provider,
                     endpoint = currentSettings?.endpoint
                 ).collect { chunk ->
+                    // STOP THINKING SOUND on first token
+                    thinkingSoundPlayer.stop()
+                    
                     when (chunk) {
                         is StreamChunk.Text -> {
                             fullResponse += chunk.content
@@ -1006,7 +1280,9 @@ class VoiceClientManager(
                     errors.add(Error("Błąd LibreChat: ${e.message}"))
                 }
             } finally {
+                thinkingSoundPlayer.stop()
                 isBotBusyWithResponse = false
+                isSilenced = false // CRITICAL: Reset silence state
                 _uiState.value = _uiState.value.copy(isBotTalking = false, botAudioLevel = 0f)
                 autoMuteMonitor?.setBotTalking(false)
                 updateSystemState()
@@ -1123,9 +1399,11 @@ class VoiceClientManager(
         azureSpeechService?.release()
         azureSpeechService = null
         
-        // Stop LibreChat job
+        // Stop Jobs
         libreChatJob?.cancel()
         libreChatJob = null
+        standardJob?.cancel()
+        standardJob = null
         
         // Check for turn complete (bot finished speaking)
         geminiClient?.disconnect()
@@ -1202,7 +1480,17 @@ class VoiceClientManager(
         if (_uiState.value.isPaused) {
             resume()
         } else {
-            pause()
+            // REQ: In Standard mode, mic button acts as "Stop" button (interruption)
+            // It should be monostable (interrupt bot but don't enter 'paused' state)
+            if (currentSettings?.conversationMode == ConversationMode.STT_LLM_TTS && 
+                (isBotBusyWithResponse || _uiState.value.isBotTalking)) {
+                Log.i(TAG, "Mic button pressed (Standard) - Triggering INTERRUPTION")
+                interruptStandard()
+                silenceBotSpeechOnly()
+                // Do NOT call pause() - we want to allow user to speak immediately
+            } else {
+                pause()
+            }
         }
     }
     
@@ -1316,7 +1604,8 @@ class VoiceClientManager(
                 // Process image (resize, compress)
                 val result = imageProcessor.processImage(uri)
                 
-                result.onSuccess { processedImage ->
+                if (result.isSuccess) {
+                    val processedImage = result.getOrThrow()
                     Log.i(TAG, "Image processed successfully for LibreChat:")
                     Log.i(TAG, "  Processed size: ${processedImage.processedSize} bytes (${processedImage.processedSize / 1024} KB)")
                     
@@ -1333,7 +1622,8 @@ class VoiceClientManager(
                         mimeType = processedImage.mimeType
                     )
                     
-                    uploadResult.onSuccess { libreChatFile ->
+                    if (uploadResult.isSuccess) {
+                        val libreChatFile = uploadResult.getOrThrow()
                         Log.d(TAG, "Image uploaded to LibreChat, fileId: ${libreChatFile.fileId}")
                         
                         // Trigger a response with the image
@@ -1419,13 +1709,15 @@ class VoiceClientManager(
                         }
                         
                         sessionManager?.recordImageSent("LibreChat image (${libreChatFile.fileId}): ${uri.lastPathSegment}")
-                    }.onFailure { e ->
+                    } else {
+                        val e = uploadResult.exceptionOrNull()
                         Log.e(TAG, "LibreChat image upload failed", e)
-                        errors.add(Error("Błąd wysyłania obrazu do LibreChat: ${e.message}"))
+                        errors.add(Error("Błąd wysyłania obrazu do LibreChat: ${e?.message}"))
                     }
-                }.onFailure { error ->
-                    Log.e(TAG, "Image processing failed for LibreChat: ${error.message}")
-                    errors.add(Error("Błąd przetwarzania obrazu: ${error.message}"))
+                } else {
+                    val error = result.exceptionOrNull()
+                    Log.e(TAG, "Image processing failed for LibreChat: ${error?.message}")
+                    errors.add(Error("Błąd przetwarzania obrazu: ${error?.message}"))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to process/upload image for LibreChat", e)
@@ -1586,14 +1878,16 @@ class VoiceClientManager(
         return text
             .replace(Regex("""[\uE000-\uF8FF]"""), "")
             .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "")
-            .replace(Regex("""turn\d+\w+\d+"""), "")
+            .replace(Regex("""\d*turn\d+\w+\d+"""), "")
             .replace(Regex("""【\d+】"""), "")
+            .replace(Regex("""\[SILENTLY:.*?\]"""), "")
+            .replace(Regex("""\[.*?\]\(.*?\)"""), "$1") 
+            .replace(Regex("""\[.*?\]"""), "")           
             .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
             .replace(Regex("""\*(.*?)\*"""), "$1")
             .replace(Regex("""__(.*?)__"""), "$1")
             .replace(Regex("""_(.*?)_"""), "$1")
             .replace(Regex("""^#+\s+""", RegexOption.MULTILINE), "")
-            .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
             .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
             .replace(Regex("""[^\p{L}\p{N}\s,.\-!?;:]"""), "")
             .trim()

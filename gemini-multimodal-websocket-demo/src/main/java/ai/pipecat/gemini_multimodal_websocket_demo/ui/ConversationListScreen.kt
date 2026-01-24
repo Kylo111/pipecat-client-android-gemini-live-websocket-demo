@@ -7,7 +7,9 @@ import ai.pipecat.gemini_multimodal_websocket_demo.ThemeManager
 import ai.pipecat.gemini_multimodal_websocket_demo.ThreadSettingsManager
 import ai.pipecat.gemini_multimodal_websocket_demo.R
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationItem
+import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationMode
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ConversationType
+import ai.pipecat.gemini_multimodal_websocket_demo.ui.StandardConversationDialog
 import ai.pipecat.gemini_multimodal_websocket_demo.models.LibreChatError
 import ai.pipecat.gemini_multimodal_websocket_demo.models.OfflineConversation
 import ai.pipecat.gemini_multimodal_websocket_demo.models.ThreadSettings
@@ -84,6 +86,7 @@ fun ConversationListScreen(
     var selectedId by remember { mutableStateOf<String?>(null) }
     var showThreadConfigDialog by remember { mutableStateOf(false) }
     var showOfflineDialog by remember { mutableStateOf(false) }
+    var showStandardDialog by remember { mutableStateOf(false) }  // NEW: For STT/LLM/TTS conversations
     var showLockedConversationDialog by remember { mutableStateOf(false) }
     var lockedConversationId by remember { mutableStateOf<String?>(null) }
     var configDialogThread by remember { mutableStateOf<LibreChatService.ConversationThread?>(null) }
@@ -178,7 +181,8 @@ fun ConversationListScreen(
                     id = offline.id,
                     title = offline.title,
                     systemPrompt = offline.systemPrompt,
-                    memoryUpdatePending = dbConv?.memoryUpdatePending ?: false
+                    memoryUpdatePending = dbConv?.memoryUpdatePending ?: false,
+                    conversationMode = offline.conversationMode
                 ))
             }
         }
@@ -358,35 +362,51 @@ fun ConversationListScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
             
-            // Add offline conversation button
+            // Two-button layout: +Live and +Standard
             val isParentalLockEnabled = ai.pipecat.gemini_multimodal_websocket_demo.Preferences.parentalLockEnabled.value
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .shadow(2.dp, RoundedCornerShape(12.dp))
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isParentalLockEnabled) Color.Gray else Colors.buttonNormal)
-                    .clickable(enabled = !isParentalLockEnabled) { showOfflineDialog = true }
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.Center
+                    .height(56.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                // +Live button (Gemini Live)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .shadow(2.dp, RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isParentalLockEnabled) Color.Gray else Colors.buttonNormal)
+                        .clickable(enabled = !isParentalLockEnabled) { showOfflineDialog = true }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (isParentalLockEnabled) "🔒" else "+",
-                        fontSize = 24.sp,
+                        text = if (isParentalLockEnabled) "🔒" else "+${stringResource(id = R.string.conv_list_new_live)}",
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.W700,
                         color = Color.White,
                         style = TextStyles.base
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                
+                // +Standard button (STT/LLM/TTS)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .shadow(2.dp, RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isParentalLockEnabled) Color.Gray else Color(0xFF2196F3))
+                        .clickable(enabled = !isParentalLockEnabled) { showStandardDialog = true }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = if (isParentalLockEnabled) stringResource(id = R.string.conv_list_locked_parental) else stringResource(id = R.string.conv_list_new_offline),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.W600,
+                        text = if (isParentalLockEnabled) "🔒" else "+${stringResource(id = R.string.conv_list_new_standard)}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.W700,
                         color = Color.White,
                         style = TextStyles.base
                     )
@@ -523,7 +543,12 @@ fun ConversationListScreen(
                                                     val offline = offlineConversations.find { it.id == conversation.id }
                                                     if (offline != null) {
                                                         editingOfflineConversation = offline
-                                                        showOfflineDialog = true
+                                                        // Route based on mode
+                                                        if (offline.conversationMode == ConversationMode.STT_LLM_TTS) {
+                                                            showStandardDialog = true
+                                                        } else {
+                                                            showOfflineDialog = true
+                                                        }
                                                     }
                                                 }
                                             }
@@ -556,7 +581,7 @@ fun ConversationListScreen(
             )
         }
         
-        // Offline conversation dialog (create/edit)
+        // Offline conversation dialog (create/edit - GEMINI_LIVE mode)
         if (showOfflineDialog) {
             OfflineConversationDialog(
                 conversation = editingOfflineConversation,
@@ -582,6 +607,37 @@ fun ConversationListScreen(
                 } else null,
                 onDismiss = {
                     showOfflineDialog = false
+                    editingOfflineConversation = null
+                }
+            )
+        }
+
+        // Standard conversation dialog (create/edit - STT/LLM/TTS mode)
+        if (showStandardDialog) {
+            StandardConversationDialog(
+                conversation = editingOfflineConversation,
+                onSave = { updatedConversation ->
+                    if (editingOfflineConversation != null) {
+                        // Update existing
+                        OfflineConversationManager.update(updatedConversation)
+                    } else {
+                        // Create new
+                        OfflineConversationManager.add(updatedConversation)
+                    }
+                    offlineConversations = OfflineConversationManager.getAll()
+                    showStandardDialog = false
+                    editingOfflineConversation = null
+                },
+                onDelete = if (editingOfflineConversation != null) {
+                    {
+                        OfflineConversationManager.delete(editingOfflineConversation!!.id)
+                        offlineConversations = OfflineConversationManager.getAll()
+                        showStandardDialog = false
+                        editingOfflineConversation = null
+                    }
+                } else null,
+                onDismiss = {
+                    showStandardDialog = false
                     editingOfflineConversation = null
                 }
             )
@@ -699,15 +755,25 @@ private fun ConversationButton(
             
             // Type indicator (only show when not locked)
             if (!isLocked && isOffline) {
+                val mode = (conversation as? ConversationItem.Offline)?.conversationMode
+                val badgeText = when (mode) {
+                    ConversationMode.STT_LLM_TTS -> stringResource(id = R.string.conv_list_standard_badge)
+                    else -> stringResource(id = R.string.conv_list_live_badge)
+                }
+                val badgeColor = when (mode) {
+                    ConversationMode.STT_LLM_TTS -> Color(0xFF2196F3) // Blue
+                    else -> Color(0xFFFF9800) // Orange
+                }
+
                 Text(
-                    text = stringResource(id = R.string.conv_list_offline_badge),
+                    text = badgeText,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.W700,
-                    color = Color(0xFFFF9800),
+                    color = badgeColor,
                     style = TextStyles.base,
                     modifier = Modifier
                         .background(
-                            Color(0xFFFF9800).copy(alpha = 0.2f),
+                            badgeColor.copy(alpha = 0.2f),
                             RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 2.dp)

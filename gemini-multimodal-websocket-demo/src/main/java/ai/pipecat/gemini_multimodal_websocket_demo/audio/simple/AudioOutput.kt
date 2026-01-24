@@ -23,6 +23,11 @@ interface AudioOutput {
     fun play()
     
     /**
+     * Pause playback.
+     */
+    fun pause()
+    
+    /**
      * Flush all pending audio data and reset playback position.
      * Used for interrupt handling.
      */

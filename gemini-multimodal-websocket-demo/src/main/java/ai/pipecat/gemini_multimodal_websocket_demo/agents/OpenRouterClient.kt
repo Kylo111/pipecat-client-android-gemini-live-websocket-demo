@@ -37,7 +37,8 @@ class OpenRouterClient(
         val model: String,
         val messages: List<Message>,
         val temperature: Float? = null,
-        val max_tokens: Int? = null
+        val max_tokens: Int? = null,
+        val stream: Boolean = false // Added for streaming support
     )
     
     @Serializable
@@ -46,6 +47,7 @@ class OpenRouterClient(
         val content: String
     )
     
+    // Response models for non-streaming
     @Serializable
     data class OpenRouterResponse(
         val choices: List<Choice>,
@@ -56,6 +58,26 @@ class OpenRouterClient(
     data class Choice(
         val message: Message,
         val finish_reason: String? = null
+    )
+
+    // Response models for streaming
+    @Serializable
+    data class OpenRouterStreamResponse(
+        val choices: List<ChoiceDelta>
+    )
+
+    @Serializable
+    data class ChoiceDelta(
+        val delta: Delta,
+        val finish_reason: String? = null
+    )
+
+    @Serializable
+    data class Delta(
+        val content: String? = null,
+        val reasoning: String? = null,
+        @kotlinx.serialization.SerialName("reasoning_content")
+        val reasoningContent: String? = null
     )
     
     @Serializable
@@ -86,6 +108,112 @@ class OpenRouterClient(
     private val json = Json { 
         ignoreUnknownKeys = true
         isLenient = true
+        encodeDefaults = true
+    }
+
+    /**
+     * Start a streaming completion using OpenRouter API.
+     */
+    fun streamComplete(
+        modelId: String,
+        systemPrompt: String = "",
+        userPrompt: String,
+        temperature: Float = 1.0f
+    ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
+        // EXTREMELY DEFENSIVE API KEY CLEANING
+        var apiKey = Preferences.openRouterApiKey.value?.trim() ?: ""
+        
+        // Remove common mistakes: "Bearer " prefix or accidental quotes
+        if (apiKey.startsWith("Bearer ", ignoreCase = true)) {
+            apiKey = apiKey.substring(7).trim()
+        }
+        apiKey = apiKey.removeSurrounding("\"").removeSurrounding("'")
+        
+        // Remove any non-printable or control characters (zero-width spaces, etc.)
+        apiKey = apiKey.filter { it.code in 33..126 }
+
+        if (apiKey.isEmpty()) {
+            Log.e(TAG, "❌ OpenRouter API key is EMPTY after cleaning")
+            throw Exception("OpenRouter API key not configured")
+        }
+
+        // Diagnostic log: check for common key prefix
+        val startsWithSkOr = apiKey.startsWith("sk-or-v1-", ignoreCase = true)
+        Log.d(TAG, "🔑 Using OpenRouter API Key (len=${apiKey.length}, startsWithSkOrV1=$startsWithSkOr)")
+        
+        // Character analysis to catch invisible garbage
+        val charAnalysis = apiKey.take(5).map { c -> "${c.code}" }.joinToString(",")
+        Log.v(TAG, "🔑 Key Start Char Codes: $charAnalysis")
+
+        val messages = mutableListOf<Message>()
+        if (systemPrompt.isNotBlank()) {
+            messages.add(Message("system", systemPrompt))
+        }
+        messages.add(Message("user", userPrompt))
+
+        val request = OpenRouterRequest(
+            model = modelId,
+            messages = messages,
+            temperature = temperature,
+            max_tokens = 4000,
+            stream = true
+        )
+
+        val requestBodyText = json.encodeToString(OpenRouterRequest.serializer(), request)
+        Log.d(TAG, "📤 Sending OpenRouter Request: $requestBodyText")
+        
+        val requestBody = requestBodyText.toRequestBody("application/json".toMediaType())
+
+        val httpRequest = Request.Builder()
+            .url("$OPENROUTER_API_BASE/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "text/event-stream")
+            .addHeader("HTTP-Referer", "https://github.com/pipecat-ai/pipecat-client-android")
+            .addHeader("X-Title", "Pipecat Android Client")
+            .post(requestBody)
+            .build()
+
+        val response = httpClient.newCall(httpRequest).execute()
+        val code = response.code
+        Log.d(TAG, "📥 OpenRouter Response Status: $code")
+        
+        if (!response.isSuccessful) {
+            val errorBody = response.body?.string()
+            Log.e(TAG, "❌ OpenRouter Stream ERROR BODY: $errorBody")
+            throw Exception("OpenRouter Stream Error: HTTP $code - $errorBody")
+        }
+
+        val reader = response.body?.byteStream()?.bufferedReader() ?: throw Exception("Empty stream body")
+        
+        reader.use { bufReader ->
+            var line: String?
+            while (bufReader.readLine().also { line = it } != null) {
+                val trimmed = line?.trim() ?: continue
+                if (trimmed.isEmpty()) continue
+                
+                Log.v(TAG, "📥 Raw SSE Line: $trimmed")
+                
+                if (trimmed.startsWith("data:")) {
+                    val data = trimmed.removePrefix("data:").trim()
+                    if (data == "[DONE]") break
+                    
+                    try {
+                        val chunk = json.decodeFromString<OpenRouterStreamResponse>(data)
+                        val delta = chunk.choices.getOrNull(0)?.delta
+                        
+                        // Output content or reasoning (DeepSeek shows reasoning as distinct field)
+                        // Emitting reasoning helps understand if the model is 'stuck' in thought
+                        val text = delta?.content ?: delta?.reasoning ?: delta?.reasoningContent ?: ""
+                        if (text.isNotEmpty()) {
+                            emit(text)
+                        }
+                    } catch (e: Exception) {
+                        Log.v(TAG, "Chunk parsing error for line: $trimmed - ${e.message}")
+                    }
+                }
+            }
+        }
     }
     
     /**

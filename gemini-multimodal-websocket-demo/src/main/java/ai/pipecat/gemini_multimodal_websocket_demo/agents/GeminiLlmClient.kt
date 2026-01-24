@@ -167,6 +167,81 @@ class GeminiLlmClient {
         return executeWithRetry(apiKey, modelId, request)
     }
 
+    /**
+     * Complete a prompt using Gemini API with streaming.
+     * Returns a Flow of text chunks as they arrive.
+     */
+    fun streamComplete(
+        modelId: String,
+        systemPrompt: String = "",
+        userPrompt: String,
+        temperature: Float = 1.0f,
+        useGrounding: Boolean = false,
+        tools: List<Tool>? = null
+    ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
+        val apiKey = Preferences.geminiApiKey.value ?: throw Exception("Gemini API key not configured")
+
+        val contents = mutableListOf<Content>()
+        if (systemPrompt.isNotBlank()) {
+            contents.add(Content(parts = listOf(Part(systemPrompt)), role = "user"))
+            contents.add(Content(parts = listOf(Part("Understood.")), role = "model"))
+        }
+        contents.add(Content(parts = listOf(Part(userPrompt)), role = "user"))
+
+        // Add grounding if requested
+        val activeTools = tools?.toMutableList() ?: mutableListOf()
+        if (useGrounding) {
+            activeTools.add(Tool(googleSearch = GoogleSearch()))
+        }
+
+        val request = GeminiRequest(
+            contents = contents,
+            tools = if (activeTools.isNotEmpty()) activeTools else null,
+            generationConfig = GenerationConfig(
+                temperature = temperature,
+                maxOutputTokens = 8192
+            )
+        )
+
+        val requestBody = json.encodeToString(GeminiRequest.serializer(), request)
+            .toRequestBody("application/json".toMediaType())
+
+        val cleanModelId = modelId.removePrefix("models/")
+        // Using streamGenerateContent with alt=sse for standard SSE format
+        val url = "$GEMINI_API_BASE/models/$cleanModelId:streamGenerateContent?alt=sse&key=$apiKey"
+
+        val httpRequest = Request.Builder()
+            .url(url)
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody)
+            .build()
+
+        val response = httpClient.newCall(httpRequest).execute()
+        if (!response.isSuccessful) {
+            throw Exception("Gemini Stream Error: HTTP ${response.code}")
+        }
+
+        val reader = response.body?.byteStream()?.bufferedReader() ?: throw Exception("Empty stream body")
+        
+        reader.use { bufReader ->
+            var line: String?
+            while (bufReader.readLine().also { line = it } != null) {
+                if (line!!.startsWith("data: ")) {
+                    val data = line!!.substring(6)
+                    try {
+                        val chunk = json.decodeFromString<GeminiResponse>(data)
+                        val text = chunk.candidates.getOrNull(0)?.content?.parts?.getOrNull(0)?.text ?: ""
+                        if (text.isNotEmpty()) {
+                            emit(text)
+                        }
+                    } catch (e: Exception) {
+                        Log.v(TAG, "Skipping non-content chunk: $line")
+                    }
+                }
+            }
+        }
+    }
+
     private suspend fun executeWithRetry(
         apiKey: String,
         modelId: String,
