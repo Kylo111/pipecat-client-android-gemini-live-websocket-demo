@@ -82,6 +82,11 @@ class AudioTrackOutput(
         Log.d(tag, "AudioTrack play() called")
     }
     
+    override fun pause() {
+        audioTrack?.pause()
+        Log.d(tag, "AudioTrack paused")
+    }
+    
     override fun flush() {
         audioTrack?.let { track ->
             track.pause()

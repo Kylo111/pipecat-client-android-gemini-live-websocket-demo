@@ -441,12 +441,14 @@ class LibreChatService(
                                 .replace(Regex("""\\u[eE][0-9a-fA-F]*"""), "") // More aggressive: matches \ue followed by any hex chars
                                 .replace(Regex("""\d*turn\d+(?:search|thought|file|message|run|step)\d+"""), "")
                                 .replace(Regex("""【\d+】"""), "")
+                                .replace(Regex("""\[SILENTLY:.*?\]"""), "")
+                                .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
+                                .replace(Regex("""\[.*?\]"""), "")
                                 .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
                                 .replace(Regex("""\*(.*?)\*"""), "$1")
                                 .replace(Regex("""__(.*?)__"""), "$1")
                                 .replace(Regex("""_(.*?)_"""), "$1")
                                 .replace(Regex("""^#+\s+""", RegexOption.MULTILINE), "")
-                                .replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
                                 .replace(Regex("""`{1,3}.*?`{1,3}"""), "")
                             
                             if (cleanedChunk.isNotEmpty()) {

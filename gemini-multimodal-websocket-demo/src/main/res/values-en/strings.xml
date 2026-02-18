@@ -295,6 +295,8 @@
     <!-- Conversation List -->
     <string name="conv_list_offline_banner">Offline mode: Your conversations are saved locally. Log in to Kumpel-chat in the \"Keys and accounts\" tab to sync conversations. For full functionality, grant permissions in the Integrations menu. Also check the Marketplace for assistants.</string>
     <string name="conv_list_new_offline">New offline conversation</string>
+    <string name="conv_list_new_live">+Live</string>
+    <string name="conv_list_new_standard">+Standard</string>
     <string name="conv_list_locked_parental">Locked</string>
     <string name="conv_list_loading">Loading threads...</string>
     <string name="conv_list_loading_error">Error loading conversations: %1$s</string>

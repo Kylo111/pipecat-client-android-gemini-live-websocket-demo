@@ -893,6 +893,16 @@ private fun AzureDiagnosticTool(
     val testServices = remember {
         mutableStateOf<Pair<AudioEngine, AzureSpeechService>?>(null)
     }
+
+    // Reset services when parameters change
+    LaunchedEffect(apiKey, region, voice) {
+        testServices.value?.let { (engine, azure) ->
+            engine.stopRecording()
+            engine.stopPlayback()
+            azure.release()
+        }
+        testServices.value = null
+    }
     
     fun getServices(): Pair<AudioEngine, AzureSpeechService>? {
         if (testServices.value == null) {
@@ -915,6 +925,20 @@ private fun AzureDiagnosticTool(
                 }
                 azure.onAudioDataReceived = { audio ->
                     engine.queueAudio(audio)
+                }
+                azure.onSessionStarted = {
+                    transcript = "Słucham... (Sesja aktywna)"
+                }
+                azure.onSessionStopped = {
+                    if (isSttRunning) {
+                        transcript = "Sesja zakończona."
+                        isSttRunning = false
+                    }
+                }
+                azure.onError = { errorMsg ->
+                    transcript = "❌ $errorMsg"
+                    isSttRunning = false
+                    isSynthesizing = false
                 }
                 
                 engine.onAudioRecorded = { data ->
